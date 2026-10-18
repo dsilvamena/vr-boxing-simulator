@@ -55105,7 +55105,7 @@ MonoBehaviour:
   m_SendPointerHoverToParent: 1
   rayTransform: {fileID: 1373275608}
   m_Cursor: {fileID: 1284994977}
-  joyPadClickButton: 1
+  joyPadClickButton: 2097153
   gazeClickKey: 32
   performSphereCastForGazepointer: 0
   useRightStickScroll: 1

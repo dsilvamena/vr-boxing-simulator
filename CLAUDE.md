@@ -27,11 +27,12 @@ Testing: Play mode in the Editor with the **Meta XR Simulator** works even with 
 
 ## Architecture
 
-- **Single scene:** `Assets/Scenes/Main_Scene.unity` is the only scene and the only entry in Build Settings. It holds the main menu (a World Space `Canvas`) inside the MarpaStudio boxing arena, with an `OVRCameraRig`.
-- **Menu input:** VR pointer interaction uses the Meta Core legacy UI stack (`OVRInputModule` + `OVRRaycaster` on the canvas). `LaserCursor` derives from `OVRCursor` and draws the ray with a `LineRenderer`, moving a dot to the hit point.
+- **Scenes:** two scenes, both in Build Settings. `Assets/Scenes/Main_Scene.unity` holds the main menu (a World Space `Canvas`) inside the MarpaStudio boxing arena, with an `OVRCameraRig`, and plays the menu music from a looping `AudioSource` on `MenuMusic`. `Assets/Scenes/Scene_Ring_Level1.unity` started as a copy of it: same arena and Canvas, but only Glass Joe and no music.
+- **Pause menu:** in `Scene_Ring_Level1`, `PauseMenu` (on its own GameObject, not the Canvas, so hiding the Canvas doesn't disable it) toggles the Canvas and laser on `OVRInput.Button.Start` (left controller Menu button, key `M` in the Meta XR Simulator) and sets `Time.timeScale` to 0/1. There, the Canvas buttons are rewired: `ButtonReanudar` → `PauseMenu.Hide`, `ButtonVolverMenu` → `PauseMenu.BackToMainMenu`.
+- **Menu input:** VR pointer interaction uses the Meta Core legacy UI stack (`OVRInputModule` + `OVRRaycaster` on the canvas; the input module accepts the right index trigger as well as A, which is what the simulator's Point + Click left mouse button sends). `LaserCursor` derives from `OVRCursor` and draws the ray with a `LineRenderer`, moving a dot to the hit point.
 - **`MainMenu`** switches between the main and options panels and stores settings in `PlayerPrefs` under the keys `"volumen"` (applied to `AudioListener.volume`) and `"haptica"`. Nothing reads `"haptica"` yet.
-- **`PlayGame()` loads `"Scene_Ring_Level1"`, a scene that does not exist yet.** It must be created and added to Build Settings before Play works.
-- **Asset layout:** game-owned assets live in `Assets/_Project/` (the `.glb` characters, imported with glTFast, and the Bangers TMP font). Third-party art lives in `Assets/ThirdParty/MarpaStudio/`, and the scene uses all of it.
+- **`PlayGame()`** loads `"Scene_Ring_Level1"`.
+- **Asset layout:** game-owned assets live in `Assets/_Project/` (the `.glb` characters, imported with glTFast, the Bangers TMP font, and audio under `Audio/`; long music clips use the *Streaming* load type). Third-party art lives in `Assets/ThirdParty/MarpaStudio/`, and the scenes use all of it.
 
 ## Repository conventions
 

@@ -26,18 +26,27 @@ git lfs pull
 
 En Unity Hub, agrega esta carpeta y abre el proyecto con Unity 6000.3.23f1. Espera a que termine la importación de assets y la resolución de paquetes.
 
-La escena habilitada en Build Settings es `Assets/Scenes/Main_Scene.unity`.
+Las escenas en Build Settings son `Assets/Scenes/Main_Scene.unity` (menú principal) y `Assets/Scenes/Scene_Ring_Level1.unity` (pelea).
 
 ## Probar
 
 - **En el Editor:** abre `Main_Scene` y pulsa Play. Con el Meta XR Simulator activado (*Meta > Meta XR Simulator*) puedes probar sin visor, aunque la plataforma activa sea Android.
 - **En el Quest:** conecta el visor con el modo desarrollador activado y usa *File > Build Profiles > Android > Build And Run*.
 
+### Controles
+
+| Acción | Meta Quest | Meta XR Simulator |
+|---|---|---|
+| Hacer clic en el menú | Gatillo derecho o botón A | Clic izquierdo (con *Point + Click* activado) |
+| Pausar / reanudar la pelea | Botón Menu (☰) del control izquierdo | Tecla `M` |
+
+En pausa, el menú muestra **Reanudar**, **Opciones** y **Volver al menú principal**.
+
 ## Estructura
 
-- `Assets/_Project/`: assets propios del juego (personajes y fuentes).
-- `Assets/Scenes/`: escena principal.
-- `Assets/Scripts/`: scripts del juego (`MainMenu`, `LaserCursor`).
+- `Assets/_Project/`: assets propios del juego (personajes, fuentes y audio).
+- `Assets/Scenes/`: menú principal y ring.
+- `Assets/Scripts/`: scripts del juego (`MainMenu`, `PauseMenu`, `LaserCursor`).
 - `Assets/ThirdParty/MarpaStudio/`: pack del gimnasio.
 
 ## Control de versiones

@@ -5,25 +5,11 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 0
-    path: Assets/Scenes/SampleScene.unity
-    guid: 9fc0d4010bbf28b4594072e72b8655ab
-  - enabled: 0
-    path: Assets/Scenes/lab4.1.unity
-    guid: e6d1f0478a21446428fd77f37b7237d3
-  - enabled: 0
-    path: Assets/Scenes/OVRPlayerControllerScene.unity
-    guid: dba9498b0b2d36c4a9ab303613d47564
-  - enabled: 0
-    path: "Assets/Samples/Meta XR Interaction \u200BSDK/201.0.0/Example Scenes/ComprehensiveRigExample.unity"
-    guid: 2efe93cb8972cae439bfba2dcd4165f0
-  - enabled: 0
-    path: Assets/Scenes/SceneMETAXRInteraction.unity
-    guid: 6f93f241f18cd4246885ed7628fd0187
   - enabled: 1
-    path: Assets/Scenes/BuildingBlocksScena.unity
-    guid: 7e861d5da8efe634f8d15ec66bd0ef0d
+    path: Assets/Scenes/Main_Scene.unity
+    guid: 2113fa0b6284e4fe8b726637e1f2f360
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: e0c025f93c5ae474fb67834228f1a820, type: 2}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 14be8f872c3cf104da70503e87c16523, type: 2}
     com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 171a4b6a8e6d0234291fc1753ec87dcb, type: 2}
+  m_UseUCBPForAssetBundles: 0

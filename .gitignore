@@ -123,3 +123,6 @@ InitTestScene*.unity*
 
 # Local VS Code settings
 /.vscode/
+
+# Capas OpenXR que genera el Meta XR Simulator
+/Assets/XR/APILayers~/

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-VR boxing simulator for Meta Quest, built in **Unity 6000.3.23f1** (migrated from 2022.3). Active build target is **Android**; XR runs through **OpenXR** with the Meta XR SDK (`com.meta.xr.sdk.all`). The user communicates in Spanish; code comments and README are in Spanish.
+VR boxing simulator for Meta Quest, built in **Unity 6000.4.7f1** (migrated from 2022.3). Active build target is **Android**; XR runs through **OpenXR** with the Meta XR SDK (`com.meta.xr.sdk.all`). The user communicates in Spanish; code comments and README are in Spanish.
 
 ## Driving the Editor (Unity CLI + Pipeline)
 
@@ -36,6 +36,6 @@ Testing: Play mode in the Editor with the **Meta XR Simulator** works even with 
 
 ## Repository conventions
 
-- Large binaries (png, fbx, wav, zip, dll, …) are tracked with **Git LFS** via `.gitattributes`.
+- Large binaries (png, fbx, wav, zip, dll, …) are tracked with **Git LFS** via `.gitattributes`. On a new machine install Git LFS (`winget install GitHub.GitLFS` on Windows) and run `git lfs install` before cloning, or `git lfs pull` afterwards. Without it the clone contains only text pointers and the arena (textures, meshes) shows up broken or empty; if Unity was already opened, delete `Library/` and reopen.
 - Meta Avatars SDK, the multiplayer packages (Netcode, Lobby, Multiplayer Services), Visual Scripting and Timeline were removed on purpose as unused. Don't reintroduce them without a reason. Stale `Oculus.AvatarSDK2*.csproj` files at the root are generated and git-ignored.
 - The Meta Project Setup Tool items about the Platform SDK (Data Use Checkup, application ID) don't apply, because the game doesn't use the Platform SDK.

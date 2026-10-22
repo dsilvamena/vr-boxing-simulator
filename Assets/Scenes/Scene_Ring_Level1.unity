@@ -17567,7 +17567,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Puno
   velocidadMinima: 0.5
-  fuerza: 1.5
   suavizado: 0.5
   enfriamiento: 0.25
   rapidezVibracionMaxima: 2.5
@@ -19509,7 +19508,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Puno
   velocidadMinima: 0.5
-  fuerza: 1.5
   suavizado: 0.5
   enfriamiento: 0.25
   rapidezVibracionMaxima: 2.5

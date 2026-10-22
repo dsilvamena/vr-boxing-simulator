@@ -2,8 +2,8 @@ using System.Collections;
 using UnityEngine;
 
 /// <summary>
-/// Puño de una mano: Rigidbody kinematic que sigue al controlador. Empuja los Rigidbody que golpea
-/// (el dummy) y le avisa a los Oponente cuando entra en una de sus ZonaGolpe.
+/// Puño de una mano: Rigidbody kinematic que sigue al controlador y le avisa a los Oponente
+/// cuando entra en una de sus ZonaGolpe.
 /// La velocidad se mide relativa al TrackingSpace, así moverse o girar con el joystick no cuenta como golpe.
 /// </summary>
 [RequireComponent(typeof(Rigidbody), typeof(Collider))]
@@ -11,8 +11,6 @@ public class Puno : MonoBehaviour
 {
     [Tooltip("Velocidad mínima (m/s) para que cuente como golpe")]
     [SerializeField] private float velocidadMinima = 0.5f;
-    [Tooltip("Multiplicador de la fuerza aplicada al golpear")]
-    [SerializeField] private float fuerza = 1.5f;
     [Tooltip("Suavizado de la velocidad medida (0-1, más alto = más reacción)")]
     [SerializeField, Range(0.05f, 1f)] private float suavizado = 0.5f;
     [Tooltip("Segundos tras conectar un golpe en los que este puño no conecta otro")]
@@ -52,7 +50,7 @@ public class Puno : MonoBehaviour
         {
             espacio = rig.trackingSpace;
             cabeza = rig.centerEyeAnchor;
-            Mano =transform.IsChildOf(rig.leftHandAnchor) ? Mano.Izquierda : Mano.Derecha;
+            Mano = transform.IsChildOf(rig.leftHandAnchor) ? Mano.Izquierda : Mano.Derecha;
         }
     }
 
@@ -68,17 +66,6 @@ public class Puno : MonoBehaviour
         Vector3 medida = (posicion - posicionAnterior) / Time.fixedDeltaTime;
         velocidadLocal = Vector3.Lerp(velocidadLocal, medida, suavizado);
         posicionAnterior = posicion;
-    }
-
-    private void OnCollisionEnter(Collision collision)
-    {
-        Rigidbody objetivo = collision.rigidbody;
-        if (objetivo == null || objetivo.isKinematic) return;
-        Vector3 velocidad = Velocidad;
-        if (velocidad.magnitude < velocidadMinima) return;
-
-        Vector3 punto = collision.contactCount > 0 ? collision.GetContact(0).point : objetivo.worldCenterOfMass;
-        objetivo.AddForceAtPosition(velocidad * fuerza, punto, ForceMode.Impulse);
     }
 
     private void OnTriggerEnter(Collider other)

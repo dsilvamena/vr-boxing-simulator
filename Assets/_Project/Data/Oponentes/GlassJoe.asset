@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 53f1a241cabd8c848a40946fcf4f66e1, type: 3}
   m_Name: GlassJoe
   m_EditorClassIdentifier: Assembly-CSharp::PerfilOponente
-  golpesPorCaida: 4
+  golpesPorCaida: 10
   caidasParaDerrota: 3
   segundosKnockdown: 3.7
   invulnerabilidad: 0.2

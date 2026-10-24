@@ -3,12 +3,12 @@ using UnityEngine;
 /// <summary>
 /// Reacción a los golpes con un Animator (personajes con esqueleto). Elige el estado según el tipo de golpe
 /// y la zona, y lo reinicia aunque ya se esté reproduciendo, para que cada golpe se note.
-/// Los estados de reacción y Knockdown vuelven solos a Stance por transición en el Animator Controller.
+/// Los estados de reacción y Knockdown vuelven solos a Idle por transición en el Animator Controller.
 /// </summary>
 [RequireComponent(typeof(Oponente))]
 public class ReaccionAnimada : MonoBehaviour
 {
-    private static readonly int Stance = Animator.StringToHash("Stance");
+    private static readonly int Idle = Animator.StringToHash("Idle");
     private static readonly int Jab = Animator.StringToHash("Jab");
     private static readonly int UppercutCara = Animator.StringToHash("Uppercut_Face");
     private static readonly int UppercutEstomago = Animator.StringToHash("Uppercut_Stomach");
@@ -58,10 +58,10 @@ public class ReaccionAnimada : MonoBehaviour
     private void Caer(Golpe golpe) =>
         animator.CrossFadeInFixedTime(oponente.Derrotado ? Defeat : Knockdown, mezclaCaida, 0, 0f);
 
-    // Normalmente el clip de Knockdown ya terminó y volvió a Stance; esto cubre levantarse antes (Reiniciar)
+    // Normalmente el clip de Knockdown ya terminó y volvió a Idle; esto cubre levantarse antes (Reiniciar)
     private void Levantarse()
     {
-        if (animator.GetCurrentAnimatorStateInfo(0).shortNameHash != Stance)
-            animator.CrossFadeInFixedTime(Stance, 0.4f, 0);
+        if (animator.GetCurrentAnimatorStateInfo(0).shortNameHash != Idle)
+            animator.CrossFadeInFixedTime(Idle, 0.4f, 0);
     }
 }

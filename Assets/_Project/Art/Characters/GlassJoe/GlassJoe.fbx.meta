@@ -106,7 +106,7 @@ ModelImporter:
     extraUserProperties: []
     clipAnimations:
     - serializedVersion: 16
-      name: Stance
+      name: Idle
       takeName: Scene
       internalID: -623603649343465320
       firstFrame: 1

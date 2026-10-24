@@ -8,7 +8,7 @@ public class PerfilOponente : ScriptableObject
 {
     [Header("Caídas")]
     [Tooltip("Golpes (de cualquier tipo) que aguanta antes de caer")]
-    public int golpesPorCaida = 4;
+    public int golpesPorCaida = 10;
     [Tooltip("La caída número N es la derrota y ya no se levanta; las anteriores son knockdowns")]
     public int caidasParaDerrota = 3;
     [Tooltip("Segundos de un knockdown hasta que se levanta (con animación, lo que dura el clip)")]

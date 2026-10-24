@@ -4,8 +4,9 @@ using UnityEditor;
 using UnityEngine;
 
 /// <summary>
-/// Menú Tools/Boxeo para convertir un personaje de la escena (un .glb sin esqueleto) en un Oponente golpeable.
-/// Las hitboxes se calculan por alturas sobre los vértices del modelo: son un punto de partida, ajústalas a ojo.
+/// Menú Tools/Boxeo para convertir un personaje de la escena en un Oponente golpeable.
+/// Con un Animator Humanoid usa ReaccionAnimada y cuelga las hitboxes de los huesos; sin esqueleto (.glb)
+/// usa ReaccionProcedural y calcula las hitboxes por alturas. Son un punto de partida: ajústalas a ojo.
 /// </summary>
 public static class OponenteBuilder
 {
@@ -41,12 +42,29 @@ public static class OponenteBuilder
         so.FindProperty("audioSource").objectReferenceValue = audio;
         so.ApplyModifiedProperties();
 
-        var reaccion = Obtener<ReaccionProcedural>(raiz);
-        so = new SerializedObject(reaccion);
-        so.FindProperty("cuerpo").objectReferenceValue = cuerpo;
-        so.ApplyModifiedProperties();
+        var animator = cuerpo.GetComponentInChildren<Animator>();
+        if (animator != null && animator.isHuman)
+        {
+            // Con esqueleto: reacciona por animación y las hitboxes van colgadas de los huesos
+            var procedural = raiz.GetComponent<ReaccionProcedural>();
+            if (procedural != null) Undo.DestroyObjectImmediate(procedural);
+            animator.applyRootMotion = false;
 
-        CrearHitboxes(cuerpo);
+            so = new SerializedObject(Obtener<ReaccionAnimada>(raiz));
+            so.FindProperty("animator").objectReferenceValue = animator;
+            so.ApplyModifiedProperties();
+
+            CrearHitboxesEnHuesos(raiz.transform, animator);
+        }
+        else
+        {
+            var reaccion = Obtener<ReaccionProcedural>(raiz);
+            so = new SerializedObject(reaccion);
+            so.FindProperty("cuerpo").objectReferenceValue = cuerpo;
+            so.ApplyModifiedProperties();
+
+            CrearHitboxes(cuerpo);
+        }
         Selection.activeGameObject = raiz;
     }
 
@@ -93,6 +111,56 @@ public static class OponenteBuilder
             .radius = (tamCabeza.x + tamCabeza.y + tamCabeza.z) / 6f;
         Hitbox<BoxCollider>("Hitbox_Torso", cuerpo, centroTorso, TipoZona.Torso, 1f)
             .size = new Vector3(tamTorso.x * 0.5f, tamTorso.y, tamTorso.z * 0.6f);
+    }
+
+    /// <summary>
+    /// Hitboxes de un personaje Humanoid, en la pose actual: cada una abarca los vértices que mueve su hueso
+    /// (y sus hijos) y cuelga de él. Por alturas no sirve: en guardia los guantes están a la altura de la cara.
+    /// </summary>
+    private static void CrearHitboxesEnHuesos(Transform raiz, Animator animator)
+    {
+        foreach (var vieja in raiz.GetComponentsInChildren<ZonaGolpe>(true))
+            Undo.DestroyObjectImmediate(vieja.gameObject);
+
+        Transform cabeza = animator.GetBoneTransform(HumanBodyBones.Head);
+        Transform pecho = animator.GetBoneTransform(HumanBodyBones.Chest);
+        var huesosCabeza = new HashSet<Transform>(cabeza.GetComponentsInChildren<Transform>());
+        var huesosTorso = new HashSet<Transform>();
+        foreach (var hueso in new[] { HumanBodyBones.Spine, HumanBodyBones.Chest, HumanBodyBones.UpperChest })
+            if (animator.GetBoneTransform(hueso) != null) huesosTorso.Add(animator.GetBoneTransform(hueso));
+
+        bool hayCabeza = false, hayTorso = false;
+        Bounds cajaCabeza = default, cajaTorso = default;
+        foreach (var smr in animator.GetComponentsInChildren<SkinnedMeshRenderer>())
+        {
+            if (smr.sharedMesh == null) continue;
+            var horneada = new Mesh();
+            smr.BakeMesh(horneada, true);
+            Vector3[] vertices = horneada.vertices;
+            BoneWeight[] pesos = smr.sharedMesh.boneWeights;
+            Transform[] huesos = smr.bones;
+            for (int i = 0; i < vertices.Length && i < pesos.Length; i++)
+            {
+                Transform principal = huesos[pesos[i].boneIndex0];
+                Vector3 p = smr.transform.TransformPoint(vertices[i]);
+                if (huesosCabeza.Contains(principal)) Encapsular(ref cajaCabeza, ref hayCabeza, p);
+                else if (huesosTorso.Contains(principal)) Encapsular(ref cajaTorso, ref hayTorso, p);
+            }
+            Object.DestroyImmediate(horneada);
+        }
+        if (!hayCabeza || !hayTorso) { Debug.LogWarning("No se encontraron vértices de la cabeza o del torso."); return; }
+
+        Vector3 t = cajaCabeza.size;
+        Hitbox<SphereCollider>("Hitbox_Cabeza", cabeza, cajaCabeza.center, TipoZona.Cabeza, 1.5f)
+            .radius = (t.x + t.y + t.z) / 6f;
+        Hitbox<BoxCollider>("Hitbox_Torso", pecho, cajaTorso.center, TipoZona.Torso, 1f)
+            .size = cajaTorso.size;
+    }
+
+    private static void Encapsular(ref Bounds caja, ref bool hay, Vector3 p)
+    {
+        if (hay) caja.Encapsulate(p);
+        else { caja = new Bounds(p, Vector3.zero); hay = true; }
     }
 
     /// <summary>Centroide de los vértices entre dos alturas y el tamaño de su caja.</summary>

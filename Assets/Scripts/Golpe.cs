@@ -5,7 +5,7 @@ public enum Mano { Izquierda, Derecha }
 public enum TipoZona { Cabeza, Torso }
 
 /// <summary>
-/// Jab, Cross y Uppercut son los golpes del juego. Lateral (ganchos y golpes de lado) cuenta, pero vale menos.
+/// Jab, Cross y Uppercut son los golpes del juego. Lateral son los ganchos y golpes de lado; cuentan igual.
 /// </summary>
 public enum TipoGolpe { Jab, Cross, Uppercut, Lateral }
 
@@ -23,8 +23,6 @@ public struct Golpe
     public Vector3 velocidad;
     /// <summary>0-1, cuánto de "golpe completo" fue según el perfil. Lo rellena el Oponente.</summary>
     public float intensidad;
-    /// <summary>Lo rellena el Oponente al aplicar el daño.</summary>
-    public float danio;
 
     public float Rapidez => velocidad.magnitude;
 

@@ -7,7 +7,7 @@ using UnityEngine;
 public class ZonaGolpe : MonoBehaviour
 {
     [SerializeField] private TipoZona zona = TipoZona.Torso;
-    [Tooltip("Multiplica el daño y la reacción de los golpes en esta zona")]
+    [Tooltip("Multiplica la reacción procedural a los golpes en esta zona")]
     [SerializeField] private float multiplicador = 1f;
 
     public TipoZona Zona => zona;

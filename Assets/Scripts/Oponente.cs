@@ -2,29 +2,33 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Recibe los golpes de las ZonaGolpe hijas, cuenta los golpes y las caídas y avisa (golpe, caída, levantarse).
-/// Cada golpesPorCaida golpes se cae; las primeras son knockdowns y se levanta, la de caidasParaDerrota es la derrota.
+/// Recibe los golpes de las ZonaGolpe hijas y los convierte en daño sobre su salud.
+/// Cae al cruzar los umbrales de salud (knockdowns); el último umbral (0) es la derrota.
 /// Cómo se ve la reacción lo decide otro componente (ReaccionAnimada o ReaccionProcedural).
 /// </summary>
 public class Oponente : MonoBehaviour
 {
     [SerializeField] private PerfilOponente perfil;
     [SerializeField] private AudioSource audioSource;
-    [Tooltip("Escribe cada golpe en la consola (tipo, zona, velocidad, conteo)")]
+    [Tooltip("Escribe cada golpe en la consola (tipo, zona, velocidad, daño, salud)")]
     [SerializeField] private bool registrarGolpes = true;
 
     public event Action<Golpe> AlRecibirGolpe;
     /// <summary>En cada caída, también en la derrota (mirar Derrotado).</summary>
     public event Action<Golpe> AlCaer;
     public event Action AlLevantarse;
+    /// <summary>Salud actual y salud máxima, cada vez que cambia.</summary>
+    public event Action<float, float> AlCambiarSalud;
 
     public PerfilOponente Perfil => perfil;
-    /// <summary>Golpes recibidos desde la última caída.</summary>
+    /// <summary>Golpes recibidos en total (para la precisión, RF-18).</summary>
     public int Golpes { get; private set; }
     public int Caidas { get; private set; }
     public bool Caido { get; private set; }
     /// <summary>Cayó por última vez: ya no se levanta.</summary>
     public bool Derrotado { get; private set; }
+    public float Salud { get; private set; }
+    public float SaludNormalizada => perfil.saludMaxima > 0f ? Salud / perfil.saludMaxima : 0f;
 
     private float invulnerableHasta;
     private float levantarseEn;
@@ -36,6 +40,7 @@ public class Oponente : MonoBehaviour
             Debug.LogWarning($"{name}: Oponente sin PerfilOponente, se usan valores por defecto.", this);
             perfil = ScriptableObject.CreateInstance<PerfilOponente>();
         }
+        Salud = perfil.saludMaxima;
     }
 
     private void Update()
@@ -53,15 +58,21 @@ public class Oponente : MonoBehaviour
         golpe.intensidad = Mathf.Clamp01(golpe.Rapidez / perfil.rapidezGolpeCompleto);
         Golpes++;
 
+        float dano = CalcularDano(golpe);
+        Salud = Mathf.Max(0f, Salud - dano);
+
         if (registrarGolpes)
-            Debug.Log($"{name}: {golpe.tipo} ({golpe.mano}) en {(golpe.zona != null ? golpe.zona.Zona.ToString() : "-")}, {golpe.Rapidez:F1} m/s → golpe {Golpes}/{perfil.golpesPorCaida}, caídas {Caidas}/{perfil.caidasParaDerrota}", this);
+            Debug.Log($"{name}: {golpe.tipo} ({golpe.mano}) en {(golpe.zona != null ? golpe.zona.Zona.ToString() : "-")}, {golpe.Rapidez:F1} m/s → daño {dano:F1}, salud {Salud:F0}/{perfil.saludMaxima:F0}, caídas {Caidas}/{perfil.caidasParaDerrota}", this);
 
         Sonar(perfil.sonidosGolpe, golpe.punto);
         AlRecibirGolpe?.Invoke(golpe);
+        AlCambiarSalud?.Invoke(Salud, perfil.saludMaxima);
 
-        if (Golpes >= perfil.golpesPorCaida)
+        // Umbral de la próxima caída: con 3 caídas → 66 %, 33 % y 0 %
+        float umbral = perfil.saludMaxima * (1f - (Caidas + 1f) / perfil.caidasParaDerrota);
+        if (Salud <= umbral)
         {
-            Golpes = 0;
+            Salud = umbral; // un golpe fuerte no se salta umbrales
             Caidas++;
             Caido = true;
             Derrotado = Caidas >= perfil.caidasParaDerrota;
@@ -69,8 +80,24 @@ public class Oponente : MonoBehaviour
             if (registrarGolpes) Debug.Log($"{name}: {(Derrotado ? "derrotado" : $"knockdown {Caidas}")}", this);
             if (perfil.sonidoKO != null) Sonar(new[] { perfil.sonidoKO }, golpe.punto);
             AlCaer?.Invoke(golpe);
+            AlCambiarSalud?.Invoke(Salud, perfil.saludMaxima);
         }
         return true;
+    }
+
+    private float CalcularDano(Golpe golpe)
+    {
+        float baseDano = golpe.tipo switch
+        {
+            TipoGolpe.Jab => perfil.danoJab,
+            TipoGolpe.Cross => perfil.danoCross,
+            TipoGolpe.Uppercut => perfil.danoUppercut,
+            _ => perfil.danoLateral,
+        };
+
+        float factorRapidez = Mathf.Lerp(perfil.danoMinimoPorRapidez, 1f, golpe.intensidad);
+        bool cabeza = golpe.zona != null && golpe.zona.Zona == TipoZona.Cabeza;
+        return baseDano * factorRapidez * (cabeza ? perfil.multiplicadorCabeza : 1f);
     }
 
     public void Levantarse()
@@ -85,6 +112,8 @@ public class Oponente : MonoBehaviour
         Golpes = 0;
         Caidas = 0;
         Derrotado = false;
+        Salud = perfil.saludMaxima;
+        AlCambiarSalud?.Invoke(Salud, perfil.saludMaxima);
         if (Caido) Levantarse();
     }
 

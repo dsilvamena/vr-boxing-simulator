@@ -10350,6 +10350,60 @@ MonoBehaviour:
   gradosPorGiro: 30
   umbralGiro: 0.7
   mostrarDiagnostico: 0
+--- !u!114 &237240852
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 237240846}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45e1f23685a4b449ca2fc8c32966376c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FeedbackSalud
+  jugador: {fileID: 0}
+  intensidadMaxima: 0.95
+  tamano: 0.9
+  distanciaVineta: 0.3
+  velocidadCambio: 1.5
+  intensidadPulso: 0.15
+  latido: {fileID: 8300000, guid: 0fc4acb34a1bc49228bf25d3d4807d69, type: 3}
+  volumenLatido: 0.8
+  umbralLatido: 0.6
+  intervaloLento: 1.1
+  intervaloRapido: 0.45
+--- !u!114 &237240853
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 237240846}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c74223e75d3034d44bc03139d229826d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SaludJugador
+  saludMaxima: 100
+  distanciaGuardia: 0.4
+  danoTrasBloqueo: 0.25
+  registrarAtaques: 1
+--- !u!114 &237240857
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 237240846}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd78cd0fd9e07466da909b89192b8923, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PruebaAtaques
+  jugador: {fileID: 0}
+  dano: 20
+  radio: 0.3
 --- !u!1001 &240056842
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -63273,6 +63327,15 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 100004, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
       insertIndex: -1
       addedObject: {fileID: 237240851}
+    - targetCorrespondingSourceObject: {fileID: 100004, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 237240853}
+    - targetCorrespondingSourceObject: {fileID: 100004, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 237240852}
+    - targetCorrespondingSourceObject: {fileID: 100004, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 237240857}
   m_SourcePrefab: {fileID: 100100000, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
 --- !u!4 &1373275607 stripped
 Transform:

@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Salud diegética (RF-14): oscurece la visión periférica y suena un latido que se acelera al bajar la salud.
+/// Salud diegética (RF-14): oscurece la visión periférica y suena un latido que aparece y se acelera de forma gradual al bajar la salud.
 /// Va en el OVRCameraRig, junto a SaludJugador. No usa post-procesado (caro en Quest): es un gradiente
 /// generado por código sobre un canvas pegado a la cámara.
 /// Con poca vida (umbralParpadeo puntos o menos) la pantalla se oscurece y se aclara en bucle, con transiciones suaves;
@@ -33,20 +33,35 @@ public class FeedbackSalud : MonoBehaviour
     [SerializeField, Min(0.05f)] private float tiempoTransicion = 0.4f;
 
     [Header("Latido")]
+    [Tooltip("Debe ser UN solo latido (lub-dub) corto, de menos de ~0.6 s; si dura más, cada latido corta al anterior")]
     [SerializeField] private AudioClip latido;
+    [Tooltip("Volumen máximo del latido (con la salud en cero)")]
     [SerializeField, Range(0f, 1f)] private float volumenLatido = 0.8f;
-    [Tooltip("Por debajo de esta fracción de salud empieza a sonar el latido")]
+    [Tooltip("Por debajo de esta fracción de salud empieza a aparecer el latido")]
     [SerializeField, Range(0f, 1f)] private float umbralLatido = 0.6f;
-    [Tooltip("Segundos entre latidos con el umbral y con la salud en cero")]
-    [SerializeField] private float intervaloLento = 1.1f;
-    [SerializeField] private float intervaloRapido = 0.45f;
+    [Tooltip("Latidos por minuto al cruzar el umbral (ritmo de partida, calmado)")]
+    [SerializeField, Min(30f)] private float bpmSuave = 60f;
+    [Tooltip("Latidos por minuto con la salud en cero. Moderado: por encima de ~100 suena exagerado")]
+    [SerializeField, Min(30f)] private float bpmUrgente = 90f;
+    [Tooltip("Volumen al cruzar el umbral, como fracción del volumen máximo")]
+    [SerializeField, Range(0f, 1f)] private float volumenInicial = 0.25f;
+    [Tooltip("Cuánto sube el ritmo al perder salud (latidos por minuto, por segundo)")]
+    [SerializeField, Min(0.5f)] private float subidaRitmo = 8f;
+    [Tooltip("Cuánto baja el ritmo al recuperar salud (más bajo que la subida = se calma poco a poco)")]
+    [SerializeField, Min(0.5f)] private float bajadaRitmo = 5f;
+    [Tooltip("Rapidez con la que el latido gana volumen (fracción del máximo por segundo)")]
+    [SerializeField, Min(0.05f)] private float aparicionVolumen = 0.6f;
+    [Tooltip("Rapidez con la que el latido se apaga al recuperarse (fracción del máximo por segundo)")]
+    [SerializeField, Min(0.05f)] private float desvanecerVolumen = 0.4f;
 
     private RawImage imagen;
     private Texture2D textura;
     private AudioSource audioSource;
     private float opacidad;
     private float pulso;
-    private float proximoLatido;
+    private float bpmActual;
+    private float volumenActual;
+    private float faseLatido;
     private Image oscurecedor;
     private float pesoParpadeo;
     private float faseParpadeo;
@@ -63,6 +78,13 @@ public class FeedbackSalud : MonoBehaviour
         audioSource = gameObject.AddComponent<AudioSource>();
         audioSource.spatialBlend = 0f;
         audioSource.playOnAwake = false;
+        audioSource.loop = false;
+
+        bpmActual = bpmSuave;
+        float periodoMinimo = 60f / Mathf.Max(bpmSuave, bpmUrgente);
+        if (latido != null && latido.length > periodoMinimo)
+            Debug.LogWarning($"{name}: el clip de latido dura {latido.length:F2} s y el latido más rápido es cada {periodoMinimo:F2} s; " +
+                             "cada latido cortará al anterior. Usa un clip de un solo latido o recórtalo.", this);
     }
 
     private void OnDestroy()
@@ -83,14 +105,47 @@ public class FeedbackSalud : MonoBehaviour
 
         ActualizarParpadeo();
 
-        if (latido != null && jugador.SaludNormalizada < umbralLatido && Time.unscaledTime >= proximoLatido)
+        ActualizarLatido();
+    }
+
+    // Latido gradual: el ritmo y el volumen siguen a la salud con suavizado, así que ni al perder ni al recuperar
+    // vida hay saltos. Un solo AudioSource con Play() reinicia el clip en cada latido, por lo que nunca se superponen.
+    private void ActualizarLatido()
+    {
+        if (latido == null) return;
+        float dt = Time.unscaledDeltaTime;
+        float salud = jugador.SaludNormalizada;
+        bool activo = salud < umbralLatido;
+
+        // Gravedad: 0 en el umbral → 1 con la salud en cero; la curva suave evita arranques y topes bruscos
+        float gravedad = Mathf.SmoothStep(0f, 1f, 1f - Mathf.InverseLerp(0f, umbralLatido, salud));
+
+        // Ritmo: sigue a la salud con una velocidad limitada (sube rápido, se calma despacio)
+        float bpmObjetivo = Mathf.Lerp(bpmSuave, Mathf.Max(bpmSuave, bpmUrgente), gravedad);
+        float pasoRitmo = (bpmObjetivo > bpmActual ? subidaRitmo : bajadaRitmo) * dt;
+        bpmActual = Mathf.MoveTowards(bpmActual, bpmObjetivo, pasoRitmo);
+
+        // Volumen: aparece poco a poco al cruzar el umbral y se apaga poco a poco al recuperarse
+        float volumenObjetivo = activo ? Mathf.Lerp(volumenInicial, 1f, gravedad) : 0f;
+        float pasoVolumen = (volumenObjetivo > volumenActual ? aparicionVolumen : desvanecerVolumen) * dt;
+        volumenActual = Mathf.MoveTowards(volumenActual, volumenObjetivo, pasoVolumen);
+
+        // En silencio no hay nada que sonar; se deja la fase lista para que el primer latido llegue pronto
+        if (volumenActual <= 0.001f)
         {
-            audioSource.PlayOneShot(latido, volumenLatido);
-            pulso = 1f;
-            // Menos salud = latido más rápido
-            float t = Mathf.InverseLerp(0f, umbralLatido, jugador.SaludNormalizada);
-            proximoLatido = Time.unscaledTime + Mathf.Lerp(intervaloRapido, intervaloLento, t);
+            faseLatido = 0.6f;
+            return;
         }
+
+        // Fase del latido: avanza según el ritmo actual, así un cambio de ritmo se nota enseguida pero sin saltos
+        faseLatido += bpmActual / 60f * dt;
+        if (faseLatido < 1f) return;
+        faseLatido %= 1f;
+
+        if (audioSource.clip != latido) audioSource.clip = latido;
+        audioSource.volume = volumenLatido * volumenActual;
+        audioSource.Play();
+        pulso = volumenActual;
     }
 
     // Poca vida: oscurece toda la vista y la devuelve a su brillo en bucle. Se apaga con el menú de pausa.

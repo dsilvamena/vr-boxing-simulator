@@ -28,8 +28,8 @@ MonoBehaviour:
   uppercutCada: 4
   esperaTrasGolpe: {x: 1.5, y: 2.5}
   esperaTrasLevantarse: 3
-  danoAtaqueJab: 8
-  danoAtaqueUppercut: 14
+  danoAtaqueJab: 4
+  danoAtaqueUppercut: 7
   retardoImpactoJab: 0.35
   retardoImpactoUppercut: 0.45
   alcanceAtaque: 4.5

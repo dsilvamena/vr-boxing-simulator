@@ -8,8 +8,10 @@ using UnityEngine.UI;
 /// <summary>
 /// Nocaut del jugador: cuando SaludJugador se queda sin salud, el jugador cae y tiene segundosParaLevantarse (10 s)
 /// para reponerse. Para levantarse debe pulsar rápido A / B / X / Y (pulsacionesNecesarias veces); cada pulsación
-/// devuelve parte de la salud. Si llega a tiempo, se levanta con saludAlLevantarse de su salud máxima y el oponente
-/// espera antes de volver a atacar. Si se acaba el tiempo, pierde por K.O.
+/// devuelve parte de la salud. Si llega a tiempo, se levanta y el oponente espera antes de volver a atacar.
+/// Las oportunidades son limitadas y cada una devuelve menos salud: saludPorCaida = { 40, 30, 20 } significa
+/// que la 1.ª caída te levanta con 40, la 2.ª con 30 y la 3.ª con 20; la caída siguiente ya no da cuenta y pierdes
+/// al instante. Si se acaba el tiempo de una cuenta, también pierde por K.O.
 /// Va en el OVRCameraRig, junto a SaludJugador. El panel con la cuenta se crea por código, pegado a la cámara.
 /// La cuenta usa Time.deltaTime, así que se detiene con el menú de pausa (timeScale = 0).
 /// </summary>
@@ -22,8 +24,10 @@ public class RecuperacionJugador : MonoBehaviour
     [SerializeField] private float segundosParaLevantarse = 10f;
     [Tooltip("Pulsaciones de A / B / X / Y necesarias para levantarse")]
     [SerializeField, Min(1)] private int pulsacionesNecesarias = 12;
-    [Tooltip("Fracción de la salud máxima con la que se levanta (0-1)")]
-    [SerializeField, Range(0f, 1f)] private float saludAlLevantarse = 0.4f;
+    [Tooltip("Salud (en puntos) con la que te levantas en cada caída: el 1.er valor para la 1.ª caída, el 2.º para la 2.ª... " +
+             "Si caes más veces que valores hay, pierdes al instante, sin cuenta. Quita o agrega valores para cambiar las oportunidades " +
+             "(por ejemplo { 40, 30 } = pierdes en la 3.ª caída)")]
+    [SerializeField] private float[] saludPorCaida = { 40f, 30f, 20f };
 
     [Header("Al perder por K.O.")]
     [Tooltip("Escena a cargar al perder (debe estar en Build Settings); vacío = no cambia de escena")]
@@ -48,8 +52,11 @@ public class RecuperacionJugador : MonoBehaviour
     public float Progreso { get; private set; }
     /// <summary>Veces que el jugador ha caído en el combate.</summary>
     public int Derribos { get; private set; }
+    /// <summary>Caídas en las que todavía hay cuenta; la siguiente es K.O. inmediato.</summary>
+    public int Oportunidades => saludPorCaida != null ? saludPorCaida.Length : 0;
 
     private int pulsaciones;
+    private float saludObjetivo; // salud con la que se levantará en la caída actual
     private GameObject panel;
     private TextMeshProUGUI texto;
     private RectTransform relleno;
@@ -93,15 +100,26 @@ public class RecuperacionJugador : MonoBehaviour
     private void Empezar()
     {
         if (Contando) return;
-        Contando = true;
         Derribos++;
+        AlDerribarse?.Invoke();
+
+        // Sin oportunidades: no hay cuenta, pierde en el acto
+        if (Derribos > Oportunidades)
+        {
+            if (registrar) Debug.Log($"Jugador derribado (caída {Derribos}): sin más oportunidades", this);
+            panel.SetActive(true);
+            Perder("Sin más oportunidades");
+            return;
+        }
+
+        Contando = true;
         SegundosRestantes = segundosParaLevantarse;
         pulsaciones = 0;
         Progreso = 0f;
+        saludObjetivo = Mathf.Clamp(saludPorCaida[Derribos - 1], 0f, jugador.SaludMaxima);
         panel.SetActive(true);
         ActualizarPanel();
-        if (registrar) Debug.Log($"Jugador derribado (caída {Derribos}): {segundosParaLevantarse:F0} s para levantarse", this);
-        AlDerribarse?.Invoke();
+        if (registrar) Debug.Log($"Jugador derribado (caída {Derribos} de {Oportunidades + 1}): {segundosParaLevantarse:F0} s para levantarse, se levantará con {saludObjetivo:F0} de salud", this);
     }
 
     // A / X (Button.One) y B / Y (Button.Two) de cualquiera de los dos controles
@@ -114,24 +132,24 @@ public class RecuperacionJugador : MonoBehaviour
         pulsaciones++;
         Progreso = Mathf.Clamp01((float)pulsaciones / pulsacionesNecesarias);
         // La salud sube con la recuperación, así FeedbackSalud va aclarando la visión
-        jugador.EstablecerSalud(jugador.SaludMaxima * saludAlLevantarse * Progreso);
+        jugador.EstablecerSalud(saludObjetivo * Progreso);
     }
 
     private void Levantar()
     {
         Contando = false;
         panel.SetActive(false);
-        jugador.Levantarse(saludAlLevantarse);
-        if (registrar) Debug.Log($"Jugador se levantó con {SegundosRestantes:F1} s de sobra → salud {jugador.Salud:F0}/{jugador.SaludMaxima:F0}", this);
+        jugador.Levantarse(jugador.SaludMaxima > 0f ? saludObjetivo / jugador.SaludMaxima : 0f);
+        if (registrar) Debug.Log($"Jugador se levantó con {SegundosRestantes:F1} s de sobra → salud {jugador.Salud:F0}/{jugador.SaludMaxima:F0} (caída {Derribos} de {Oportunidades + 1})", this);
         AlLevantarse?.Invoke();
     }
 
-    private void Perder()
+    private void Perder(string motivo = "Se acabó el tiempo")
     {
         Contando = false;
-        texto.text = "<size=140><b>K.O.</b></size>";
+        texto.text = $"<size=140><b>K.O.</b></size>\n<size=30>{motivo}</size>";
         relleno.parent.gameObject.SetActive(false);
-        if (registrar) Debug.Log("Jugador no se levantó: pierde por K.O.", this);
+        if (registrar) Debug.Log($"Jugador pierde por K.O.: {motivo}", this);
         AlPerderPorKO?.Invoke();
         if (!string.IsNullOrEmpty(escenaAlPerder)) StartCoroutine(SalirDeLaPelea());
     }
@@ -146,7 +164,8 @@ public class RecuperacionJugador : MonoBehaviour
     {
         int segundos = Mathf.CeilToInt(Mathf.Max(0f, SegundosRestantes));
         string color = segundos <= 3 ? "#FF4040" : "#FFFFFF";
-        texto.text = $"<size=52>¡LEVÁNTATE!</size>\n<size=130><b><color={color}>{segundos}</color></b></size>\n<size=30>Pulsa A / B / X / Y rápido</size>";
+        texto.text = $"<size=46>¡LEVÁNTATE!</size>\n<size=120><b><color={color}>{segundos}</color></b></size>\n" +
+                     $"<size=26>Pulsa A / B / X / Y rápido</size>\n<size=24><color=#9AA0A6>Caída {Derribos} de {Oportunidades + 1}</color></size>";
         relleno.anchorMax = new Vector2(Progreso, 1f);
     }
 
@@ -161,7 +180,7 @@ public class RecuperacionJugador : MonoBehaviour
         canvas.renderMode = RenderMode.WorldSpace;
         canvas.sortingOrder = 110; // por encima de la viñeta de FeedbackSalud (100)
         var rt = (RectTransform)panel.transform;
-        rt.sizeDelta = new Vector2(400f, 320f);
+        rt.sizeDelta = new Vector2(420f, 350f);
         rt.localScale = Vector3.one * 0.0015f; // 0,6 m de ancho
 
         // Texto
@@ -198,6 +217,14 @@ public class RecuperacionJugador : MonoBehaviour
         imgRelleno.raycastTarget = false;
 
         panel.SetActive(false);
+    }
+
+    /// <summary>Vuelve a contar las caídas desde cero (por ejemplo, al reiniciar el combate sin recargar la escena).</summary>
+    public void ReiniciarCaidas()
+    {
+        Derribos = 0;
+        Contando = false;
+        if (panel != null) panel.SetActive(false);
     }
 
     // Para probar sin visor: en Play, clic derecho en el título del componente

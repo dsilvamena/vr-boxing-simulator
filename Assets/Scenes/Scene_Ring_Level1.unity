@@ -10363,21 +10363,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FeedbackSalud
   jugador: {fileID: 0}
-  colorVineta: {r: 0.15, g: 0, b: 0, a: 1}
   intensidadMaxima: 0.95
-  inicioGradiente: 0.307
+  tamano: 0.9
   distanciaVineta: 0.3
-  margen: 1.4
-  fovVisor: 110
   velocidadCambio: 1.5
   intensidadPulso: 0.15
+  umbralParpadeo: 20
+  oscuridadParpadeo: 0.6
+  periodoParpadeo: 1.6
+  tiempoTransicion: 0.4
   latido: {fileID: 8300000, guid: 34502084a994d6d4db1fa19e3798c4a1, type: 3}
   volumenLatido: 0.8
   umbralLatido: 0.6
-  intervaloLento: 1.1
-  intervaloRapido: 0.45
-  forzarSalud: -1
-  botonPrueba: 4
+  bpmSuave: 60
+  bpmUrgente: 90
+  volumenInicial: 0.25
+  subidaRitmo: 8
+  bajadaRitmo: 5
+  aparicionVolumen: 0.6
+  desvanecerVolumen: 0.4
 --- !u!114 &237240853
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10424,7 +10428,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DebugSalud
   jugador: {fileID: 0}
   oponente: {fileID: 0}
-  posicion: {x: -0.3, y: -0.22, z: 1}
+  puntoFijo: {fileID: 0}
+  aLaDerecha: 0
+  desplazamiento: {x: 1.3, y: 1.5, z: 1.6}
+  escalaPanel: 0.0025
   visibleAlInicio: 1
 --- !u!114 &237240862
 MonoBehaviour:
@@ -10446,6 +10453,22 @@ MonoBehaviour:
   segundosAntesDeSalir: 3
   distanciaPanel: 0.5
   registrar: 1
+--- !u!114 &237240866
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 237240846}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3c8291fdffefda04dabd3d4ba3fc96cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LimiteRing
+  zona: {fileID: 0}
+  centro: {x: 0, y: 0}
+  mitad: {x: 3.1, y: 3.1}
+  margen: 0.15
 --- !u!1001 &240056842
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -63384,6 +63407,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 100004, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
       insertIndex: -1
       addedObject: {fileID: 237240861}
+    - targetCorrespondingSourceObject: {fileID: 100004, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 237240866}
   m_SourcePrefab: {fileID: 100100000, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
 --- !u!4 &1373275607 stripped
 Transform:

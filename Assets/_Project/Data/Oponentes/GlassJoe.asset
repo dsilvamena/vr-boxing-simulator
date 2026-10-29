@@ -32,7 +32,7 @@ MonoBehaviour:
   danoAtaqueUppercut: 7
   retardoImpactoJab: 0.35
   retardoImpactoUppercut: 0.45
-  alcanceAtaque: 4.5
+  alcanceAtaque: 1.5
   radioImpacto: 0.3
   alturaAtaque: 1.45
   fuerzaReaccion: 1

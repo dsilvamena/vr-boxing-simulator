@@ -68,6 +68,16 @@ public class AtaqueOponente : MonoBehaviour
             return;
         }
         MirarObjetivo();
+
+        // Si el jugador está en el piso (cuenta de 10 s), no ataca; al levantarse espera esperaTrasLevantarse
+        if (jugador == null) jugador = FindFirstObjectByType<SaludJugador>();
+        if (jugador != null && jugador.Derribado)
+        {
+            impactoEn = -1f;
+            proximoAtaque = Mathf.Max(proximoAtaque, Time.time + oponente.Perfil.esperaTrasLevantarse);
+            return;
+        }
+
         ResolverImpacto();
 
         if (Time.time < proximoAtaque) return;
@@ -80,7 +90,6 @@ public class AtaqueOponente : MonoBehaviour
         animator.CrossFadeInFixedTime(uppercut ? AtaqueUppercut : AtaqueJab, mezclaAtaque, 0, 0f);
 
         // Apunta a donde está la cabeza del jugador ahora; si se mueve antes del impacto, esquiva
-        if (jugador == null) jugador = FindFirstObjectByType<SaludJugador>();
         puntoApuntado = jugador != null
             ? jugador.PosicionCabeza
             : transform.position + Vector3.up * oponente.Perfil.alturaAtaque + transform.forward * oponente.Perfil.alcanceAtaque;

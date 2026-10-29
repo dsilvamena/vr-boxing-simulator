@@ -10363,16 +10363,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FeedbackSalud
   jugador: {fileID: 0}
+  colorVineta: {r: 0.15, g: 0, b: 0, a: 1}
   intensidadMaxima: 0.95
-  tamano: 0.9
+  inicioGradiente: 0.307
   distanciaVineta: 0.3
+  margen: 1.4
+  fovVisor: 110
   velocidadCambio: 1.5
   intensidadPulso: 0.15
-  latido: {fileID: 8300000, guid: 0fc4acb34a1bc49228bf25d3d4807d69, type: 3}
+  latido: {fileID: 8300000, guid: 34502084a994d6d4db1fa19e3798c4a1, type: 3}
   volumenLatido: 0.8
   umbralLatido: 0.6
   intervaloLento: 1.1
   intervaloRapido: 0.45
+  forzarSalud: -1
+  botonPrueba: 4
 --- !u!114 &237240853
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10389,6 +10394,7 @@ MonoBehaviour:
   distanciaGuardia: 0.4
   danoTrasBloqueo: 0.25
   registrarAtaques: 1
+  registroDetallado: 0
 --- !u!114 &237240857
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10404,6 +10410,42 @@ MonoBehaviour:
   jugador: {fileID: 0}
   dano: 20
   radio: 0.3
+--- !u!114 &237240861
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 237240846}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2bb31bc9d8131c247ae475ae2af18bf6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DebugSalud
+  jugador: {fileID: 0}
+  oponente: {fileID: 0}
+  posicion: {x: -0.3, y: -0.22, z: 1}
+  visibleAlInicio: 1
+--- !u!114 &237240862
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 237240846}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b8dcbc189cdce1946886234e0c810270, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RecuperacionJugador
+  jugador: {fileID: 0}
+  segundosParaLevantarse: 10
+  pulsacionesNecesarias: 12
+  saludAlLevantarse: 0.4
+  escenaAlPerder: Main_Scene
+  segundosAntesDeSalir: 3
+  distanciaPanel: 0.5
+  registrar: 1
 --- !u!1001 &240056842
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -63332,10 +63374,16 @@ PrefabInstance:
       addedObject: {fileID: 237240853}
     - targetCorrespondingSourceObject: {fileID: 100004, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
       insertIndex: -1
+      addedObject: {fileID: 237240862}
+    - targetCorrespondingSourceObject: {fileID: 100004, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
+      insertIndex: -1
       addedObject: {fileID: 237240852}
     - targetCorrespondingSourceObject: {fileID: 100004, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
       insertIndex: -1
       addedObject: {fileID: 237240857}
+    - targetCorrespondingSourceObject: {fileID: 100004, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 237240861}
   m_SourcePrefab: {fileID: 100100000, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
 --- !u!4 &1373275607 stripped
 Transform:

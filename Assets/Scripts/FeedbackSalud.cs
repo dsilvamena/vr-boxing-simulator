@@ -5,6 +5,8 @@ using UnityEngine.UI;
 /// Salud diegética (RF-14): oscurece la visión periférica y suena un latido que se acelera al bajar la salud.
 /// Va en el OVRCameraRig, junto a SaludJugador. No usa post-procesado (caro en Quest): es un gradiente
 /// generado por código sobre un canvas pegado a la cámara.
+/// Con poca vida (umbralParpadeo puntos o menos) la pantalla se oscurece y se aclara en bucle, con transiciones suaves;
+/// es solo presentación: no toca la salud ni la lógica del combate.
 /// </summary>
 public class FeedbackSalud : MonoBehaviour
 {
@@ -19,6 +21,16 @@ public class FeedbackSalud : MonoBehaviour
     [SerializeField] private float velocidadCambio = 1.5f;
     [Tooltip("Cuánto se aprieta la viñeta con cada latido")]
     [SerializeField, Range(0f, 0.5f)] private float intensidadPulso = 0.15f;
+
+    [Header("Parpadeo de poca vida")]
+    [Tooltip("Con esta salud o menos (en puntos) la pantalla se oscurece y se aclara en bucle")]
+    [SerializeField] private float umbralParpadeo = 20f;
+    [Tooltip("Oscuridad máxima del parpadeo (0-1)")]
+    [SerializeField, Range(0f, 0.9f)] private float oscuridadParpadeo = 0.6f;
+    [Tooltip("Segundos de un ciclo completo claro-oscuro-claro (más alto = más lento; evita valores bajos)")]
+    [SerializeField, Min(0.8f)] private float periodoParpadeo = 1.6f;
+    [Tooltip("Segundos que tarda el efecto en aparecer y en desaparecer")]
+    [SerializeField, Min(0.05f)] private float tiempoTransicion = 0.4f;
 
     [Header("Latido")]
     [SerializeField] private AudioClip latido;
@@ -35,6 +47,10 @@ public class FeedbackSalud : MonoBehaviour
     private float opacidad;
     private float pulso;
     private float proximoLatido;
+    private Image oscurecedor;
+    private float pesoParpadeo;
+    private float faseParpadeo;
+    private float alfaParpadeo;
 
     private void Awake()
     {
@@ -65,6 +81,8 @@ public class FeedbackSalud : MonoBehaviour
         c.a = Mathf.Clamp01(opacidad + pulso * intensidadPulso * dano);
         imagen.color = c;
 
+        ActualizarParpadeo();
+
         if (latido != null && jugador.SaludNormalizada < umbralLatido && Time.unscaledTime >= proximoLatido)
         {
             audioSource.PlayOneShot(latido, volumenLatido);
@@ -73,6 +91,32 @@ public class FeedbackSalud : MonoBehaviour
             float t = Mathf.InverseLerp(0f, umbralLatido, jugador.SaludNormalizada);
             proximoLatido = Time.unscaledTime + Mathf.Lerp(intervaloRapido, intervaloLento, t);
         }
+    }
+
+    // Poca vida: oscurece toda la vista y la devuelve a su brillo en bucle. Se apaga con el menú de pausa.
+    private void ActualizarParpadeo()
+    {
+        float dt = Time.unscaledDeltaTime;
+        bool activo = jugador.Salud <= umbralParpadeo && Time.timeScale > 0f;
+        pesoParpadeo = Mathf.MoveTowards(pesoParpadeo, activo ? 1f : 0f, dt / tiempoTransicion);
+
+        float alfa = 0f;
+        if (pesoParpadeo > 0f)
+        {
+            faseParpadeo += dt / periodoParpadeo;
+            // 0 → 1 → 0 con coseno: empieza con el brillo normal y los cambios son suaves
+            float onda = 0.5f - 0.5f * Mathf.Cos(faseParpadeo * 2f * Mathf.PI);
+            alfa = oscuridadParpadeo * pesoParpadeo * onda;
+        }
+        else
+        {
+            faseParpadeo = 0f;
+        }
+
+        // Solo se toca la imagen cuando cambia
+        if (Mathf.Approximately(alfa, alfaParpadeo)) return;
+        alfaParpadeo = alfa;
+        oscurecedor.color = new Color(0f, 0f, 0f, alfa);
     }
 
     private void CrearVineta(Transform camara)
@@ -88,6 +132,18 @@ public class FeedbackSalud : MonoBehaviour
         var rt = (RectTransform)go.transform;
         rt.sizeDelta = new Vector2(100f, 100f);
         rt.localScale = Vector3.one * (tamano / 100f);
+
+        // Capa negra que cubre toda la vista, por debajo de la viñeta; su opacidad la mueve ActualizarParpadeo
+        var capa = new GameObject("Parpadeo", typeof(RectTransform), typeof(Image));
+        capa.transform.SetParent(rt, false);
+        var crt = (RectTransform)capa.transform;
+        crt.anchorMin = Vector2.zero;
+        crt.anchorMax = Vector2.one;
+        crt.offsetMin = new Vector2(-100f, -100f);
+        crt.offsetMax = new Vector2(100f, 100f);
+        oscurecedor = capa.GetComponent<Image>();
+        oscurecedor.color = new Color(0f, 0f, 0f, 0f);
+        oscurecedor.raycastTarget = false;
 
         var hijo = new GameObject("Gradiente", typeof(RectTransform), typeof(RawImage));
         hijo.transform.SetParent(rt, false);

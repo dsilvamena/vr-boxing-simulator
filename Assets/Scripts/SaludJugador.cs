@@ -28,6 +28,11 @@ public class SaludJugador : MonoBehaviour
     public float SaludMaxima => saludMaxima;
     public float SaludNormalizada => saludMaxima > 0f ? Salud / saludMaxima : 0f;
     public bool SinSalud => Salud <= 0f;
+    /// <summary>
+    /// Está en el piso tras un nocaut: no recibe ataques hasta que RecuperacionJugador lo levante (Levantarse)
+    /// o pierda (Reiniciar). Sigue siendo true aunque la salud ya suba durante la recuperación.
+    /// </summary>
+    public bool Derribado { get; private set; }
     /// <summary>Posición de la cabeza del jugador en mundo (el oponente apunta aquí al empezar su ataque).</summary>
     public Vector3 PosicionCabeza => rig != null ? rig.centerEyeAnchor.position : transform.position;
 
@@ -53,8 +58,8 @@ public class SaludJugador : MonoBehaviour
     /// </summary>
     public ResultadoAtaque RecibirAtaque(Vector3 origen, Vector3 direccion, float alcance, float radio, float dano)
     {
-        // Sin salud o sin rig no hay nada que golpear
-        if (SinSalud || rig == null) return ResultadoAtaque.Esquivado;
+        // En el piso, sin salud o sin rig no hay nada que golpear
+        if (Derribado || SinSalud || rig == null) return ResultadoAtaque.Esquivado;
 
         Transform cabeza = rig.centerEyeAnchor;
         Vector3 dir = direccion.normalized;
@@ -91,12 +96,41 @@ public class SaludJugador : MonoBehaviour
         }
 
         AlResolverAtaque?.Invoke(resultado);
-        if (SinSalud && resultado != ResultadoAtaque.Esquivado) AlQuedarseSinSalud?.Invoke();
+        if (SinSalud && resultado != ResultadoAtaque.Esquivado)
+        {
+            Derribado = true;
+            AlQuedarseSinSalud?.Invoke();
+        }
         return resultado;
+    }
+
+    /// <summary>Lo deja sin salud y en el piso, como un nocaut (sirve para probar RecuperacionJugador sin esperar ataques).</summary>
+    public void Derribar()
+    {
+        if (Derribado) return;
+        Salud = 0f;
+        Derribado = true;
+        AlCambiarSalud?.Invoke(Salud, saludMaxima);
+        AlQuedarseSinSalud?.Invoke();
+    }
+
+    /// <summary>Fija la salud (por ejemplo, mientras el jugador se recupera en el piso) sin quitarle el estado de derribado.</summary>
+    public void EstablecerSalud(float valor)
+    {
+        Salud = Mathf.Clamp(valor, 0f, saludMaxima);
+        AlCambiarSalud?.Invoke(Salud, saludMaxima);
+    }
+
+    /// <summary>El jugador se repuso del nocaut: vuelve a poder recibir golpes con esa fracción de la salud máxima.</summary>
+    public void Levantarse(float fraccionSalud)
+    {
+        Derribado = false;
+        EstablecerSalud(saludMaxima * fraccionSalud);
     }
 
     public void Reiniciar()
     {
+        Derribado = false;
         Salud = saludMaxima;
         AlCambiarSalud?.Invoke(Salud, saludMaxima);
     }

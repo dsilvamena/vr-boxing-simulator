@@ -71876,7 +71876,7 @@ MonoBehaviour:
   slowInterval: 5
   swapEveryAttacks: 4
   jitter: 1
-  hitsForReaction: 3
+  hitsForReaction: 2
   hitsForStun: 60
   stunDuration: 6
   hitCooldown: 0.25

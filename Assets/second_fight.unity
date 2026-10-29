@@ -71872,15 +71872,35 @@ MonoBehaviour:
   animator: {fileID: 0}
   target: {fileID: 1996406965}
   fistCollider: {fileID: 0}
-  fastInterval: 3
-  slowInterval: 5
-  swapEveryAttacks: 4
-  jitter: 1
+  attacks:
+  - trigger: PunchCombo
+    weight: 1
+    cooldown: 5
+    lastUsed: -999
+  - trigger: CrossPunch
+    weight: 1
+    cooldown: 4
+    lastUsed: -999
+  maxRepeatsInRow: 2
+  minWait: 2
+  maxWait: 4
+  burstChance: 0.2
+  burstWaitMin: 1.2
+  burstWaitMax: 2.5
+  restChance: 0.15
+  restMin: 3
+  restMax: 7
+  moodMinTime: 15
+  moodMaxTime: 30
+  calmMultiplier: 1.5
+  aggressiveMultiplier: 0.6
   hitsForReaction: 2
   hitsForStun: 60
   stunDuration: 6
   hitCooldown: 0.25
+  counterChance: 0.4
   turnSpeed: 8
+  showDebug: 1
 --- !u!1001 &806799595
 PrefabInstance:
   m_ObjectHideFlags: 0

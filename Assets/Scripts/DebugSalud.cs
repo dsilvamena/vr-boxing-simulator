@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// SOLO PARA PRUEBAS con visor. Muestra tu salud, la de Glass Joe y el resultado de los ataques en un panel
+/// SOLO PARA PRUEBAS con visor. Muestra únicamente tu salud y la de Glass Joe en un panel
 /// FIJO en la escena, a un lado del ring (no sigue a la cabeza ni al movimiento del rig). El botón Y del mando
 /// izquierdo lo muestra u oculta.
 /// El informe pide combate sin HUD (RF-14): quitar este componente del OVRCameraRig antes de la entrega.
@@ -30,11 +30,6 @@ public class DebugSalud : MonoBehaviour
     private RectTransform rellenoOponente;
     private TextMeshProUGUI textoJugador;
     private TextMeshProUGUI textoOponente;
-    private TextMeshProUGUI textoAtaques;
-    private int conectados;
-    private int bloqueados;
-    private int esquivados;
-    private string ultimo = "-";
 
     private void Awake()
     {
@@ -57,7 +52,6 @@ public class DebugSalud : MonoBehaviour
         if (jugador != null)
         {
             jugador.AlCambiarSalud += AlCambiarSaludJugador;
-            jugador.AlResolverAtaque += AlResolverAtaque;
             jugador.AlQuedarseSinSalud += AlQuedarseSinSalud;
         }
         if (oponente != null) oponente.AlCambiarSalud += AlCambiarSaludOponente;
@@ -68,7 +62,6 @@ public class DebugSalud : MonoBehaviour
         if (jugador != null)
         {
             jugador.AlCambiarSalud -= AlCambiarSaludJugador;
-            jugador.AlResolverAtaque -= AlResolverAtaque;
             jugador.AlQuedarseSinSalud -= AlQuedarseSinSalud;
         }
         if (oponente != null) oponente.AlCambiarSalud -= AlCambiarSaludOponente;
@@ -84,7 +77,6 @@ public class DebugSalud : MonoBehaviour
     {
         if (jugador != null) AlCambiarSaludJugador(jugador.Salud, jugador.SaludMaxima);
         if (oponente != null) AlCambiarSaludOponente(oponente.Salud, oponente.Perfil.saludMaxima);
-        ActualizarAtaques();
     }
 
     private void Update()
@@ -110,20 +102,6 @@ public class DebugSalud : MonoBehaviour
         Rellenar(rellenoOponente, salud, maxima);
         textoOponente.text = $"Glass Joe  {salud:F0}/{maxima:F0}";
     }
-
-    private void AlResolverAtaque(ResultadoAtaque resultado)
-    {
-        switch (resultado)
-        {
-            case ResultadoAtaque.Conectado: conectados++; ultimo = "<color=#FF5555>Conectado</color>"; break;
-            case ResultadoAtaque.Bloqueado: bloqueados++; ultimo = "<color=#FFD24D>Bloqueado</color>"; break;
-            default: esquivados++; ultimo = "<color=#6EE06E>Esquivado</color>"; break;
-        }
-        ActualizarAtaques();
-    }
-
-    private void ActualizarAtaques() =>
-        textoAtaques.text = $"Último ataque: {ultimo}\nConectados {conectados} · Bloqueados {bloqueados} · Esquivados {esquivados}";
 
     private static void Rellenar(RectTransform relleno, float salud, float maxima) =>
         relleno.anchorMax = new Vector2(maxima > 0f ? Mathf.Clamp01(salud / maxima) : 0f, 1f);
@@ -163,10 +141,9 @@ public class DebugSalud : MonoBehaviour
 
         Imagen(Rect(rt, "Fondo", Vector2.zero, Vector2.one), new Color(0.05f, 0.06f, 0.09f, 0.8f));
 
-        rellenoJugador = CrearBarra(rt, "Jugador", 0.70f, 0.97f, new Color(0.85f, 0.15f, 0.15f, 0.9f), out textoJugador);
-        rellenoOponente = CrearBarra(rt, "Oponente", 0.40f, 0.67f, new Color(0.2f, 0.5f, 0.95f, 0.9f), out textoOponente);
-
-        textoAtaques = Texto(Rect(rt, "Ataques", new Vector2(0.03f, 0f), new Vector2(0.97f, 0.37f)), 26f, TextAlignmentOptions.Left);
+        // Solo se muestran las dos barras de salud; no se presentan estadísticas de combate.
+        rellenoJugador = CrearBarra(rt, "Jugador", 0.53f, 0.92f, new Color(0.85f, 0.15f, 0.15f, 0.9f), out textoJugador);
+        rellenoOponente = CrearBarra(rt, "Oponente", 0.08f, 0.47f, new Color(0.2f, 0.5f, 0.95f, 0.9f), out textoOponente);
     }
 
     private static RectTransform CrearBarra(RectTransform padre, string nombre, float yMin, float yMax, Color color, out TextMeshProUGUI texto)

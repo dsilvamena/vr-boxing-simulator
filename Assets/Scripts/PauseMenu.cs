@@ -13,6 +13,14 @@ public class PauseMenu : MonoBehaviour
     public OVRInput.Button pauseButton = OVRInput.Button.Start;
     public string mainMenuScene = "Main_Scene";
 
+    [Header("Posición al abrir")]
+    [Tooltip("El menú aparece frente a la cabeza del jugador, esté donde esté en el ring")]
+    public bool followPlayer = true;
+    [Tooltip("Metros entre la cabeza y el Canvas")]
+    public float distance = 1.5f;
+    [Tooltip("Altura del centro del Canvas respecto a los ojos; los botones están por encima del centro")]
+    public float heightOffset = -0.45f;
+
     public bool IsOpen { get; private set; }
 
     void Start()
@@ -31,7 +39,11 @@ public class PauseMenu : MonoBehaviour
     {
         IsOpen = true;
         Time.timeScale = 0f;
+        PlaceInFrontOfPlayer();
         menuCanvas.SetActive(true);
+        // Siempre abre en el panel principal, aunque se haya cerrado desde Opciones
+        var menu = menuCanvas.GetComponent<MainMenu>();
+        if (menu) menu.OpenMainMenuPanel();
         if (laserPointer) laserPointer.SetActive(true);
     }
 
@@ -53,6 +65,22 @@ public class PauseMenu : MonoBehaviour
     {
         Time.timeScale = 1f;
         SceneManager.LoadScene(mainMenuScene);
+    }
+
+    void PlaceInFrontOfPlayer()
+    {
+        Camera cam = Camera.main;
+        if (!followPlayer || cam == null) return;
+
+        // Solo el giro horizontal de la cabeza, para que el menú quede vertical
+        Vector3 forward = cam.transform.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.001f) forward = cam.transform.up;
+        forward.y = 0f;
+        forward.Normalize();
+
+        Vector3 position = cam.transform.position + forward * distance + Vector3.up * heightOffset;
+        menuCanvas.transform.SetPositionAndRotation(position, Quaternion.LookRotation(forward));
     }
 
     // Por si se sale de la escena por otro camino estando en pausa

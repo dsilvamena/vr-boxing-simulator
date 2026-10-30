@@ -30,6 +30,7 @@ public class Puno : MonoBehaviour
 
     private Transform espacio;
     private Transform cabeza;
+    private SaludJugador jugador;
     private Vector3 posicionAnterior;
     private Vector3 velocidadLocal;
     private float listoEn;
@@ -52,6 +53,7 @@ public class Puno : MonoBehaviour
             cabeza = rig.centerEyeAnchor;
             Mano = transform.IsChildOf(rig.leftHandAnchor) ? Mano.Izquierda : Mano.Derecha;
         }
+        jugador = GetComponentInParent<SaludJugador>();
     }
 
     private void OnEnable() => posicionAnterior = PosicionLocal();
@@ -71,6 +73,8 @@ public class Puno : MonoBehaviour
     private void OnTriggerEnter(Collider other)
     {
         if (Time.time < listoEn) return;
+        // En el piso (cuenta de RecuperacionJugador) no se pega
+        if (jugador != null && jugador.Derribado) return;
         var zona = other.GetComponent<ZonaGolpe>();
         if (zona == null || zona.Oponente == null) return;
 

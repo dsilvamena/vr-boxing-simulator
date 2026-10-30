@@ -70,7 +70,7 @@ public class AtaqueOponente : MonoBehaviour
         MirarObjetivo();
 
         // Si el jugador está en el piso (cuenta de 10 s), no ataca; al levantarse espera esperaTrasLevantarse
-        if (jugador == null) jugador = FindFirstObjectByType<SaludJugador>();
+        if (jugador == null) jugador = FindAnyObjectByType<SaludJugador>();
         if (jugador != null && jugador.Derribado)
         {
             impactoEn = -1f;

@@ -6,6 +6,9 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "Boxeo/Perfil de oponente", fileName = "PerfilOponente")]
 public class PerfilOponente : ScriptableObject
 {
+    [Tooltip("Nombre que ve el jugador (panel de salud, victoria); vacío = nombre del objeto")]
+    public string nombre = "";
+
     [Header("Salud (RF-04)")]
     public float saludMaxima = 100f;
     [Tooltip("Daño base de cada tipo de golpe del jugador, antes de rapidez y zona")]
@@ -19,8 +22,6 @@ public class PerfilOponente : ScriptableObject
     [Range(0f, 1f)] public float danoMinimoPorRapidez = 0.4f;
 
     [Header("Caídas")]
-    [Tooltip("OBSOLETO: ya no se usa, las caídas ocurren por umbrales de salud")]
-    public int golpesPorCaida = 10;
     [Tooltip("La caída número N es la derrota y ya no se levanta; las anteriores son knockdowns")]
     public int caidasParaDerrota = 3;
     [Tooltip("Segundos de un knockdown hasta que se levanta (con animación, lo que dura el clip)")]

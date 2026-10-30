@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// SOLO PARA PRUEBAS con visor. Muestra únicamente tu salud y la de Glass Joe en un panel
+/// SOLO PARA PRUEBAS con visor. Muestra únicamente tu salud y la del oponente en un panel
 /// FIJO en la escena, a un lado del ring (no sigue a la cabeza ni al movimiento del rig). El botón Y del mando
 /// izquierdo lo muestra u oculta.
 /// El informe pide combate sin HUD (RF-14): quitar este componente del OVRCameraRig antes de la entrega.
@@ -41,7 +41,7 @@ public class DebugSalud : MonoBehaviour
             return;
         }
         if (jugador == null) jugador = GetComponent<SaludJugador>();
-        if (oponente == null) oponente = FindFirstObjectByType<Oponente>();
+        if (oponente == null) oponente = FindAnyObjectByType<Oponente>();
 
         CrearPanel(rig.transform);
         panel.SetActive(visibleAlInicio);
@@ -100,7 +100,7 @@ public class DebugSalud : MonoBehaviour
     private void AlCambiarSaludOponente(float salud, float maxima)
     {
         Rellenar(rellenoOponente, salud, maxima);
-        textoOponente.text = $"Glass Joe  {salud:F0}/{maxima:F0}";
+        textoOponente.text = $"{oponente.Nombre}  {salud:F0}/{maxima:F0}";
     }
 
     private static void Rellenar(RectTransform relleno, float salud, float maxima) =>

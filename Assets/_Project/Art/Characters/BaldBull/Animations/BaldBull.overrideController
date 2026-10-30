@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!221 &22100000
+AnimatorOverrideController:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: BaldBull
+  m_Controller: {fileID: 9100000, guid: 299e91fb3c5a62045a8a3f6360f6a069, type: 2}
+  m_Clips:
+  - m_OriginalClip: {fileID: -623603649343465320, guid: d25d815ca10846247863ab12488bf9fe, type: 3}
+    m_OverrideClip: {fileID: -203655887218126122, guid: d16875c0529ebb14b8dbfa5ae218b9e2, type: 3}
+  - m_OriginalClip: {fileID: -623603649343465320, guid: 9c31eb4e99cbde34bb1cfd2bda43e61f, type: 3}
+    m_OverrideClip: {fileID: -203655887218126122, guid: 99e20629839439245b348ddf00e92f1e, type: 3}
+  - m_OriginalClip: {fileID: -623603649343465320, guid: 421fcfbd2e5d72f4fb9b59fd2ca9e5e6, type: 3}
+    m_OverrideClip: {fileID: -203655887218126122, guid: 99e20629839439245b348ddf00e92f1e, type: 3}
+  - m_OriginalClip: {fileID: -623603649343465320, guid: 977c5e284e078084abf0c3cf729d5d22, type: 3}
+    m_OverrideClip: {fileID: 0}
+  - m_OriginalClip: {fileID: -623603649343465320, guid: 6c538e4d02f793b4da23011c23485813, type: 3}
+    m_OverrideClip: {fileID: 0}
+  - m_OriginalClip: {fileID: -623603649343465320, guid: 97d556c88fc8c504897f84f71dbee813, type: 3}
+    m_OverrideClip: {fileID: -203655887218126122, guid: ce388123c8e8ea64a9925867bf459304, type: 3}
+  - m_OriginalClip: {fileID: -623603649343465320, guid: 36e420941fe3e9c40a1648c9639b731e, type: 3}
+    m_OverrideClip: {fileID: -203655887218126122, guid: b48bc8fcca9888442a6cf156d7aeb73f, type: 3}
+  - m_OriginalClip: {fileID: -623603649343465320, guid: f625d79c86a88ce4eacce5273d455ea5, type: 3}
+    m_OverrideClip: {fileID: -203655887218126122, guid: fa82bba0e7b63db4ab99fc76cc9cba12, type: 3}

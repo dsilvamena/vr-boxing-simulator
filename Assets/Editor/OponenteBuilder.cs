@@ -42,7 +42,8 @@ public static class OponenteBuilder
         so.FindProperty("audioSource").objectReferenceValue = audio;
         so.ApplyModifiedProperties();
 
-        var animator = cuerpo.GetComponentInChildren<Animator>();
+        // El Animator puede estar en la raíz (instancia del FBX, como Glass Joe) o en el modelo hijo
+        var animator = raiz.GetComponentInChildren<Animator>();
         if (animator != null && animator.isHuman)
         {
             // Con esqueleto: reacciona por animación y las hitboxes van colgadas de los huesos

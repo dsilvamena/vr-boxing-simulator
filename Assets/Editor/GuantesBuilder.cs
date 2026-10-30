@@ -28,7 +28,7 @@ public static class GuantesBuilder
         Mesh izquierdo = Hornear(smr, true, "Guante_Izquierdo");
         Mesh derecho = Hornear(smr, false, "Guante_Derecho");
 
-        foreach (var puno in Object.FindObjectsByType<Puno>(FindObjectsSortMode.None))
+        foreach (var puno in Object.FindObjectsByType<Puno>())
         {
             var rig = puno.GetComponentInParent<OVRCameraRig>();
             bool esIzquierdo = rig != null && puno.transform.IsChildOf(rig.leftHandAnchor);

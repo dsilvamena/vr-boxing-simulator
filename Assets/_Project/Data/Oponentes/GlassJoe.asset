@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 53f1a241cabd8c848a40946fcf4f66e1, type: 3}
   m_Name: GlassJoe
   m_EditorClassIdentifier: Assembly-CSharp::PerfilOponente
+  nombre: Glass Joe
   saludMaxima: 100
   danoJab: 3
   danoCross: 5
@@ -19,7 +20,6 @@ MonoBehaviour:
   danoLateral: 4
   multiplicadorCabeza: 1.5
   danoMinimoPorRapidez: 0.4
-  golpesPorCaida: 10
   caidasParaDerrota: 3
   segundosKnockdown: 3.7
   invulnerabilidad: 0.2

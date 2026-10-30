@@ -21,6 +21,8 @@ public class Oponente : MonoBehaviour
     public event Action<float, float> AlCambiarSalud;
 
     public PerfilOponente Perfil => perfil;
+    /// <summary>Nombre que ve el jugador: el del perfil o, si está vacío, el del objeto.</summary>
+    public string Nombre => perfil != null && !string.IsNullOrEmpty(perfil.nombre) ? perfil.nombre : name;
     /// <summary>Golpes recibidos en total (para la precisión, RF-18).</summary>
     public int Golpes { get; private set; }
     public int Caidas { get; private set; }

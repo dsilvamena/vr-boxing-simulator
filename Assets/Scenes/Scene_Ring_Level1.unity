@@ -84173,7 +84173,7 @@ MonoBehaviour:
     Siguiente: Nivel 2 - Bald Bull'
   nombreRival: 
   segundosAntesDeAvanzar: 6
-  distanciaPanel: 0.8
+  distanciaPanel: 1.2
 --- !u!4 &1876918365
 Transform:
   m_ObjectHideFlags: 0

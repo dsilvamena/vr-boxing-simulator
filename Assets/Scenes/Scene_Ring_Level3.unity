@@ -84053,7 +84053,7 @@ MonoBehaviour:
   mensaje: "\xA1Derrotaste a {0} y eres el campe\xF3n!\nVolviendo al men\xFA principal"
   nombreRival: 
   segundosAntesDeAvanzar: 6
-  distanciaPanel: 0.8
+  distanciaPanel: 1.2
 --- !u!4 &1876918365
 Transform:
   m_ObjectHideFlags: 0

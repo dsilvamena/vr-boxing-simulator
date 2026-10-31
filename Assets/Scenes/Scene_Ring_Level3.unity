@@ -10475,7 +10475,7 @@ MonoBehaviour:
   oscuridadParpadeo: 0.6
   periodoParpadeo: 1.6
   tiempoTransicion: 0.4
-  latido: {fileID: 8300000, guid: 34502084a994d6d4db1fa19e3798c4a1, type: 3}
+  latido: {fileID: 8300000, guid: 49b580b9bcb8542258679ff5caefdc6a, type: 3}
   volumenLatido: 0.8
   umbralLatido: 0.6
   bpmSuave: 60
@@ -10502,6 +10502,9 @@ MonoBehaviour:
   danoTrasBloqueo: 0.25
   registrarAtaques: 1
   registroDetallado: 0
+  sonidoGolpeRecibido: {fileID: 8300000, guid: 711d2767d3ef849ab876adcf7b4e4a24, type: 3}
+  sonidoBloqueo: {fileID: 8300000, guid: 6500fd9f453854ae1ab1b4debebb9cab, type: 3}
+  volumenGolpes: 1
 --- !u!114 &237240857
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10535,7 +10538,7 @@ MonoBehaviour:
   aLaDerecha: 0
   desplazamiento: {x: 1.3, y: 1.5, z: 1.6}
   escalaPanel: 0.0025
-  visibleAlInicio: 1
+  visibleAlInicio: 0
 --- !u!114 &237240862
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -41893,6 +41896,7 @@ MonoBehaviour:
   levelsMenu: {fileID: 0}
   volumeSlider: {fileID: 520017561}
   hapticsSlider: {fileID: 220909869}
+  levelButtons: []
 --- !u!114 &910537526
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -68470,6 +68474,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 200236612211850818, guid: d60ee2dd268d34cfcbd6b19e35df7028, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1512360515}
+    - targetCorrespondingSourceObject: {fileID: 200236612211850818, guid: d60ee2dd268d34cfcbd6b19e35df7028, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1512360520}
   m_SourcePrefab: {fileID: 100100000, guid: d60ee2dd268d34cfcbd6b19e35df7028, type: 3}
 --- !u!1 &1512360511 stripped
 GameObject:
@@ -68507,6 +68514,7 @@ MonoBehaviour:
   objetivo: {fileID: 0}
   velocidadGiro: 8
   mezclaAtaque: 0.1
+  margenRing: 0.4
 --- !u!114 &1512360516
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -68661,6 +68669,23 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &1512360520
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1512360511}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75097ea4632df47da9a8b2fc1bd2493b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DefensaOponente
+  animator: {fileID: 1512360512}
+  tiempoSubir: 0.06
+  tiempoBajar: 0.3
+  posicionGuantes: {x: 0.1, y: -0.05, z: 0.22}
+  aberturaTrasGuardia: 0.6
 --- !u!1001 &1513244185
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -82506,6 +82531,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1854626393}
   - component: {fileID: 1854626392}
+  - component: {fileID: 1854626394}
   m_Layer: 0
   m_Name: PauseMenu
   m_TagString: Untagged
@@ -82530,6 +82556,7 @@ MonoBehaviour:
   startOpen: 0
   pauseButton: 256
   mainMenuScene: Main_Scene
+  title: {fileID: 0}
   followPlayer: 1
   distance: 1.5
   heightOffset: -0.45
@@ -82548,6 +82575,24 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1854626394
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1854626391}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cbd168f0af15f4ea7be9451e3f9e1022, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PausaGuardian
+  pausa: {fileID: 0}
+  margen: 0.1
+  aviso: "VUELVE AL \xC1REA SEGURA"
+  avisoSinFoco: PAUSA
+  simularAreaEnEditor: 0
+  areaSimulada: {x: 2, y: 2}
 --- !u!1001 &1854885624
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -97330,6 +97375,59 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 6448171805470960658, guid: 6a9598db077c94d458cb31ba09a02fbd, type: 3}
   m_PrefabInstance: {fileID: 2144121741}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &2146337462
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2146337464}
+  - component: {fileID: 2146337463}
+  m_Layer: 0
+  m_Name: Multitud
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &2146337463
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2146337462}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7e763048aeb540a094a5498f459f842, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AmbienteMultitud
+  murmullo: {fileID: 8300000, guid: e56aa9e203db4445e8f923c8841e85fa, type: 3}
+  ovacion: {fileID: 8300000, guid: d0fe4c70d94954b3c9801f77cba637b1, type: 3}
+  oponente: {fileID: 0}
+  jugador: {fileID: 0}
+  fuentes: 4
+  radio: 6
+  altura: 2.5
+  volumenMurmullo: 0.35
+  volumenOvacion: 0.8
+--- !u!4 &2146337464
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2146337462}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: -1.2233552, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &2147174821
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -99504,3 +99602,4 @@ SceneRoots:
   - {fileID: 1284994976}
   - {fileID: 1854626393}
   - {fileID: 1876918365}
+  - {fileID: 2146337464}

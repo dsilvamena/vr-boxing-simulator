@@ -23,7 +23,7 @@ public class DebugSalud : MonoBehaviour
     [Tooltip("Tamaño del panel: 0.0025 = 1 m de ancho")]
     [SerializeField] private float escalaPanel = 0.0025f;
     [Tooltip("Mostrar el panel al empezar; el botón Y del mando izquierdo lo muestra y lo oculta")]
-    [SerializeField] private bool visibleAlInicio = true;
+    [SerializeField] private bool visibleAlInicio = false;
 
     private GameObject panel;
     private RectTransform rellenoJugador;

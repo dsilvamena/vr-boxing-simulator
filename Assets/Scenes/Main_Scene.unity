@@ -42370,6 +42370,10 @@ MonoBehaviour:
   levelsMenu: {fileID: 870733556}
   volumeSlider: {fileID: 520017561}
   hapticsSlider: {fileID: 220909869}
+  levelButtons:
+  - {fileID: 1123630434}
+  - {fileID: 636539309}
+  - {fileID: 326010320}
 --- !u!114 &910537526
 MonoBehaviour:
   m_ObjectHideFlags: 0

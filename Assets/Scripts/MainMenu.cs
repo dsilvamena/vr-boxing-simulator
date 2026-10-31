@@ -66,7 +66,10 @@ public class MainMenu : MonoBehaviour
             bool open = IsUnlocked(i + 1);
             levelButtons[i].interactable = open;
             var label = levelButtons[i].GetComponentInChildren<TMP_Text>(true);
-            if (label) label.text = open ? levelLabels[i] : $"NIVEL {i + 1}\nBLOQUEADO";
+            if (!label) continue;
+            label.text = open ? levelLabels[i] : $"NIVEL {i + 1}\nBLOQUEADO";
+            // El tinte del botón apenas cambia sobre el fondo oscuro; el texto atenuado deja claro que no se puede elegir
+            label.alpha = open ? 1f : 0.4f;
         }
     }
 

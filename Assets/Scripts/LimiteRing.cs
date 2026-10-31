@@ -3,7 +3,8 @@ using UnityEngine;
 /// <summary>
 /// Mantiene al jugador dentro del ring y fuera del cuerpo del oponente. Va en el OVRCameraRig.
 /// - Ring: si la cabeza llega al borde del área jugable, empuja el rig de vuelta, como una pared invisible.
-/// - Oponente: si la cabeza se acerca a menos de distanciaMinima de su centro, empuja el rig hacia afuera
+/// - Oponente: si la cabeza se acerca a menos de la distancia mínima de su centro (la mayor entre distanciaMinima y
+///   una fracción de la distanciaCombate de su perfil), empuja el rig hacia afuera
 ///   (se resbala alrededor de él en vez de atravesarlo).
 /// Un collider por sí solo no basta: DebugLocomotion mueve el rig cambiando su transform, y eso atraviesa
 /// cualquier collider. Por eso se limita la posición de la cabeza (también cuenta si camina en su espacio real).
@@ -26,6 +27,9 @@ public class LimiteRing : MonoBehaviour
     [SerializeField] private Oponente oponente;
     [Tooltip("Distancia mínima en metros entre tu cabeza y el centro del oponente (su cuerpo mide unos 0,3 m de radio)")]
     [SerializeField, Min(0f)] private float distanciaMinima = 0.6f;
+    [Tooltip("Además de la distancia mínima, no te deja acercarte a menos de esta fracción de la distancia de combate del oponente " +
+             "(su perfil: 1,1 m Glass Joe, 1,2 m los demás), así cada nivel se ajusta solo a su personaje. 0 = solo vale la distancia mínima")]
+    [SerializeField, Range(0f, 1f)] private float proporcionDistanciaCombate = 0.75f;
 
     private OVRCameraRig rig;
 
@@ -62,20 +66,22 @@ public class LimiteRing : MonoBehaviour
     // Primero se separa del oponente y después se aplica el ring, así que las cuerdas siempre mandan
     private void SepararDelOponente()
     {
-        if (oponente == null || distanciaMinima <= 0f) return;
+        if (oponente == null) return;
+        float distanciaMinimaReal = DistanciaMinimaReal(oponente);
+        if (distanciaMinimaReal <= 0f) return;
 
         Vector3 cabeza = rig.centerEyeAnchor.position;
         Vector3 centroOponente = oponente.transform.position;
         Vector2 desde = new Vector2(cabeza.x - centroOponente.x, cabeza.z - centroOponente.z);
         float distancia = desde.magnitude;
-        if (distancia >= distanciaMinima) return;
+        if (distancia >= distanciaMinimaReal) return;
 
         // Si queda justo encima (caso raro), se le empuja hacia atrás respecto a hacia dónde mira el rig
         Vector2 direccion = distancia > 0.001f
             ? desde / distancia
             : new Vector2(-rig.transform.forward.x, -rig.transform.forward.z).normalized;
 
-        Vector2 destino = new Vector2(centroOponente.x, centroOponente.z) + direccion * distanciaMinima;
+        Vector2 destino = new Vector2(centroOponente.x, centroOponente.z) + direccion * distanciaMinimaReal;
         rig.transform.position += new Vector3(destino.x - cabeza.x, 0f, destino.y - cabeza.z);
     }
 
@@ -103,6 +109,15 @@ public class LimiteRing : MonoBehaviour
         return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
     }
 
+    // El mayor entre la distancia fija y la proporción de la distancia de combate del oponente de este nivel
+    private float DistanciaMinimaReal(Oponente o)
+    {
+        float distancia = distanciaMinima;
+        if (proporcionDistanciaCombate > 0f && o != null && o.Perfil != null)
+            distancia = Mathf.Max(distancia, o.Perfil.distanciaCombate * proporcionDistanciaCombate);
+        return distancia;
+    }
+
     private void OnDrawGizmosSelected()
     {
         Rect area = Area();
@@ -112,14 +127,16 @@ public class LimiteRing : MonoBehaviour
             new Vector3(area.width, 2f, area.height));
 
         Oponente o = oponente != null ? oponente : FindAnyObjectByType<Oponente>();
-        if (o == null || distanciaMinima <= 0f) return;
+        if (o == null) return;
+        float radio = DistanciaMinimaReal(o);
+        if (radio <= 0f) return;
         // Círculo aplanado a la altura del pecho: el espacio que el jugador no puede ocupar
         Gizmos.color = new Color(1f, 0.55f, 0.1f);
         Gizmos.matrix = Matrix4x4.TRS(
             new Vector3(o.transform.position.x, transform.position.y + 1f, o.transform.position.z),
             Quaternion.identity,
             new Vector3(1f, 0.02f, 1f));
-        Gizmos.DrawWireSphere(Vector3.zero, distanciaMinima);
+        Gizmos.DrawWireSphere(Vector3.zero, radio);
         Gizmos.matrix = Matrix4x4.identity;
     }
 }

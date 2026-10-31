@@ -20,6 +20,13 @@ public class SaludJugador : MonoBehaviour
     [Tooltip("Añade posiciones y desvíos al log (solo para calibrar)")]
     [SerializeField] private bool registroDetallado = false;
 
+    [Header("Sonidos 3D (RF-16)")]
+    [Tooltip("Suena donde el puño del rival llega a la cabeza")]
+    [SerializeField] private AudioClip sonidoGolpeRecibido;
+    [Tooltip("Suena entre los guantes al bloquear")]
+    [SerializeField] private AudioClip sonidoBloqueo;
+    [SerializeField, Range(0f, 1f)] private float volumenGolpes = 1f;
+
     public event Action<float, float> AlCambiarSalud;       // salud, máxima
     public event Action<ResultadoAtaque> AlResolverAtaque;
     public event Action AlQuedarseSinSalud;
@@ -35,6 +42,8 @@ public class SaludJugador : MonoBehaviour
     public bool Derribado { get; private set; }
     /// <summary>Posición de la cabeza del jugador en mundo (el oponente apunta aquí al empezar su ataque).</summary>
     public Vector3 PosicionCabeza => rig != null ? rig.centerEyeAnchor.position : transform.position;
+    /// <summary>Ambas manos frente a la cara (lo mismo que se pide para bloquear). El oponente ataca antes si no.</summary>
+    public bool EnGuardia => rig != null && ManosEnGuardia(rig.centerEyeAnchor);
 
     // Patrones de vibración: x = amplitud (0 = pausa), y = segundos
     private static readonly Vector2[] PatronRecibido = { new(1f, 0.25f) };
@@ -69,7 +78,7 @@ public class SaludJugador : MonoBehaviour
 
         ResultadoAtaque resultado;
         if (distancia > radio) resultado = ResultadoAtaque.Esquivado;
-        else if (EnGuardia(cabeza)) resultado = ResultadoAtaque.Bloqueado;
+        else if (ManosEnGuardia(cabeza)) resultado = ResultadoAtaque.Bloqueado;
         else resultado = ResultadoAtaque.Conectado;
 
         if (resultado == ResultadoAtaque.Bloqueado) dano *= danoTrasBloqueo;
@@ -78,6 +87,10 @@ public class SaludJugador : MonoBehaviour
             Salud = Mathf.Max(0f, Salud - dano);
             AlCambiarSalud?.Invoke(Salud, saludMaxima);
             Vibrar(resultado == ResultadoAtaque.Bloqueado ? PatronBloqueado : PatronRecibido);
+            if (resultado == ResultadoAtaque.Bloqueado)
+                Sonar(sonidoBloqueo, (rig.leftHandAnchor.position + rig.rightHandAnchor.position) * 0.5f);
+            else
+                Sonar(sonidoGolpeRecibido, masCercano);
         }
 
         if (registrarAtaques)
@@ -135,7 +148,7 @@ public class SaludJugador : MonoBehaviour
         AlCambiarSalud?.Invoke(Salud, saludMaxima);
     }
 
-    private bool EnGuardia(Transform cabeza) =>
+    private bool ManosEnGuardia(Transform cabeza) =>
         ManoEnGuardia(rig.leftHandAnchor, cabeza) && ManoEnGuardia(rig.rightHandAnchor, cabeza);
 
     // Cerca de la cara y por delante de ella
@@ -150,6 +163,11 @@ public class SaludJugador : MonoBehaviour
         Vector3 ab = b - a;
         float t = Mathf.Clamp01(Vector3.Dot(p - a, ab) / Mathf.Max(ab.sqrMagnitude, 0.0001f));
         return a + ab * t;
+    }
+
+    private void Sonar(AudioClip clip, Vector3 punto)
+    {
+        if (clip != null) AudioSource.PlayClipAtPoint(clip, punto, volumenGolpes);
     }
 
     private void Vibrar(Vector2[] patron)

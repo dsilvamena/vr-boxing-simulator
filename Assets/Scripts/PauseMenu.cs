@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -12,6 +13,8 @@ public class PauseMenu : MonoBehaviour
     // Botón Menu del control izquierdo (el estándar de pausa en Quest)
     public OVRInput.Button pauseButton = OVRInput.Button.Start;
     public string mainMenuScene = "Main_Scene";
+    [Tooltip("Título del panel principal; vacío = MainMenu/Titulo dentro del Canvas")]
+    public TMP_Text title;
 
     [Header("Posición al abrir")]
     [Tooltip("El menú aparece frente a la cabeza del jugador, esté donde esté en el ring")]
@@ -23,8 +26,17 @@ public class PauseMenu : MonoBehaviour
 
     public bool IsOpen { get; private set; }
 
+    string defaultTitle;
+
     void Start()
     {
+        if (!title)
+        {
+            var t = menuCanvas.transform.Find("MainMenu/Titulo");
+            if (t) title = t.GetComponent<TMP_Text>();
+        }
+        if (title) defaultTitle = title.text;
+
         if (startOpen) Show();
         else Hide();
     }
@@ -35,8 +47,12 @@ public class PauseMenu : MonoBehaviour
     }
 
     // La UI sigue funcionando con timeScale en 0 porque el EventSystem usa tiempo sin escalar
-    public void Show()
+    public void Show() => Show(null);
+
+    /// <summary>Abre la pausa con otro título (por ejemplo, el aviso del Guardián); null = el de siempre.</summary>
+    public void Show(string customTitle)
     {
+        if (title) title.text = string.IsNullOrEmpty(customTitle) ? defaultTitle : customTitle;
         IsOpen = true;
         Time.timeScale = 0f;
         PlaceInFrontOfPlayer();

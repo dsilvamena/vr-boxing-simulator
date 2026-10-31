@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -13,8 +14,16 @@ public class MainMenu : MonoBehaviour
     public Slider volumeSlider;
     public Slider hapticsSlider;
 
+    [Tooltip("Botones de nivel en orden (solo en el menú principal). Cada uno se habilita al ganar el anterior (RF-09)")]
+    public Button[] levelButtons;
+
     // Escenas de cada nivel, en orden (deben estar en Build Settings)
     public static readonly string[] Levels = { "Scene_Ring_Level1", "Scene_Ring_Level2", "Scene_Ring_Level3" };
+
+    // Nivel más alto ganado; lo guarda ControlCombate al derrotar al rival
+    const string ProgressKey = "nivelSuperado";
+
+    string[] levelLabels;
 
     // Awake y no Start: en el ring PauseMenu desactiva el Canvas en su Start y este Start ya no correría
     void Awake()
@@ -29,7 +38,37 @@ public class MainMenu : MonoBehaviour
 
     public void OpenMainMenuPanel() => Show(mainMenu);
 
-    public void OpenLevelsPanel() => Show(levelsMenu);
+    public void OpenLevelsPanel()
+    {
+        Show(levelsMenu);
+        RefreshLevelButtons();
+    }
+
+    /// <summary>El nivel 1 siempre está abierto; el nivel N, cuando ya se ganó el N-1.</summary>
+    public static bool IsUnlocked(int level) => level <= PlayerPrefs.GetInt(ProgressKey, 0) + 1;
+
+    void RefreshLevelButtons()
+    {
+        if (levelButtons == null) return;
+        if (levelLabels == null || levelLabels.Length != levelButtons.Length)
+        {
+            levelLabels = new string[levelButtons.Length];
+            for (int i = 0; i < levelButtons.Length; i++)
+            {
+                var label = levelButtons[i] ? levelButtons[i].GetComponentInChildren<TMP_Text>(true) : null;
+                levelLabels[i] = label ? label.text : "";
+            }
+        }
+
+        for (int i = 0; i < levelButtons.Length; i++)
+        {
+            if (!levelButtons[i]) continue;
+            bool open = IsUnlocked(i + 1);
+            levelButtons[i].interactable = open;
+            var label = levelButtons[i].GetComponentInChildren<TMP_Text>(true);
+            if (label) label.text = open ? levelLabels[i] : $"NIVEL {i + 1}\nBLOQUEADO";
+        }
+    }
 
     void Show(GameObject panel)
     {
@@ -48,6 +87,11 @@ public class MainMenu : MonoBehaviour
     /// <summary>Carga el nivel indicado, empezando en 1.</summary>
     public void PlayLevel(int level)
     {
+        if (!IsUnlocked(level))
+        {
+            Debug.Log($"Nivel {level} bloqueado: primero gana el nivel {level - 1}.", this);
+            return;
+        }
         Time.timeScale = 1f;
         SceneManager.LoadScene(Levels[Mathf.Clamp(level, 1, Levels.Length) - 1]);
     }
@@ -68,4 +112,19 @@ public class MainMenu : MonoBehaviour
     }
 
     void StopVibration() => OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.RTouch);
+
+    // Para probar sin jugar los niveles: en Play o en Edit, clic derecho en el título del componente
+    [ContextMenu("Probar: desbloquear todos los niveles")]
+    void UnlockAllLevels()
+    {
+        PlayerPrefs.SetInt(ProgressKey, Levels.Length);
+        RefreshLevelButtons();
+    }
+
+    [ContextMenu("Probar: reiniciar el progreso")]
+    void ResetProgress()
+    {
+        PlayerPrefs.DeleteKey(ProgressKey);
+        RefreshLevelButtons();
+    }
 }

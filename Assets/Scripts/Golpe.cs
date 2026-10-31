@@ -10,6 +10,11 @@ public enum TipoZona { Cabeza, Torso }
 public enum TipoGolpe { Jab, Cross, Uppercut, Lateral }
 
 /// <summary>
+/// Qué pasó con un golpe del jugador: no contó (rival caído o invulnerable), conectó o el rival lo bloqueó.
+/// </summary>
+public enum ResultadoGolpe { NoCuenta, Conectado, Bloqueado }
+
+/// <summary>
 /// Datos de un golpe que un Puno le conecta a una ZonaGolpe.
 /// </summary>
 public struct Golpe

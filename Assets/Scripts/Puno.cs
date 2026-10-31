@@ -27,6 +27,9 @@ public class Puno : MonoBehaviour
     private static readonly Vector2[] PatronCross = { new(1f, 0.14f) };                                   // largo y fuerte
     private static readonly Vector2[] PatronUppercut = { new(0.5f, 0.05f), new(0f, 0.04f), new(1f, 0.1f) }; // doble, sube
     private static readonly Vector2[] PatronLateral = { new(0.35f, 0.06f) };                              // suave
+    // El rival paró el golpe: dos toques sordos, con frecuencia baja (FrecuenciaBloqueo) para que se sienta apagado
+    private static readonly Vector2[] PatronBloqueado = { new(0.8f, 0.04f), new(0f, 0.05f), new(0.5f, 0.08f) };
+    private const float FrecuenciaBloqueo = 0.25f;
 
     private Transform espacio;
     private Transform cabeza;
@@ -93,9 +96,15 @@ public class Puno : MonoBehaviour
             punto = other.ClosestPoint(transform.position),
             velocidad = velocidad,
         };
-        if (!zona.Oponente.RecibirGolpe(golpe)) return;
+        ResultadoGolpe resultado = zona.Oponente.RecibirGolpe(golpe);
+        if (resultado == ResultadoGolpe.NoCuenta) return;
 
         listoEn = Time.time + enfriamiento;
+        if (resultado == ResultadoGolpe.Bloqueado)
+        {
+            Vibrar(PatronBloqueado, 1f, FrecuenciaBloqueo);
+            return;
+        }
         float intensidad = Mathf.Lerp(vibracionMinima, 1f, velocidad.magnitude / rapidezVibracionMaxima);
         Vibrar(Patron(golpe.tipo), intensidad);
     }
@@ -108,20 +117,20 @@ public class Puno : MonoBehaviour
         _ => PatronLateral,
     };
 
-    private void Vibrar(Vector2[] patron, float intensidad)
+    private void Vibrar(Vector2[] patron, float intensidad, float frecuencia = 1f)
     {
         float escala = intensidad * PlayerPrefs.GetFloat("haptica", 1f);
         if (escala <= 0.01f) return;
         DetenerVibracion();
-        vibracion = StartCoroutine(Vibracion(patron, escala));
+        vibracion = StartCoroutine(Vibracion(patron, escala, frecuencia));
     }
 
-    private IEnumerator Vibracion(Vector2[] patron, float escala)
+    private IEnumerator Vibracion(Vector2[] patron, float escala, float frecuencia)
     {
         foreach (Vector2 pulso in patron)
         {
             float amplitud = pulso.x * escala;
-            OVRInput.SetControllerVibration(amplitud > 0f ? 1f : 0f, amplitud, Controlador());
+            OVRInput.SetControllerVibration(amplitud > 0f ? frecuencia : 0f, amplitud, Controlador());
             // Realtime para que se corte aunque el juego se pause justo después
             yield return new WaitForSecondsRealtime(pulso.y);
         }

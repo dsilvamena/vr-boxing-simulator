@@ -5,15 +5,20 @@ using UnityEngine;
 /// Recibe los golpes de las ZonaGolpe hijas y los convierte en daño sobre su salud.
 /// Cae al cruzar los umbrales de salud (knockdowns); el último umbral (0) es la derrota.
 /// Cómo se ve la reacción lo decide otro componente (ReaccionAnimada o ReaccionProcedural).
+/// Si tiene DefensaOponente, esta decide qué golpes bloquea: un golpe bloqueado quita poca salud, nunca lo tumba
+/// y lanza AlBloquear en vez de AlRecibirGolpe (así no hay animación de reacción).
 /// </summary>
 public class Oponente : MonoBehaviour
 {
     [SerializeField] private PerfilOponente perfil;
+    [Tooltip("Fuente 3D (spatialBlend 1) para los golpes; vacío = suena en el punto del golpe")]
     [SerializeField] private AudioSource audioSource;
     [Tooltip("Escribe cada golpe en la consola (tipo, zona, velocidad, daño, salud)")]
     [SerializeField] private bool registrarGolpes = true;
 
     public event Action<Golpe> AlRecibirGolpe;
+    /// <summary>Paró un golpe con la guardia.</summary>
+    public event Action<Golpe> AlBloquear;
     /// <summary>En cada caída, también en la derrota (mirar Derrotado).</summary>
     public event Action<Golpe> AlCaer;
     public event Action AlLevantarse;
@@ -23,8 +28,10 @@ public class Oponente : MonoBehaviour
     public PerfilOponente Perfil => perfil;
     /// <summary>Nombre que ve el jugador: el del perfil o, si está vacío, el del objeto.</summary>
     public string Nombre => perfil != null && !string.IsNullOrEmpty(perfil.nombre) ? perfil.nombre : name;
-    /// <summary>Golpes recibidos en total (para la precisión, RF-18).</summary>
+    /// <summary>Golpes conectados en total (para la precisión, RF-18).</summary>
     public int Golpes { get; private set; }
+    /// <summary>Golpes del jugador que bloqueó.</summary>
+    public int Bloqueos { get; private set; }
     public int Caidas { get; private set; }
     public bool Caido { get; private set; }
     /// <summary>Cayó por última vez: ya no se levanta.</summary>
@@ -34,6 +41,7 @@ public class Oponente : MonoBehaviour
 
     private float invulnerableHasta;
     private float levantarseEn;
+    private DefensaOponente defensa;
 
     private void Awake()
     {
@@ -43,6 +51,7 @@ public class Oponente : MonoBehaviour
             perfil = ScriptableObject.CreateInstance<PerfilOponente>();
         }
         Salud = perfil.saludMaxima;
+        defensa = GetComponent<DefensaOponente>();
     }
 
     private void Update()
@@ -50,28 +59,39 @@ public class Oponente : MonoBehaviour
         if (Caido && !Derrotado && Time.time >= levantarseEn) Levantarse();
     }
 
-    /// <summary>Devuelve false si el golpe no cuenta (está caído o aún invulnerable).</summary>
-    public bool RecibirGolpe(Golpe golpe)
+    /// <summary>Devuelve NoCuenta si está caído o aún invulnerable; si no, si el golpe conectó o lo bloqueó.</summary>
+    public ResultadoGolpe RecibirGolpe(Golpe golpe)
     {
-        if (Caido || Time.time < invulnerableHasta) return false;
+        if (Caido || Time.time < invulnerableHasta) return ResultadoGolpe.NoCuenta;
         invulnerableHasta = Time.time + perfil.invulnerabilidad;
 
         // Satura en rapidezGolpeCompleto: no hace falta pegar con toda la fuerza
         golpe.intensidad = Mathf.Clamp01(golpe.Rapidez / perfil.rapidezGolpeCompleto);
-        Golpes++;
+        bool bloqueado = defensa != null && defensa.Bloquea(golpe);
 
-        float dano = CalcularDano(golpe);
-        Salud = Mathf.Max(0f, Salud - dano);
+        float dano = CalcularDano(golpe) * (bloqueado ? perfil.danoTrasBloqueo : 1f);
+        // Umbral de la próxima caída: con 3 caídas → 66 %, 33 % y 0 %
+        float umbral = perfil.saludMaxima * (1f - (Caidas + 1f) / perfil.caidasParaDerrota);
+        // Bloqueado resta un poco pero nunca cruza el umbral: solo los golpes que entran tumban
+        Salud = bloqueado ? Mathf.Max(Salud - dano, Mathf.Min(Salud, umbral + 1f)) : Mathf.Max(0f, Salud - dano);
 
         if (registrarGolpes)
-            Debug.Log($"{name}: {golpe.tipo} ({golpe.mano}) en {(golpe.zona != null ? golpe.zona.Zona.ToString() : "-")}, {golpe.Rapidez:F1} m/s → daño {dano:F1}, salud {Salud:F0}/{perfil.saludMaxima:F0}, caídas {Caidas}/{perfil.caidasParaDerrota}", this);
+            Debug.Log($"{name}: {golpe.tipo} ({golpe.mano}) en {(golpe.zona != null ? golpe.zona.Zona.ToString() : "-")}, {golpe.Rapidez:F1} m/s → {(bloqueado ? "BLOQUEADO, " : "")}daño {dano:F1}, salud {Salud:F0}/{perfil.saludMaxima:F0}, caídas {Caidas}/{perfil.caidasParaDerrota}", this);
 
+        if (bloqueado)
+        {
+            Bloqueos++;
+            Sonar(new[] { perfil.sonidoBloqueo }, golpe.punto);
+            AlBloquear?.Invoke(golpe);
+            AlCambiarSalud?.Invoke(Salud, perfil.saludMaxima);
+            return ResultadoGolpe.Bloqueado;
+        }
+
+        Golpes++;
         Sonar(perfil.sonidosGolpe, golpe.punto);
         AlRecibirGolpe?.Invoke(golpe);
         AlCambiarSalud?.Invoke(Salud, perfil.saludMaxima);
 
-        // Umbral de la próxima caída: con 3 caídas → 66 %, 33 % y 0 %
-        float umbral = perfil.saludMaxima * (1f - (Caidas + 1f) / perfil.caidasParaDerrota);
         if (Salud <= umbral)
         {
             Salud = umbral; // un golpe fuerte no se salta umbrales
@@ -84,7 +104,7 @@ public class Oponente : MonoBehaviour
             AlCaer?.Invoke(golpe);
             AlCambiarSalud?.Invoke(Salud, perfil.saludMaxima);
         }
-        return true;
+        return ResultadoGolpe.Conectado;
     }
 
     private float CalcularDano(Golpe golpe)
@@ -112,6 +132,7 @@ public class Oponente : MonoBehaviour
     public void Reiniciar()
     {
         Golpes = 0;
+        Bloqueos = 0;
         Caidas = 0;
         Derrotado = false;
         Salud = perfil.saludMaxima;

@@ -31,6 +31,28 @@ public class PerfilOponente : ScriptableObject
     [Tooltip("Rapidez del puño (m/s) a partir de la cual el golpe ya es completo; más fuerte no suma")]
     public float rapidezGolpeCompleto = 2.5f;
 
+    [Header("Defensa (RF-07)")]
+    [Tooltip("Probabilidad de bloquear un golpe del jugador cuando está en guardia (0 = nunca)")]
+    [Range(0f, 1f)] public float probabilidadBloqueo = 0.1f;
+    [Tooltip("Cuánto sube la probabilidad de bloqueo por cada golpe seguido que recibe (aprende la combinación)")]
+    [Range(0f, 0.5f)] public float bloqueoPorGolpeSeguido = 0.05f;
+    [Tooltip("Probabilidad máxima de bloqueo, aun recibiendo muchos golpes seguidos")]
+    [Range(0f, 1f)] public float bloqueoMaximo = 0.5f;
+    [Tooltip("Segundos entre golpes para que cuenten como seguidos")]
+    public float ventanaGolpesSeguidos = 1.5f;
+    [Tooltip("Segundos que mantiene la guardia alta tras bloquear; los golpes en ese tiempo también se bloquean")]
+    public float segundosGuardia = 0.7f;
+    [Tooltip("Fracción del daño que pasa al bloquear (0 = nada, 1 = todo)")]
+    [Range(0f, 1f)] public float danoTrasBloqueo = 0.15f;
+
+    [Header("Velocidad")]
+    [Tooltip("Multiplica la velocidad de sus animaciones de ataque (más alto = menos tiempo para esquivar)")]
+    [Range(0.5f, 2f)] public float velocidadAtaque = 1f;
+    [Tooltip("Metros por segundo a los que se acerca al jugador si este se aleja (0 = no se mueve)")]
+    public float velocidadDesplazamiento = 0.5f;
+    [Tooltip("Distancia al jugador que intenta mantener, en metros (debe quedar dentro de alcanceAtaque)")]
+    public float distanciaCombate = 1.1f;
+
     [Header("Ataques")]
     [Tooltip("Segundos entre ataques (se elige uno al azar en el rango)")]
     public Vector2 intervaloAtaque = new Vector2(4f, 6f);
@@ -40,6 +62,10 @@ public class PerfilOponente : ScriptableObject
     public Vector2 esperaTrasGolpe = new Vector2(1.5f, 2.5f);
     [Tooltip("Segundos tras levantarse de un knockdown antes del primer ataque")]
     public float esperaTrasLevantarse = 3f;
+    [Tooltip("Tras bloquear, segundos hasta el contraataque (más corto que la espera normal)")]
+    public Vector2 contraataqueTrasBloqueo = new Vector2(0.6f, 1.2f);
+    [Tooltip("Con la guardia del jugador baja, cuánto más rápido corre la espera hasta el próximo ataque (0 = igual, 1 = el doble)")]
+    [Range(0f, 3f)] public float castigoGuardiaBaja = 0.5f;
 
     [Header("Daño al jugador (RF-04, RF-05, RF-06)")]
     public float danoAtaqueJab = 8f;
@@ -66,7 +92,8 @@ public class PerfilOponente : ScriptableObject
     [Tooltip("Retroceso máximo por golpe, en metros")]
     public float retrocesoMaximo = 0.15f;
 
-    [Header("Sonidos (opcionales)")]
+    [Header("Sonidos (opcionales, RF-16)")]
     public AudioClip[] sonidosGolpe;
+    public AudioClip sonidoBloqueo;
     public AudioClip sonidoKO;
 }

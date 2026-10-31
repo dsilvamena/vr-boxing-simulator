@@ -29,6 +29,9 @@ public class LimiteRing : MonoBehaviour
 
     private OVRCameraRig rig;
 
+    /// <summary>Área jugable en X/Z (x, y del Rect = x, z del mundo), ya con el margen. El oponente también la respeta.</summary>
+    public Rect AreaRing => Area();
+
     private void Awake()
     {
         rig = GetComponentInParent<OVRCameraRig>();

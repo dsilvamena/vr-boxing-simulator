@@ -24,10 +24,21 @@ MonoBehaviour:
   segundosKnockdown: 3.7
   invulnerabilidad: 0.2
   rapidezGolpeCompleto: 2.5
+  probabilidadBloqueo: 0.08
+  bloqueoPorGolpeSeguido: 0.04
+  bloqueoMaximo: 0.3
+  ventanaGolpesSeguidos: 1.5
+  segundosGuardia: 0.6
+  danoTrasBloqueo: 0.15
+  velocidadAtaque: 0.9
+  velocidadDesplazamiento: 0.4
+  distanciaCombate: 1.1
   intervaloAtaque: {x: 4, y: 6}
   uppercutCada: 4
   esperaTrasGolpe: {x: 1.5, y: 2.5}
   esperaTrasLevantarse: 3
+  contraataqueTrasBloqueo: {x: 1, y: 1.6}
+  castigoGuardiaBaja: 0.3
   danoAtaqueJab: 4
   danoAtaqueUppercut: 7
   retardoImpactoJab: 0.35
@@ -40,5 +51,9 @@ MonoBehaviour:
   amortiguacion: 12
   anguloMaximo: 25
   retrocesoMaximo: 0.15
-  sonidosGolpe: []
+  sonidosGolpe:
+  - {fileID: 8300000, guid: a2a08d51c2dbf45889350d210dd6761c, type: 3}
+  - {fileID: 8300000, guid: a311a9e088eeb4bde98c9be570a275c1, type: 3}
+  - {fileID: 8300000, guid: 152067e1f48814db2890183d328096d3, type: 3}
+  sonidoBloqueo: {fileID: 8300000, guid: 6500fd9f453854ae1ab1b4debebb9cab, type: 3}
   sonidoKO: {fileID: 0}

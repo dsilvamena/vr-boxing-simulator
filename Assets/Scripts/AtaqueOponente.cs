@@ -6,6 +6,8 @@ using UnityEngine;
 /// Si lo golpean mientras ataca, ReaccionAnimada cambia de estado y el ataque se corta. Caído no ataca.
 /// Al empezar el ataque fija el punto donde está la cabeza del jugador; al pasar retardoImpacto, si el ataque
 /// sigue en curso, le avisa a SaludJugador, que decide si el jugador esquivó, bloqueó o recibió el golpe.
+/// IA reactiva (perfil): ataca a velocidadAtaque, se acerca si el jugador se aleja (sin salir del ring de LimiteRing),
+/// adelanta el ataque si el jugador baja la guardia (castigoGuardiaBaja) y contraataca pronto tras bloquear.
 /// </summary>
 [RequireComponent(typeof(Oponente))]
 public class AtaqueOponente : MonoBehaviour
@@ -21,6 +23,8 @@ public class AtaqueOponente : MonoBehaviour
     [SerializeField] private float velocidadGiro = 8f;
     [Tooltip("Segundos de mezcla al empezar un ataque")]
     [SerializeField] private float mezclaAtaque = 0.1f;
+    [Tooltip("Distancia que deja entre su centro y las cuerdas al acercarse, en metros")]
+    [SerializeField] private float margenRing = 0.4f;
 
     private Oponente oponente;
     private SaludJugador jugador;
@@ -29,6 +33,7 @@ public class AtaqueOponente : MonoBehaviour
     private float impactoEn = -1f;
     private bool impactoEsUppercut;
     private Vector3 puntoApuntado;
+    private LimiteRing ring;
 
     /// <summary>Está lanzando un golpe (o empezando a lanzarlo).</summary>
     public bool Atacando
@@ -50,6 +55,7 @@ public class AtaqueOponente : MonoBehaviour
     private void OnEnable()
     {
         oponente.AlRecibirGolpe += AlRecibirGolpe;
+        oponente.AlBloquear += AlBloquear;
         oponente.AlLevantarse += AlLevantarse;
         Esperar(oponente.Perfil.intervaloAtaque);
     }
@@ -57,11 +63,16 @@ public class AtaqueOponente : MonoBehaviour
     private void OnDisable()
     {
         oponente.AlRecibirGolpe -= AlRecibirGolpe;
+        oponente.AlBloquear -= AlBloquear;
         oponente.AlLevantarse -= AlLevantarse;
+        animator.speed = 1f;
     }
 
     private void Update()
     {
+        // velocidadAtaque solo acelera el ataque: en cuanto termina (o lo cortan) el Animator vuelve a su ritmo
+        if (!Mathf.Approximately(animator.speed, 1f) && !Atacando) animator.speed = 1f;
+
         if (oponente.Caido)
         {
             impactoEn = -1f;
@@ -80,14 +91,20 @@ public class AtaqueOponente : MonoBehaviour
 
         ResolverImpacto();
 
-        if (Time.time < proximoAtaque) return;
+        PerfilOponente p = oponente.Perfil;
+        // Guardia baja = abertura: la espera hasta el próximo ataque corre más rápido
+        if (jugador != null && !jugador.EnGuardia) proximoAtaque -= Time.deltaTime * p.castigoGuardiaBaja;
+
         // Solo desde la guardia: si aún está reaccionando a un golpe, espera a que vuelva a Idle
-        if (animator.IsInTransition(0) || animator.GetCurrentAnimatorStateInfo(0).shortNameHash != Idle) return;
+        bool enIdle = !animator.IsInTransition(0) && animator.GetCurrentAnimatorStateInfo(0).shortNameHash == Idle;
+        if (enIdle) Acercarse();
+        if (Time.time < proximoAtaque || !enIdle) return;
 
         ataques++;
         int uppercutCada = oponente.Perfil.uppercutCada;
         bool uppercut = uppercutCada > 0 && ataques % uppercutCada == 0;
         animator.CrossFadeInFixedTime(uppercut ? AtaqueUppercut : AtaqueJab, mezclaAtaque, 0, 0f);
+        animator.speed = p.velocidadAtaque;
 
         // Apunta a donde está la cabeza del jugador ahora; si se mueve antes del impacto, esquiva
         puntoApuntado = jugador != null
@@ -95,8 +112,9 @@ public class AtaqueOponente : MonoBehaviour
             : transform.position + Vector3.up * oponente.Perfil.alturaAtaque + transform.forward * oponente.Perfil.alcanceAtaque;
 
         impactoEsUppercut = uppercut;
-        impactoEn = Time.time + (uppercut ? oponente.Perfil.retardoImpactoUppercut : oponente.Perfil.retardoImpactoJab);
-        Esperar(oponente.Perfil.intervaloAtaque);
+        float retardo = uppercut ? p.retardoImpactoUppercut : p.retardoImpactoJab;
+        impactoEn = Time.time + retardo / Mathf.Max(0.1f, p.velocidadAtaque);
+        Esperar(p.intervaloAtaque);
     }
 
     private void ResolverImpacto()
@@ -127,6 +145,9 @@ public class AtaqueOponente : MonoBehaviour
         Esperar(oponente.Perfil.esperaTrasGolpe);
     }
 
+    // Paró el golpe: aprovecha que el jugador quedó expuesto
+    private void AlBloquear(Golpe golpe) => Esperar(oponente.Perfil.contraataqueTrasBloqueo);
+
     private void AlLevantarse() => proximoAtaque = Time.time + oponente.Perfil.esperaTrasLevantarse;
 
     private void Esperar(Vector2 rango) => proximoAtaque = Time.time + Random.Range(rango.x, rango.y);
@@ -142,6 +163,28 @@ public class AtaqueOponente : MonoBehaviour
 
         Quaternion mirar = Quaternion.LookRotation(direccion);
         transform.rotation = Quaternion.Slerp(transform.rotation, mirar, velocidadGiro * Time.deltaTime);
+    }
+
+    // Si el jugador se aleja más de distanciaCombate, camina hacia él sin salir del ring
+    private void Acercarse()
+    {
+        PerfilOponente p = oponente.Perfil;
+        if (p.velocidadDesplazamiento <= 0f || objetivo == null) return;
+
+        Vector3 haciaJugador = objetivo.position - transform.position;
+        haciaJugador.y = 0f;
+        float sobra = haciaJugador.magnitude - p.distanciaCombate;
+        if (sobra <= 0.05f) return;
+
+        Vector3 destino = transform.position + haciaJugador.normalized * Mathf.Min(sobra, p.velocidadDesplazamiento * Time.deltaTime);
+        if (ring == null) ring = FindAnyObjectByType<LimiteRing>();
+        if (ring != null)
+        {
+            Rect area = ring.AreaRing;
+            destino.x = Mathf.Clamp(destino.x, area.xMin + margenRing, area.xMax - margenRing);
+            destino.z = Mathf.Clamp(destino.z, area.yMin + margenRing, area.yMax - margenRing);
+        }
+        transform.position = destino;
     }
 
     private static bool EsAtaque(int estado) => estado == AtaqueJab || estado == AtaqueUppercut;

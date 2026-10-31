@@ -55,6 +55,12 @@ public static class OponenteBuilder
             so.FindProperty("animator").objectReferenceValue = animator;
             so.ApplyModifiedProperties();
 
+            // Bloqueo (RF-07): la guardia se hace con IK de manos, que necesita IK Pass en la capa base
+            so = new SerializedObject(Obtener<DefensaOponente>(raiz));
+            so.FindProperty("animator").objectReferenceValue = animator;
+            so.ApplyModifiedProperties();
+            ActivarIKPass(animator);
+
             CrearHitboxesEnHuesos(raiz.transform, animator);
         }
         else
@@ -67,6 +73,21 @@ public static class OponenteBuilder
             CrearHitboxes(cuerpo);
         }
         Selection.activeGameObject = raiz;
+    }
+
+    // Los AnimatorOverrideController usan las capas de su controller base: se activa ahí
+    private static void ActivarIKPass(Animator animator)
+    {
+        RuntimeAnimatorController rac = animator.runtimeAnimatorController;
+        while (rac is AnimatorOverrideController aoc) rac = aoc.runtimeAnimatorController;
+        if (rac is not UnityEditor.Animations.AnimatorController controller || controller.layers.Length == 0) return;
+
+        var capas = controller.layers;
+        if (capas[0].iKPass) return;
+        Undo.RecordObject(controller, "Activar IK Pass");
+        capas[0].iKPass = true;
+        controller.layers = capas;
+        EditorUtility.SetDirty(controller);
     }
 
     // Sin "??": en el Editor GetComponent devuelve un null falso que no lo dispara

@@ -1,4 +1,4 @@
-"""Sintetiza los efectos de sonido del juego (golpes, bloqueo, latido, multitud) como WAV mono 16 bits.
+"""Sintetiza los efectos de sonido del juego (golpes, bloqueo, latido, multitud, campana) como WAV mono 16 bits.
 
 Uso: python3 Tools/sintetizar_audio.py Assets/_Project/Audio/Efectos
 """
@@ -82,6 +82,23 @@ def latido(dur=0.55):
     return out
 
 
+def campana(toques=1, separacion=0.3, dur=2.2, f0=1180):
+    """Campana del ring: parciales inarmónicos que se apagan a distinto ritmo, más el golpe del badajo al inicio."""
+    rnd = random.Random(8)
+    parciales = ((1.0, 1.0, 2.2), (1.51, 0.6, 3.0), (2.03, 0.45, 3.8), (2.74, 0.3, 5.5), (3.42, 0.2, 7.5))
+    lp = Biquad("lp", 5000, 0.7)
+    n = int((dur + separacion * (toques - 1)) * SR)
+    out = [0.0] * n
+    for toque in range(toques):
+        inicio = int(toque * separacion * SR)
+        for i in range(inicio, n):
+            t = (i - inicio) / SR
+            sonido = sum(a * math.sin(2 * math.pi * f0 * r * t) * math.exp(-t * d) for r, a, d in parciales)
+            badajo = lp(rnd.uniform(-1, 1)) * math.exp(-t * 90) * 0.8
+            out[i] += (sonido + badajo) * min(1.0, t / 0.001)
+    return out
+
+
 def balbuceo(seed, dur, voces, vocal_ahh=False, crescendo=False):
     """Multitud: muchas 'voces' de ruido pasadas por formantes que cambian a ritmo de sílabas."""
     rnd = random.Random(seed)
@@ -145,3 +162,6 @@ if __name__ == "__main__":
     guardar("Latido", latido())
     guardar("Multitud_Loop", bucle(balbuceo(6, 10.5, 28), 1.5))
     guardar("Multitud_Ovacion", balbuceo(7, 3.5, 22, vocal_ahh=True, crescendo=True))
+    # Un toque al empezar el round y tres seguidos al terminarlo, para distinguirlos solo de oído
+    guardar("Campana_Inicio", campana())
+    guardar("Campana_Fin", campana(toques=3))

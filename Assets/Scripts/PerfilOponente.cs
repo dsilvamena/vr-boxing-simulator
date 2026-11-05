@@ -24,7 +24,11 @@ public class PerfilOponente : ScriptableObject
     [Header("Caídas")]
     [Tooltip("La caída número N es la derrota y ya no se levanta; las anteriores son knockdowns")]
     public int caidasParaDerrota = 3;
-    [Tooltip("Segundos de un knockdown hasta que se levanta (con animación, lo que dura el clip)")]
+    [Tooltip("Número de la cuenta del réferi en el que se levanta (10 = la cuenta completa, más bajo = se repone antes)")]
+    [Range(1, 10)] public int cuentaKnockdown = 10;
+    [Tooltip("Segundos que tarda en incorporarse al terminar la cuenta; en ese tiempo no recibe golpes (míralo en el clip)")]
+    public float segundosAlLevantarse = 1.3f;
+    [Tooltip("Solo sin réferi en la escena: segundos de un knockdown hasta que se levanta (con animación, lo que dura el clip)")]
     public float segundosKnockdown = 3.7f;
     [Tooltip("Segundos tras un golpe en los que no recibe otro")]
     public float invulnerabilidad = 0.2f;

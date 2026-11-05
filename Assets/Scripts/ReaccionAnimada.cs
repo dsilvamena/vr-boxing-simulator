@@ -4,6 +4,8 @@ using UnityEngine;
 /// Reacción a los golpes con un Animator (personajes con esqueleto). Elige el estado según el tipo de golpe
 /// y la zona, y lo reinicia aunque ya se esté reproduciendo, para que cada golpe se note.
 /// Los estados de reacción y Knockdown vuelven solos a Idle por transición en el Animator Controller.
+/// El clip de Knockdown cae, se queda en el piso y se levanta en pocos segundos: con réferi se sostiene en el piso
+/// (momentoPiso) hasta que termina la cuenta y entonces sigue desde ahí, así que no se ve de pie mientras sigue Caido.
 /// </summary>
 [RequireComponent(typeof(Oponente))]
 public class ReaccionAnimada : MonoBehaviour
@@ -20,6 +22,8 @@ public class ReaccionAnimada : MonoBehaviour
     [SerializeField] private float mezclaGolpe = 0.08f;
     [Tooltip("Segundos de mezcla al caer")]
     [SerializeField] private float mezclaCaida = 0.15f;
+    [Tooltip("Momento del clip de Knockdown (0 a 1) en el que ya está en el piso; ahí espera la cuenta del réferi")]
+    [SerializeField, Range(0f, 1f)] private float momentoPiso = 0.44f;
 
     private Oponente oponente;
 
@@ -43,6 +47,15 @@ public class ReaccionAnimada : MonoBehaviour
         oponente.AlLevantarse -= Levantarse;
     }
 
+    private void Update()
+    {
+        if (!oponente.Caido || oponente.Derrotado || !oponente.LevantaArbitro) return;
+        AnimatorStateInfo estado = animator.GetCurrentAnimatorStateInfo(0);
+        // Se fija el tiempo y no animator.speed, que AtaqueOponente devuelve a 1 cuando no está atacando
+        if (estado.shortNameHash == Knockdown && estado.normalizedTime >= momentoPiso)
+            animator.Play(Knockdown, 0, momentoPiso);
+    }
+
     private void Reaccionar(Golpe golpe)
     {
         bool cabeza = golpe.zona == null || golpe.zona.Zona == TipoZona.Cabeza;
@@ -58,10 +71,13 @@ public class ReaccionAnimada : MonoBehaviour
     private void Caer(Golpe golpe) =>
         animator.CrossFadeInFixedTime(oponente.Derrotado ? Defeat : Knockdown, mezclaCaida, 0, 0f);
 
-    // Normalmente el clip de Knockdown ya terminó y volvió a Idle; esto cubre levantarse antes (Reiniciar)
+    // Si ya llegó al piso, el resto del clip lo levanta y su transición lo devuelve a Idle;
+    // esto cubre levantarse antes de eso (Reiniciar, el descanso justo tras la caída)
     private void Levantarse()
     {
-        if (animator.GetCurrentAnimatorStateInfo(0).shortNameHash != Idle)
+        AnimatorStateInfo estado = animator.GetCurrentAnimatorStateInfo(0);
+        if (estado.shortNameHash == Knockdown && estado.normalizedTime >= momentoPiso) return;
+        if (estado.shortNameHash != Idle)
             animator.CrossFadeInFixedTime(Idle, 0.4f, 0);
     }
 }

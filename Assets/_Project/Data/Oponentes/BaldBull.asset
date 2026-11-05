@@ -21,6 +21,8 @@ MonoBehaviour:
   multiplicadorCabeza: 1.5
   danoMinimoPorRapidez: 0.4
   caidasParaDerrota: 3
+  cuentaKnockdown: 10
+  segundosAlLevantarse: 1.3
   segundosKnockdown: 3.7
   invulnerabilidad: 0.2
   rapidezGolpeCompleto: 2.5

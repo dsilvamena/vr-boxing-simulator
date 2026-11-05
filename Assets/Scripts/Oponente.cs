@@ -7,6 +7,7 @@ using UnityEngine;
 /// Cómo se ve la reacción lo decide otro componente (ReaccionAnimada o ReaccionProcedural).
 /// Si tiene DefensaOponente, esta decide qué golpes bloquea: un golpe bloqueado quita poca salud, nunca lo tumba
 /// y lanza AlBloquear en vez de AlRecibirGolpe (así no hay animación de reacción).
+/// Tras un knockdown se levanta cuando termina la cuenta del réferi (Arbitro) o, si no hay réferi, a los segundosKnockdown.
 /// </summary>
 public class Oponente : MonoBehaviour
 {
@@ -40,6 +41,8 @@ public class Oponente : MonoBehaviour
     public float SaludNormalizada => perfil.saludMaxima > 0f ? Salud / perfil.saludMaxima : 0f;
     /// <summary>Los golpes no cuentan: ControlRondas lo activa fuera de los rounds.</summary>
     public bool Protegido { get; set; }
+    /// <summary>Hay réferi: se levanta cuando él lo decide y no con segundosKnockdown. Lo mantiene Arbitro.</summary>
+    public bool LevantaArbitro { get; set; }
 
     private float invulnerableHasta;
     private float levantarseEn;
@@ -58,7 +61,7 @@ public class Oponente : MonoBehaviour
 
     private void Update()
     {
-        if (Caido && !Derrotado && Time.time >= levantarseEn) Levantarse();
+        if (Caido && !Derrotado && !LevantaArbitro && Time.time >= levantarseEn) Levantarse();
     }
 
     /// <summary>Devuelve NoCuenta si está caído, protegido o aún invulnerable; si no, si el golpe conectó o lo bloqueó.</summary>
@@ -72,8 +75,7 @@ public class Oponente : MonoBehaviour
         bool bloqueado = defensa != null && defensa.Bloquea(golpe);
 
         float dano = CalcularDano(golpe) * (bloqueado ? perfil.danoTrasBloqueo : 1f);
-        // Umbral de la próxima caída: con 3 caídas → 66 %, 33 % y 0 %
-        float umbral = perfil.saludMaxima * (1f - (Caidas + 1f) / perfil.caidasParaDerrota);
+        float umbral = UmbralProximaCaida;
         // Bloqueado resta un poco pero nunca cruza el umbral: solo los golpes que entran tumban
         Salud = bloqueado ? Mathf.Max(Salud - dano, Mathf.Min(Salud, umbral + 1f)) : Mathf.Max(0f, Salud - dano);
 
@@ -94,19 +96,31 @@ public class Oponente : MonoBehaviour
         AlRecibirGolpe?.Invoke(golpe);
         AlCambiarSalud?.Invoke(Salud, perfil.saludMaxima);
 
-        if (Salud <= umbral)
-        {
-            Salud = umbral; // un golpe fuerte no se salta umbrales
-            Caidas++;
-            Caido = true;
-            Derrotado = Caidas >= perfil.caidasParaDerrota;
-            levantarseEn = Time.time + perfil.segundosKnockdown;
-            if (registrarGolpes) Debug.Log($"{name}: {(Derrotado ? "derrotado" : $"knockdown {Caidas}")}", this);
-            if (perfil.sonidoKO != null) Sonar(new[] { perfil.sonidoKO }, golpe.punto);
-            AlCaer?.Invoke(golpe);
-            AlCambiarSalud?.Invoke(Salud, perfil.saludMaxima);
-        }
+        if (Salud <= umbral) Caer(golpe);
         return ResultadoGolpe.Conectado;
+    }
+
+    /// <summary>Lo tumba en la siguiente caída, sin golpe (para probar la cuenta del réferi).</summary>
+    public void Derribar()
+    {
+        if (Caido) return;
+        Caer(new Golpe { tipo = TipoGolpe.Cross, velocidad = -transform.forward, punto = transform.position + Vector3.up * perfil.alturaAtaque });
+    }
+
+    // Umbral de la próxima caída: con 3 caídas → 66 %, 33 % y 0 %
+    private float UmbralProximaCaida => perfil.saludMaxima * (1f - (Caidas + 1f) / perfil.caidasParaDerrota);
+
+    private void Caer(Golpe golpe)
+    {
+        Salud = UmbralProximaCaida; // un golpe fuerte no se salta umbrales
+        Caidas++;
+        Caido = true;
+        Derrotado = Caidas >= perfil.caidasParaDerrota;
+        levantarseEn = Time.time + perfil.segundosKnockdown;
+        if (registrarGolpes) Debug.Log($"{name}: {(Derrotado ? "derrotado" : $"knockdown {Caidas}")}", this);
+        if (perfil.sonidoKO != null) Sonar(new[] { perfil.sonidoKO }, golpe.punto);
+        AlCaer?.Invoke(golpe);
+        AlCambiarSalud?.Invoke(Salud, perfil.saludMaxima);
     }
 
     private float CalcularDano(Golpe golpe)
@@ -127,6 +141,8 @@ public class Oponente : MonoBehaviour
     public void Levantarse()
     {
         Caido = false;
+        // Tras una cuenta la animación sale del piso a partir de aquí: mientras se incorpora, no recibe golpes
+        if (LevantaArbitro) invulnerableHasta = Time.time + perfil.segundosAlLevantarse;
         AlLevantarse?.Invoke();
     }
 

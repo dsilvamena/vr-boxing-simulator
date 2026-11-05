@@ -13,7 +13,7 @@ public class Puno : MonoBehaviour
     [SerializeField] private float velocidadMinima = 0.5f;
     [Tooltip("Suavizado de la velocidad medida (0-1, más alto = más reacción)")]
     [SerializeField, Range(0.05f, 1f)] private float suavizado = 0.5f;
-    [Tooltip("Segundos tras conectar un golpe en los que este puño no conecta otro")]
+    [Tooltip("Segundos tras un golpe conectado, bloqueado o esquivado en los que este puño no conecta otro")]
     [SerializeField] private float enfriamiento = 0.25f;
 
     [Header("Vibración")]
@@ -100,6 +100,8 @@ public class Puno : MonoBehaviour
         if (resultado == ResultadoGolpe.NoCuenta) return;
 
         listoEn = Time.time + enfriamiento;
+        // Dio al aire: sin vibración de impacto. El enfriamiento evita que el mismo golpe conecte en la otra zona
+        if (resultado == ResultadoGolpe.Esquivado) return;
         if (resultado == ResultadoGolpe.Bloqueado)
         {
             Vibrar(PatronBloqueado, 1f, FrecuenciaBloqueo);

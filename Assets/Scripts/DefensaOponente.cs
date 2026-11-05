@@ -32,6 +32,8 @@ public class DefensaOponente : MonoBehaviour
 
     /// <summary>Tiene la guardia arriba: el próximo golpe se bloquea.</summary>
     public bool EnGuardia => Time.time < guardiaHasta && !Atacando;
+    /// <summary>Tiene la guardia arriba o acaba de bajarla. EsquiveOponente no esquiva entonces: la abertura es el premio del jugador.</summary>
+    public bool GuardiaOcupada => Time.time < guardiaHasta + aberturaTrasGuardia;
     /// <summary>Probabilidad de bloquear el próximo golpe si llega ahora.</summary>
     public float ProbabilidadActual
     {

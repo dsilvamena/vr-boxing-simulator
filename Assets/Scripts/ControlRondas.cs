@@ -64,6 +64,7 @@ public class ControlRondas : MonoBehaviour
 
     private AtaqueOponente ataque;
     private DefensaOponente defensa;
+    private EsquiveOponente esquive;
     private Vector3 posicionInicialRival;
 
     private void Awake()
@@ -79,6 +80,7 @@ public class ControlRondas : MonoBehaviour
         }
         ataque = oponente.GetComponent<AtaqueOponente>();
         defensa = oponente.GetComponent<DefensaOponente>();
+        esquive = oponente.GetComponent<EsquiveOponente>();
         SegundosRestantes = segundosPreparacion;
     }
 
@@ -152,6 +154,7 @@ public class ControlRondas : MonoBehaviour
         DetenerPelea(volverAlInicio: true);
         if (oponente.Caido && !oponente.Derrotado) oponente.Levantarse();
         if (defensa != null) defensa.Reiniciar();
+        if (esquive != null) esquive.Reiniciar();
         jugador.EstablecerSalud(jugador.Salud + jugador.SaludMaxima * fraccionSaludDescanso);
         if (registrar) Debug.Log($"Descanso de {segundosDescanso:F0} s: jugador con {jugador.Salud:F0}/{jugador.SaludMaxima:F0} de salud", this);
     }

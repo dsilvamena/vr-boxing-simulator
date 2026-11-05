@@ -32,19 +32,30 @@ MonoBehaviour:
   ventanaGolpesSeguidos: 1.5
   segundosGuardia: 0.6
   danoTrasBloqueo: 0.15
+  probabilidadEsquive: 0
+  distanciaEsquive: 0.35
+  enfriamientoEsquive: 1.5
+  ventanaContraataque: {x: 0.3, y: 0.6}
+  segundosEsquive: 0.15
+  segundosRegresoEsquive: 0.35
   velocidadAtaque: 0.9
   velocidadDesplazamiento: 0.4
   distanciaCombate: 1.1
   intervaloAtaque: {x: 4, y: 6}
   uppercutCada: 4
+  combo: 
+  segundosEntreGolpesCombo: 0.15
   esperaTrasGolpe: {x: 1.5, y: 2.5}
   esperaTrasLevantarse: 3
   contraataqueTrasBloqueo: {x: 1, y: 1.6}
   castigoGuardiaBaja: 0.3
   danoAtaqueJab: 4
   danoAtaqueUppercut: 7
+  danoAtaqueGancho: 10
   retardoImpactoJab: 0.35
   retardoImpactoUppercut: 0.45
+  retardoImpactoGancho: 0.9
+  retardoImpactoGancho2: 0.5
   alcanceAtaque: 1.5
   radioImpacto: 0.3
   alturaAtaque: 1.45

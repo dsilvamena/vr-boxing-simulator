@@ -83,6 +83,14 @@ public class DefensaOponente : MonoBehaviour
         return true;
     }
 
+    /// <summary>Baja la guardia y olvida los golpes seguidos (descanso entre rounds).</summary>
+    public void Reiniciar()
+    {
+        guardiaHasta = -10f;
+        ultimoGolpe = -10f;
+        seguidos = 0;
+    }
+
     private void Update()
     {
         bool arriba = EnGuardia && !oponente.Caido;

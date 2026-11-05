@@ -38,6 +38,8 @@ public class Oponente : MonoBehaviour
     public bool Derrotado { get; private set; }
     public float Salud { get; private set; }
     public float SaludNormalizada => perfil.saludMaxima > 0f ? Salud / perfil.saludMaxima : 0f;
+    /// <summary>Los golpes no cuentan: ControlRondas lo activa fuera de los rounds.</summary>
+    public bool Protegido { get; set; }
 
     private float invulnerableHasta;
     private float levantarseEn;
@@ -59,10 +61,10 @@ public class Oponente : MonoBehaviour
         if (Caido && !Derrotado && Time.time >= levantarseEn) Levantarse();
     }
 
-    /// <summary>Devuelve NoCuenta si está caído o aún invulnerable; si no, si el golpe conectó o lo bloqueó.</summary>
+    /// <summary>Devuelve NoCuenta si está caído, protegido o aún invulnerable; si no, si el golpe conectó o lo bloqueó.</summary>
     public ResultadoGolpe RecibirGolpe(Golpe golpe)
     {
-        if (Caido || Time.time < invulnerableHasta) return ResultadoGolpe.NoCuenta;
+        if (Caido || Protegido || Time.time < invulnerableHasta) return ResultadoGolpe.NoCuenta;
         invulnerableHasta = Time.time + perfil.invulnerabilidad;
 
         // Satura en rapidezGolpeCompleto: no hace falta pegar con toda la fuerza
@@ -126,6 +128,13 @@ public class Oponente : MonoBehaviour
     {
         Caido = false;
         AlLevantarse?.Invoke();
+    }
+
+    /// <summary>Fija la salud sin caídas ni reacción (para probar la decisión por salud).</summary>
+    public void EstablecerSalud(float valor)
+    {
+        Salud = Mathf.Clamp(valor, 0f, perfil.saludMaxima);
+        AlCambiarSalud?.Invoke(Salud, perfil.saludMaxima);
     }
 
     /// <summary>Vuelve al estado inicial (otro combate o ronda).</summary>

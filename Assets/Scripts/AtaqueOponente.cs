@@ -50,6 +50,8 @@ public class AtaqueOponente : MonoBehaviour
     private bool frenado;     // el Animator está detenido con el guante contra la guardia
     private bool retirando;   // el golpe fue bloqueado: tras pausaGuardia se retira el brazo
     private float retirarEn;
+    private bool pausado;
+    private Vector3? destinoPausa;
 
     /// <summary>Está lanzando un golpe (o empezando a lanzarlo).</summary>
     public bool Atacando
@@ -100,6 +102,12 @@ public class AtaqueOponente : MonoBehaviour
         }
         MirarObjetivo();
 
+        if (pausado)
+        {
+            CaminarAlDestino();
+            return;
+        }
+
         // Si el jugador está en el piso (cuenta de 10 s), no ataca; al levantarse espera esperaTrasLevantarse
         if (jugador == null) jugador = FindAnyObjectByType<SaludJugador>();
         if (jugador != null && jugador.Derribado)
@@ -135,6 +143,35 @@ public class AtaqueOponente : MonoBehaviour
         float retardo = uppercut ? p.retardoImpactoUppercut : p.retardoImpactoJab;
         impactoEn = Time.time + retardo / Mathf.Max(0.1f, p.velocidadAtaque);
         Esperar(p.intervaloAtaque);
+    }
+
+    /// <summary>
+    /// Deja de atacar y de buscar al jugador (descanso entre rounds, fin del combate) y corta el golpe que estuviera
+    /// lanzando. Sigue mirando al jugador y, si se indica un destino, camina hasta él.
+    /// </summary>
+    public void Pausar(Vector3? destino = null)
+    {
+        pausado = true;
+        destinoPausa = destino;
+        impactoEn = -1f;
+        frenado = retirando = false;
+        animator.speed = 1f;
+        // Si acaba de caer, no le pisa la animación de caída
+        if (Atacando && !oponente.Caido) animator.CrossFadeInFixedTime(Idle, retornoGuardia, 0, 0f);
+    }
+
+    /// <summary>Vuelve a pelear; el primer ataque llega tras la espera normal.</summary>
+    public void Reanudar()
+    {
+        pausado = false;
+        destinoPausa = null;
+        Esperar(oponente.Perfil.intervaloAtaque);
+    }
+
+    private void CaminarAlDestino()
+    {
+        if (destinoPausa == null) return;
+        transform.position = Vector3.MoveTowards(transform.position, destinoPausa.Value, oponente.Perfil.velocidadDesplazamiento * Time.deltaTime);
     }
 
     private void ResolverImpacto()

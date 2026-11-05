@@ -107,7 +107,6 @@ public class RecuperacionJugador : MonoBehaviour
         if (Derribos > Oportunidades)
         {
             if (registrar) Debug.Log($"Jugador derribado (caída {Derribos}): sin más oportunidades", this);
-            panel.SetActive(true);
             Perder("Sin más oportunidades");
             return;
         }
@@ -147,11 +146,25 @@ public class RecuperacionJugador : MonoBehaviour
     private void Perder(string motivo = "Se acabó el tiempo")
     {
         Contando = false;
-        texto.text = $"<size=140><b>K.O.</b></size>\n<size=30>{motivo}</size>";
-        relleno.parent.gameObject.SetActive(false);
+        MostrarDerrota($"<size=140><b>K.O.</b></size>\n<size=30>{motivo}</size>");
         if (registrar) Debug.Log($"Jugador pierde por K.O.: {motivo}", this);
         AlPerderPorKO?.Invoke();
         if (!string.IsNullOrEmpty(escenaAlPerder)) StartCoroutine(SalirDeLaPelea());
+    }
+
+    /// <summary>Acabó el último round con menos salud que el rival: misma salida que un K.O., pero sin haber caído.</summary>
+    public void PerderPorSalud()
+    {
+        MostrarDerrota("<size=76><b>DERROTA</b></size>\n<size=30>Perdiste por salud</size>");
+        if (registrar) Debug.Log("Jugador pierde por salud", this);
+        if (!string.IsNullOrEmpty(escenaAlPerder)) StartCoroutine(SalirDeLaPelea());
+    }
+
+    private void MostrarDerrota(string mensaje)
+    {
+        texto.text = mensaje;
+        relleno.parent.gameObject.SetActive(false);
+        panel.SetActive(true);
     }
 
     private IEnumerator SalirDeLaPelea()

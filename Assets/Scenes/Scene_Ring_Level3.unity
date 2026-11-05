@@ -84355,8 +84355,10 @@ MonoBehaviour:
   rondas: {fileID: 0}
   recuperacion: {fileID: 0}
   nivel: 3
-  siguienteEscena: Main_Scene
-  mensaje: "\xA1Derrotaste a {0} y eres el campe\xF3n!\nVolviendo al men\xFA principal"
+  siguienteEscena: Scene_Ring_Level4
+  mensaje: 'Derrotaste a {0}
+
+    Siguiente: Nivel 4'
   nombreRival: 
   textoPorSalud: Ganaste por salud
   segundosAntesDeAvanzar: 6

@@ -122,7 +122,7 @@ public class ControlCombate : MonoBehaviour
 
         var canvas = panel.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
-        canvas.sortingOrder = 120; // por encima de la viñeta de FeedbackSalud y de la cuenta del jugador
+        canvas.sortingOrder = 120; // por encima de la viñeta de FeedbackSalud y del cartel de derrota
         var rt = (RectTransform)panel.transform;
         rt.sizeDelta = new Vector2(800f, 320f);
         rt.localScale = Vector3.one * 0.0015f; // 1,2 m de ancho

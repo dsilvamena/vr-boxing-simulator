@@ -7,10 +7,14 @@ using UnityEngine.UI;
 /// generado por código sobre un canvas pegado a la cámara.
 /// Con poca vida (umbralParpadeo puntos o menos) la pantalla se oscurece y se aclara en bucle, con transiciones suaves;
 /// es solo presentación: no toca la salud ni la lógica del combate.
+/// En la cuenta del jugador en el piso muestra el avance del button mashing (RF-12): la visión se aclara y el latido se
+/// calma con cada pulsación, y cada pulsación vibra más fuerte a medida que se acerca a levantarse.
 /// </summary>
 public class FeedbackSalud : MonoBehaviour
 {
     [SerializeField] private SaludJugador jugador;
+    [Tooltip("Vacío = el RecuperacionJugador de este objeto")]
+    [SerializeField] private RecuperacionJugador recuperacion;
     [Header("Viñeta")]
     [Tooltip("Opacidad máxima de la viñeta con la salud en cero (0-1)")]
     [SerializeField, Range(0f, 1f)] private float intensidadMaxima = 0.95f;
@@ -54,6 +58,17 @@ public class FeedbackSalud : MonoBehaviour
     [Tooltip("Rapidez con la que el latido se apaga al recuperarse (fracción del máximo por segundo)")]
     [SerializeField, Min(0.05f)] private float desvanecerVolumen = 0.4f;
 
+    [Header("Háptica de la recuperación (RF-15)")]
+    [Tooltip("Amplitud de la primera pulsación de A / B / X / Y")]
+    [SerializeField, Range(0f, 1f)] private float hapticaPulsacionInicial = 0.25f;
+    [Tooltip("Amplitud de la última pulsación antes de levantarse")]
+    [SerializeField, Range(0f, 1f)] private float hapticaPulsacionFinal = 1f;
+    [Tooltip("Segundos que vibra cada pulsación; corto, para que se distingan al pulsar rápido")]
+    [SerializeField, Min(0.01f)] private float segundosHapticaPulsacion = 0.05f;
+
+    // Dos golpes fuertes al ponerse de pie, para que se note que ya no hace falta pulsar
+    private static readonly Vector2[] PatronLevantarse = { new(1f, 0.12f), new(0f, 0.06f), new(1f, 0.2f) };
+
     private RawImage imagen;
     private Texture2D textura;
     private AudioSource audioSource;
@@ -70,6 +85,7 @@ public class FeedbackSalud : MonoBehaviour
     private void Awake()
     {
         if (jugador == null) jugador = GetComponent<SaludJugador>();
+        if (recuperacion == null) recuperacion = GetComponent<RecuperacionJugador>();
         var rig = GetComponentInParent<OVRCameraRig>();
         if (rig == null) { Debug.LogWarning($"{name}: FeedbackSalud necesita el OVRCameraRig.", this); enabled = false; return; }
 
@@ -87,6 +103,33 @@ public class FeedbackSalud : MonoBehaviour
                              "cada latido cortará al anterior. Usa un clip de un solo latido o recórtalo.", this);
     }
 
+    private void OnEnable()
+    {
+        if (recuperacion == null) return;
+        recuperacion.AlPulsar += AlPulsar;
+        recuperacion.AlLevantarse += AlLevantarse;
+    }
+
+    private void OnDisable()
+    {
+        if (recuperacion == null) return;
+        recuperacion.AlPulsar -= AlPulsar;
+        recuperacion.AlLevantarse -= AlLevantarse;
+    }
+
+    private void AlPulsar(float progreso)
+    {
+        float amplitud = Mathf.Lerp(hapticaPulsacionInicial, hapticaPulsacionFinal, progreso);
+        jugador.Vibrar(new[] { new Vector2(amplitud, segundosHapticaPulsacion) });
+    }
+
+    private void AlLevantarse() => jugador.Vibrar(PatronLevantarse);
+
+    // En el piso manda el avance de la recuperación y no la salud, que sube distinto en cada caída: así el jugador nota
+    // lo mismo en todas. Al completarse queda justo en el umbral del latido: la vista despejada y el corazón ya calmado.
+    private bool EnCuenta => recuperacion != null && recuperacion.Contando;
+    private float SaludPercibida => EnCuenta ? recuperacion.Progreso * umbralLatido : jugador.SaludNormalizada;
+
     private void OnDestroy()
     {
         if (textura != null) Destroy(textura);
@@ -95,7 +138,7 @@ public class FeedbackSalud : MonoBehaviour
     private void Update()
     {
         if (jugador == null) return;
-        float dano = 1f - jugador.SaludNormalizada;
+        float dano = 1f - SaludPercibida;
 
         opacidad = Mathf.MoveTowards(opacidad, dano * intensidadMaxima, velocidadCambio * Time.unscaledDeltaTime);
         pulso = Mathf.MoveTowards(pulso, 0f, 3f * Time.unscaledDeltaTime);
@@ -114,15 +157,17 @@ public class FeedbackSalud : MonoBehaviour
     {
         if (latido == null) return;
         float dt = Time.unscaledDeltaTime;
-        float salud = jugador.SaludNormalizada;
-        bool activo = salud < umbralLatido;
+        float salud = SaludPercibida;
+        // En la cuenta sigue sonando hasta el final, para que el ritmo cuente el avance
+        bool activo = salud < umbralLatido || EnCuenta;
 
         // Gravedad: 0 en el umbral → 1 con la salud en cero; la curva suave evita arranques y topes bruscos
         float gravedad = Mathf.SmoothStep(0f, 1f, 1f - Mathf.InverseLerp(0f, umbralLatido, salud));
 
         // Ritmo: sigue a la salud con una velocidad limitada (sube rápido, se calma despacio)
         float bpmObjetivo = Mathf.Lerp(bpmSuave, Mathf.Max(bpmSuave, bpmUrgente), gravedad);
-        float pasoRitmo = (bpmObjetivo > bpmActual ? subidaRitmo : bajadaRitmo) * dt;
+        // Las pulsaciones duran pocos segundos: en la cuenta se calma tan rápido como sube, o no se notaría
+        float pasoRitmo = (bpmObjetivo > bpmActual || EnCuenta ? subidaRitmo : bajadaRitmo) * dt;
         bpmActual = Mathf.MoveTowards(bpmActual, bpmObjetivo, pasoRitmo);
 
         // Volumen: aparece poco a poco al cruzar el umbral y se apaga poco a poco al recuperarse
@@ -149,10 +194,11 @@ public class FeedbackSalud : MonoBehaviour
     }
 
     // Poca vida: oscurece toda la vista y la devuelve a su brillo en bucle. Se apaga con el menú de pausa.
+    // En la cuenta parpadea siempre, y cada vez menos a medida que el jugador se repone.
     private void ActualizarParpadeo()
     {
         float dt = Time.unscaledDeltaTime;
-        bool activo = jugador.Salud <= umbralParpadeo && Time.timeScale > 0f;
+        bool activo = (jugador.Salud <= umbralParpadeo || EnCuenta) && Time.timeScale > 0f;
         pesoParpadeo = Mathf.MoveTowards(pesoParpadeo, activo ? 1f : 0f, dt / tiempoTransicion);
 
         float alfa = 0f;
@@ -161,7 +207,7 @@ public class FeedbackSalud : MonoBehaviour
             faseParpadeo += dt / periodoParpadeo;
             // 0 → 1 → 0 con coseno: empieza con el brillo normal y los cambios son suaves
             float onda = 0.5f - 0.5f * Mathf.Cos(faseParpadeo * 2f * Mathf.PI);
-            alfa = oscuridadParpadeo * pesoParpadeo * onda;
+            alfa = oscuridadParpadeo * pesoParpadeo * onda * (EnCuenta ? 1f - recuperacion.Progreso : 1f);
         }
         else
         {

@@ -170,7 +170,8 @@ public class SaludJugador : MonoBehaviour
         if (clip != null) AudioSource.PlayClipAtPoint(clip, punto, volumenGolpes);
     }
 
-    private void Vibrar(Vector2[] patron)
+    /// <summary>Vibra en los dos controles (x = amplitud, 0 = pausa; y = segundos), escalado por la opción "haptica".</summary>
+    public void Vibrar(Vector2[] patron)
     {
         float escala = PlayerPrefs.GetFloat("haptica", 1f);
         if (escala <= 0.01f) return;

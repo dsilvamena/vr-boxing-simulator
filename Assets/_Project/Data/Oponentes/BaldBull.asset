@@ -32,6 +32,7 @@ MonoBehaviour:
   ventanaGolpesSeguidos: 1.5
   segundosGuardia: 0.8
   danoTrasBloqueo: 0.15
+  guardiaGrabada: {fileID: 11400000, guid: 46766523a6799475ea1edfac49c7e450, type: 2}
   probabilidadEsquive: 0
   distanciaEsquive: 0.35
   enfriamientoEsquive: 1.5

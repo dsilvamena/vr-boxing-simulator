@@ -1,0 +1,184 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0fb767077e73b43a9aae089931eae5f8, type: 3}
+  m_Name: Guardia_Provisional
+  m_EditorClassIdentifier: Assembly-CSharp::GrabacionGuardia
+  origen: "Provisional, sintetizada sin visor: arco desde el pecho hasta la guardia
+    fija de DefensaOponente (0,1; -0,05; 0,22). Reemplazar por una grabaci\xF3n real
+    (GrabadoraGuardia)."
+  alturaCabeza: 1.45
+  muestras:
+  - t: 0
+    izquierda: {x: -0.16, y: -0.4, z: 0.18}
+    derecha: {x: 0.16, y: -0.4, z: 0.18}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.01
+    izquierda: {x: -0.15982787, y: -0.39899597, z: 0.18065546}
+    derecha: {x: 0.15982787, y: -0.39899597, z: 0.18065546}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.02
+    izquierda: {x: -0.15932617, y: -0.39606935, z: 0.18256569}
+    derecha: {x: 0.15932617, y: -0.39606935, z: 0.18256569}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.03
+    izquierda: {x: -0.15851684, y: -0.39134827, z: 0.18564355}
+    derecha: {x: 0.15851684, y: -0.39134827, z: 0.18564355}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.04
+    izquierda: {x: -0.15742187, y: -0.38496095, z: 0.1897936}
+    derecha: {x: 0.15742187, y: -0.38496095, z: 0.1897936}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.049999997
+    izquierda: {x: -0.15606323, y: -0.37703553, z: 0.19490485}
+    derecha: {x: 0.15606323, y: -0.37703553, z: 0.19490485}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.06
+    izquierda: {x: -0.15446289, y: -0.3677002, z: 0.20084408}
+    derecha: {x: 0.15446289, y: -0.3677002, z: 0.20084408}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.07
+    izquierda: {x: -0.15264282, y: -0.35708314, z: 0.20745061}
+    derecha: {x: 0.15264282, y: -0.35708314, z: 0.20745061}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.08
+    izquierda: {x: -0.15062499, y: -0.3453125, z: 0.2145338}
+    derecha: {x: 0.15062499, y: -0.3453125, z: 0.2145338}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.089999996
+    izquierda: {x: -0.14843139, y: -0.3325165, z: 0.22187418}
+    derecha: {x: 0.14843139, y: -0.3325165, z: 0.22187418}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.099999994
+    izquierda: {x: -0.14608398, y: -0.31882325, z: 0.22922872}
+    derecha: {x: 0.14608398, y: -0.31882325, z: 0.22922872}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.11
+    izquierda: {x: -0.14360474, y: -0.30436096, z: 0.23634017}
+    derecha: {x: 0.14360474, y: -0.30436096, z: 0.23634017}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.12
+    izquierda: {x: -0.14101562, y: -0.28925782, z: 0.24294972}
+    derecha: {x: 0.14101562, y: -0.28925782, z: 0.24294972}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.13
+    izquierda: {x: -0.13833863, y: -0.27364197, z: 0.24881236}
+    derecha: {x: 0.13833863, y: -0.27364197, z: 0.24881236}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.14
+    izquierda: {x: -0.1355957, y: -0.2576416, z: 0.25371262}
+    derecha: {x: 0.1355957, y: -0.2576416, z: 0.25371262}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.14999999
+    izquierda: {x: -0.13280883, y: -0.2413849, z: 0.25747973}
+    derecha: {x: 0.13280883, y: -0.2413849, z: 0.25747973}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.16
+    izquierda: {x: -0.13, y: -0.22500001, z: 0.26}
+    derecha: {x: 0.13, y: -0.22500001, z: 0.26}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.17
+    izquierda: {x: -0.12719116, y: -0.20861511, z: 0.26122484}
+    derecha: {x: 0.12719116, y: -0.20861511, z: 0.26122484}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.17999999
+    izquierda: {x: -0.1244043, y: -0.1923584, z: 0.26117352}
+    derecha: {x: 0.1244043, y: -0.1923584, z: 0.26117352}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.19
+    izquierda: {x: -0.12166138, y: -0.17635803, z: 0.25993052}
+    derecha: {x: 0.12166138, y: -0.17635803, z: 0.25993052}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.19999999
+    izquierda: {x: -0.11898437, y: -0.1607422, z: 0.25763723}
+    derecha: {x: 0.11898437, y: -0.1607422, z: 0.25763723}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.21
+    izquierda: {x: -0.116395265, y: -0.14563905, z: 0.2544798}
+    derecha: {x: 0.116395265, y: -0.14563905, z: 0.2544798}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.22
+    izquierda: {x: -0.11391602, y: -0.13117675, z: 0.250674}
+    derecha: {x: 0.11391602, y: -0.13117675, z: 0.250674}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.22999999
+    izquierda: {x: -0.11156861, y: -0.11748352, z: 0.24644938}
+    derecha: {x: 0.11156861, y: -0.11748352, z: 0.24644938}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.24
+    izquierda: {x: -0.109375, y: -0.104687504, z: 0.2420338}
+    derecha: {x: 0.109375, y: -0.104687504, z: 0.2420338}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.25
+    izquierda: {x: -0.10735718, y: -0.09291687, z: 0.23764105}
+    derecha: {x: 0.10735718, y: -0.09291687, z: 0.23764105}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.26
+    izquierda: {x: -0.10553711, y: -0.082299806, z: 0.23346126}
+    derecha: {x: 0.10553711, y: -0.082299806, z: 0.23346126}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.26999998
+    izquierda: {x: -0.10393677, y: -0.07296448, z: 0.2296558}
+    derecha: {x: 0.10393677, y: -0.07296448, z: 0.2296558}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.28
+    izquierda: {x: -0.102578126, y: -0.06503906, z: 0.22635609}
+    derecha: {x: 0.102578126, y: -0.06503906, z: 0.22635609}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.29
+    izquierda: {x: -0.10148316, y: -0.058651734, z: 0.22366601}
+    derecha: {x: 0.10148316, y: -0.058651734, z: 0.22366601}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.29999998
+    izquierda: {x: -0.10067383, y: -0.053930666, z: 0.22166723}
+    derecha: {x: 0.10067383, y: -0.053930666, z: 0.22166723}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.31
+    izquierda: {x: -0.10017212, y: -0.05100403, z: 0.22042598}
+    derecha: {x: 0.10017212, y: -0.05100403, z: 0.22042598}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}
+  - t: 0.32
+    izquierda: {x: -0.1, y: -0.05, z: 0.22}
+    derecha: {x: 0.1, y: -0.05, z: 0.22}
+    rotacionIzquierda: {x: 0, y: 0, z: 0, w: 1}
+    rotacionDerecha: {x: 0, y: 0, z: 0, w: 1}

@@ -8,7 +8,8 @@ using UnityEngine.UI;
 /// Con poca vida (umbralParpadeo puntos o menos) la pantalla se oscurece y se aclara en bucle, con transiciones suaves;
 /// es solo presentación: no toca la salud ni la lógica del combate.
 /// En la cuenta del jugador en el piso muestra el avance del button mashing (RF-12): la visión se aclara y el latido se
-/// calma con cada pulsación, y cada pulsación vibra más fuerte a medida que se acerca a levantarse.
+/// calma con cada pulsación, y cada pulsación vibra más fuerte a medida que se acerca a levantarse. Cada número de la cuenta da
+/// un tic en los dos controles, más fuerte cuanto más cerca del 10.
 /// </summary>
 public class FeedbackSalud : MonoBehaviour
 {
@@ -65,6 +66,10 @@ public class FeedbackSalud : MonoBehaviour
     [SerializeField, Range(0f, 1f)] private float hapticaPulsacionFinal = 1f;
     [Tooltip("Segundos que vibra cada pulsación; corto, para que se distingan al pulsar rápido")]
     [SerializeField, Min(0.01f)] private float segundosHapticaPulsacion = 0.05f;
+    [Tooltip("Tic en los dos controles con cada número de la cuenta: amplitud con el 1 y con el 10 (sube con la urgencia). 0 = sin tic")]
+    [SerializeField] private Vector2 hapticaTicCuenta = new Vector2(0.2f, 0.6f);
+    [Tooltip("Segundos que dura cada tic de la cuenta")]
+    [SerializeField, Min(0.01f)] private float segundosTicCuenta = 0.03f;
 
     // Dos golpes fuertes al ponerse de pie, para que se note que ya no hace falta pulsar
     private static readonly Vector2[] PatronLevantarse = { new(1f, 0.12f), new(0f, 0.06f), new(1f, 0.2f) };
@@ -78,6 +83,7 @@ public class FeedbackSalud : MonoBehaviour
     private float volumenActual;
     private float faseLatido;
     private Image oscurecedor;
+    private int ultimoTic; // último número de la cuenta que vibró; 0 = sin cuenta
     private float pesoParpadeo;
     private float faseParpadeo;
     private float alfaParpadeo;
@@ -125,6 +131,23 @@ public class FeedbackSalud : MonoBehaviour
 
     private void AlLevantarse() => jugador.Vibrar(PatronLevantarse);
 
+    // Un tic por número, al ritmo de la voz del réferi (10 números en la cuenta): marca que el tiempo corre y llama a
+    // pulsar aunque el jugador no mire al réferi. Funciona también sin Arbitro en la escena
+    private void TicCuenta()
+    {
+        if (!EnCuenta || recuperacion.SegundosCuenta <= 0f)
+        {
+            ultimoTic = 0;
+            return;
+        }
+        float transcurrido = recuperacion.SegundosCuenta - recuperacion.SegundosRestantes;
+        int numero = Mathf.Clamp(Mathf.FloorToInt(transcurrido / (recuperacion.SegundosCuenta / 10f)) + 1, 1, 10);
+        if (numero == ultimoTic) return;
+        ultimoTic = numero;
+        float amplitud = Mathf.Lerp(hapticaTicCuenta.x, hapticaTicCuenta.y, (numero - 1) / 9f);
+        if (amplitud > 0f) jugador.Vibrar(new[] { new Vector2(amplitud, segundosTicCuenta) });
+    }
+
     // En el piso manda el avance de la recuperación y no la salud, que sube distinto en cada caída: así el jugador nota
     // lo mismo en todas. Al completarse queda justo en el umbral del latido: la vista despejada y el corazón ya calmado.
     private bool EnCuenta => recuperacion != null && recuperacion.Contando;
@@ -149,6 +172,8 @@ public class FeedbackSalud : MonoBehaviour
         ActualizarParpadeo();
 
         ActualizarLatido();
+
+        TicCuenta();
     }
 
     // Latido gradual: el ritmo y el volumen siguen a la salud con suavizado, así que ni al perder ni al recuperar

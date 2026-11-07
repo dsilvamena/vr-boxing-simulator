@@ -5,6 +5,8 @@ using UnityEngine;
 /// Puño de una mano: Rigidbody kinematic que sigue al controlador y le avisa a los Oponente
 /// cuando entra en una de sus ZonaGolpe.
 /// La velocidad se mide relativa al TrackingSpace, así moverse o girar con el joystick no cuenta como golpe.
+/// Vibra distinto según lo que pasó (RF-15): cada tipo de golpe conectado tiene su patrón, el golpe que tumba al rival
+/// tiene tres pulsos fuertes, el que bloquea dos toques sordos de baja frecuencia y el que esquiva un roce casi imperceptible.
 /// </summary>
 [RequireComponent(typeof(Rigidbody), typeof(Collider))]
 public class Puno : MonoBehaviour
@@ -30,6 +32,10 @@ public class Puno : MonoBehaviour
     // El rival paró el golpe: dos toques sordos, con frecuencia baja (FrecuenciaBloqueo) para que se sienta apagado
     private static readonly Vector2[] PatronBloqueado = { new(0.8f, 0.04f), new(0f, 0.05f), new(0.5f, 0.08f) };
     private const float FrecuenciaBloqueo = 0.25f;
+    // El rival lo esquivó: un roce corto y flojo, para que se note que el puño no tocó nada sólido
+    private static readonly Vector2[] PatronEsquivado = { new(0.15f, 0.03f) };
+    // El golpe lo tumbó: tres pulsos fuertes, el último largo, distinto de cualquier golpe normal
+    private static readonly Vector2[] PatronDerribo = { new(1f, 0.08f), new(0f, 0.04f), new(1f, 0.08f), new(0f, 0.04f), new(1f, 0.22f) };
 
     private Transform espacio;
     private Transform cabeza;
@@ -100,11 +106,21 @@ public class Puno : MonoBehaviour
         if (resultado == ResultadoGolpe.NoCuenta) return;
 
         listoEn = Time.time + enfriamiento;
-        // Dio al aire: sin vibración de impacto. El enfriamiento evita que el mismo golpe conecte en la otra zona
-        if (resultado == ResultadoGolpe.Esquivado) return;
+        // Dio al aire: solo un roce, sin vibración de impacto. El enfriamiento evita que el mismo golpe conecte en la otra zona
+        if (resultado == ResultadoGolpe.Esquivado)
+        {
+            Vibrar(PatronEsquivado, 1f);
+            return;
+        }
         if (resultado == ResultadoGolpe.Bloqueado)
         {
             Vibrar(PatronBloqueado, 1f, FrecuenciaBloqueo);
+            return;
+        }
+        // Conectado y en el piso: este golpe lo tumbó (si ya estaba caído no habría contado)
+        if (zona.Oponente.Caido)
+        {
+            Vibrar(PatronDerribo, 1f);
             return;
         }
         float intensidad = Mathf.Lerp(vibracionMinima, 1f, velocidad.magnitude / rapidezVibracionMaxima);
@@ -132,11 +148,11 @@ public class Puno : MonoBehaviour
         foreach (Vector2 pulso in patron)
         {
             float amplitud = pulso.x * escala;
-            OVRInput.SetControllerVibration(amplitud > 0f ? frecuencia : 0f, amplitud, Controlador());
+            Haptica.Fijar(amplitud > 0f ? frecuencia : 0f, amplitud, Controlador());
             // Realtime para que se corte aunque el juego se pause justo después
             yield return new WaitForSecondsRealtime(pulso.y);
         }
-        OVRInput.SetControllerVibration(0f, 0f, Controlador());
+        Haptica.Apagar(Controlador());
         vibracion = null;
     }
 
@@ -145,7 +161,7 @@ public class Puno : MonoBehaviour
         if (vibracion == null) return;
         StopCoroutine(vibracion);
         vibracion = null;
-        OVRInput.SetControllerVibration(0f, 0f, Controlador());
+        Haptica.Apagar(Controlador());
     }
 
     private OVRInput.Controller Controlador() => Mano == Mano.Izquierda ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch;

@@ -53,6 +53,8 @@ public class PerfilOponente : ScriptableObject
     public float segundosGuardia = 0.7f;
     [Tooltip("Fracción del daño que pasa al bloquear (0 = nada, 1 = todo)")]
     [Range(0f, 1f)] public float danoTrasBloqueo = 0.15f;
+    [Tooltip("Cómo sube los guantes al bloquear, grabado con el visor (GrabadoraGuardia). Vacío = en línea recta hasta la guardia fija de DefensaOponente")]
+    public GrabacionGuardia guardiaGrabada;
 
     [Header("Esquive (RF-07)")]
     [Tooltip("Probabilidad de esquivar un golpe del jugador (0 = nunca esquiva, aunque tenga EsquiveOponente)")]

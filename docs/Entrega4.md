@@ -1,6 +1,6 @@
 # Entrega 4 (semana 13): avance del 70 %
 
-Registro de lo implementado según `docs/Plan_Entrega4_70.md`. Por ahora cubre los bloques A, B y C; los bloques E y D se añadirán al terminarlos.
+Registro de lo implementado según `docs/Plan_Entrega4_70.md`: bloques A a G. Las capturas están en `docs/capturas/` y hay ejemplos del registro de sesión en `docs/ejemplos/`.
 
 ## Bloque A: rondas de 3 × 90 s (RF-10, RF-11)
 
@@ -304,17 +304,195 @@ Estas pruebas se hicieron sin visor ni Meta XR Simulator. Los ataques se provoca
 - El botón del nivel 4 con el puntero láser: se invocó su `onClick` desde código.
 - No se volvió a medir un round completo de 90 s en el nivel 4, aunque usa el mismo componente que los otros niveles. El rendimiento en el Quest (RNF-01) y el *Build And Run* siguen pendientes.
 
+## Bloque D: guardias grabadas para los bloqueos (Hand Grab Recorder)
+
+El informe pide grabar movimientos de mano reales y reproducirlos en los bloqueos de la IA. Hasta ahora `DefensaOponente` llevaba los guantes en línea recta hasta una guardia fija. Ahora puede seguir una trayectoria grabada con el visor.
+
+| Pieza | Qué hace |
+|---|---|
+| `GrabadoraGuardia` (en el `OVRCameraRig` de `Main_Scene`) | Con los dos sticks pulsados a la vez, o con *Probar: grabar guardia*: tres tics de cuenta atrás, graba 2 s a 60 muestras/s y termina con un pulso doble. Recorta la subida de la guardia y la guarda como JSON en `persistentDataPath/Guardias`. En el Editor (Play con Quest Link) también la guarda como asset en `Assets/_Project/Data/Guardias`. |
+| `GrabacionGuardia` (asset) | Posición y rotación de las dos manos respecto a la cabeza en cada muestra, y la altura de la cabeza de quien grabó. |
+| `PerfilOponente.guardiaGrabada` | La guardia que usa cada rival (RNF-10). Vacío = la guardia fija de antes. |
+| *Tools > Boxeo > Importar guardias grabadas* | Convierte en assets los JSON sacados del Quest con `adb pull`. |
+| *Tools > Boxeo > Crear guardia provisional* | Crea `Guardia_Provisional`, un arco sintetizado sin visor. |
+
+### Decisiones
+
+- **Marco de la cabeza sin inclinación:** las manos se guardan respecto a la cabeza con la vertical del mundo y el frente de la cabeza en horizontal. Es el mismo marco con el que el rival, que siempre mira al jugador, coloca los guantes, así que se usa tal cual. Inclinar la cabeza al grabar no tuerce la guardia.
+- **Solo la subida:** el recorte empieza cuando una mano pasa de 0,25 m/s y acaba cuando, después del pico, las dos se quedan por debajo de 0,15 m/s durante 4 muestras. Al bajar la guardia se reproduce al revés.
+- **Parte de la pose animada:** quien graba empieza con las manos en el pecho, pero los rivales ya tienen las manos arriba en `Idle`. Reproducirla tal cual hacía que, al bajar la guardia, las manos se hundieran por debajo de la pose animada (hasta 0,31 m bajo la cabeza en Glass Joe, frente a 0,14 m de su `Idle`). La trayectoria arranca en la pose animada (`GetIKPosition` con peso 0) y esa diferencia se borra a lo largo de la subida. Se conserva la forma del movimiento y no hay saltos.
+- **Escala por altura:** la trayectoria se escala con la altura de la cabeza del rival sobre la de quien grabó, no con la escala del objeto. En Soda (modelo grande con escala 0,8), la guardia fija le metía los guantes en la cara; la escalada por altura lo cubre bien (capturas 09 y 10).
+- **Velocidad:** se mantienen `tiempoSubir` (0,06 s) y `tiempoBajar` (0,3 s). Un bloqueo se decide al contacto y la guardia tiene que estar arriba al instante, así que la subida grabada se comprime. Donde se ve el movimiento grabado es al bajar.
+- **Rotaciones:** se graban, pero todavía no se aplican al rival. Hace falta calibrar con el visor el giro entre el control y la mano del modelo, y aplicarlas sin calibrar podía torcer los guantes.
+- **Guardia provisional:** sin visor no se puede grabar a nadie. `Guardia_Provisional` es un arco desde el pecho hasta la guardia fija anterior, con un leve avance a mitad de camino. Está asignada a los cuatro perfiles para que el sistema se use y se pruebe, y su campo `origen` dice que es sintetizada.
+
+### Pruebas (Play en el Editor)
+
+| Prueba | Resultado |
+|---|---|
+| Posición de los guantes respecto a la cabeza con el avance de la guardia congelado en 0; 0,25; 0,5; 0,75 y 1 (nivel 1) | OK: sale de la pose de `Idle` (−0,17; −0,13; 0,28), avanza a 0,29 a mitad de camino y termina en (−0,09; −0,04; 0,20). Ya no baja de la pose animada |
+| Grabación simulada con la cabeza girada 30° y 10° inclinada, moviendo las manos por código | OK: 2 s grabados y recortados a 31 muestras (0,75 s); empieza en (0,16; −0,45; 0,15) y termina en (0,10; −0,05; 0,25), lo que se puso en el marco de la cabeza |
+| JSON guardado e importado como asset con *Importar guardias grabadas* | OK: 31 muestras y el mismo `origen`. Los archivos de prueba se borraron |
+| Bloqueo forzado en el nivel 1 con la guardia provisional | OK: guardia arriba con peso 1 y abajo 1,2 s después; sin errores |
+| Capturas de Soda con la guardia fija y con la grabada | OK: con la grabada se cubre la cara sin atravesarla |
+
+Sin visor, `OVRCameraRig` vuelve a colocar las manos antes de cada render aunque esté desactivado. Por eso la grabadora acepta cabeza, manos y piso propios (vacíos = los del rig), y la prueba usó transforms creados por código.
+
+### Pendiente de validar
+
+- Grabar una guardia real con el visor (Quest Link en el Editor o en el Quest e importar el JSON) y asignarla a los perfiles en lugar de la provisional.
+- Si los dos sticks a la vez es un gesto cómodo para empezar a grabar con el visor puesto.
+- Calibrar y aplicar las rotaciones de las manos.
+
+## Bloque E: háptica diferenciada completa (RF-15)
+
+El entregable 3 ya tenía un patrón por tipo de golpe conectado, el golpe bloqueado por el rival, el golpe recibido y el ataque bloqueado por el jugador, y el bloque B añadió las pulsaciones y el levantarse. Faltaban estos:
+
+| Evento | Patrón | Dónde |
+|---|---|---|
+| El rival esquiva el golpe | Roce: 0,15 de amplitud durante 30 ms | `Puno` |
+| El golpe tumba al rival | Tres pulsos de 1,0 (80, 80 y 220 ms), con 40 ms entre ellos | `Puno` |
+| Cada número de la cuenta del jugador | Tic de 30 ms en los dos controles, de 0,2 con el 1 a 0,6 con el 10 | `FeedbackSalud` |
+
+### Decisiones
+
+- **Esquivado:** antes no vibraba nada. Un golpe al aire no da sensación de contacto, pero sin ninguna señal el jugador no distingue un esquive de un fallo del tracking. El roce es casi imperceptible y no se confunde con ningún impacto.
+- **Derribo:** es el momento de más recompensa del combate. Su patrón es más largo que cualquier golpe y se reconoce sin mirar. Se detecta porque el rival queda `Caido` en la misma llamada a `RecibirGolpe`.
+- **Tic de la cuenta:** responde al pendiente del bloque B (sin el panel, nada invitaba a pulsar). Va al ritmo de la voz, se nota aunque el jugador no mire al réferi y sube de fuerza con la urgencia. Se calcula con el tiempo de `RecuperacionJugador`, así que funciona también sin `Arbitro`.
+- **El esquive del jugador sigue sin vibrar:** apartar la cabeza ya lo siente el cuerpo, y vibrar daría a entender que hubo contacto.
+- **`Haptica`:** toda la vibración del combate pasa ahora por una clase estática que llama a `OVRInput.SetControllerVibration` y avisa con `AlVibrar`. Con eso las pruebas sin visor ven qué patrón se pidió y cuándo, y el registro de la sesión cuenta las vibraciones. El menú principal sigue llamando a `OVRInput` directamente, porque esa vibración solo previsualiza el ajuste de háptica.
+
+### Pruebas (Play en el Editor, nivel 4, golpes reales por `Puno.OnTriggerEnter`)
+
+Se grabaron con `Haptica.AlVibrar` todas las llamadas, con su tiempo real.
+
+| Prueba | Resultado |
+|---|---|
+| Esquive forzado | OK: 0,15 durante 46 ms (30 ms pedidos más el fotograma) y sin daño |
+| Golpe conectado (jab) | OK: 0,70 durante 65 ms, como antes |
+| Golpe bloqueado | OK: 0,80 y 0,50 a frecuencia 0,25 con una pausa, como antes |
+| Golpe que tumba | OK: 1,0 durante 93–97, 97 y 222–223 ms, con pausas de 42 a 56 ms (en dos pruebas) |
+| Cuenta del jugador | OK: un tic por segundo en los dos controles: 0,20; 0,24; 0,29; 0,33; 0,38; 0,42... Una pulsación a mitad de cuenta vibra con 0,31 y no se pierde ningún tic |
+
+### Pendiente de validar
+
+- Todo con el visor: si el roce se nota, si el derribo se distingue y si los tics molestan con el latido.
+- **RNF-02 (respuesta háptica en menos de 15 ms):** en el código, la vibración se pide en la misma llamada en la que se detecta el golpe, sin esperar ningún fotograma. La física corre a 50 Hz (`fixedDeltaTime` 0,02) y el Quest 2 dibuja a 72 Hz, así que la detección puede llegar hasta 20 ms después del contacto real. Para el entregable 5 se recomienda bajar el paso de la física a 1/72 s y medir la latencia en el visor.
+
+## Bloque F: réferi visible (RF-12)
+
+Hasta ahora el réferi era solo una voz en un costado del ring. Ahora tiene un cuerpo provisional que se mueve por el ring y cuenta con el brazo, como en el boceto del estado de knockout del informe (figura 4). La estructura queda lista para cambiar el modelo por el definitivo sin tocar código.
+
+| Pieza | Qué hace |
+|---|---|
+| `Arbitro > Cuerpo` (`CuerpoArbitro`) | Se coloca según la pelea, gira y hace el gesto de cada número. La voz (`Voz`) es su hija, a la altura de la cabeza, así que suena desde donde está. |
+| `Cuerpo > Modelo` | El modelo provisional `ArbitroProvisional.prefab`: primitivas con camisa blanca, pantalón y pajarita negros, ojos y nariz para ver hacia dónde mira, y sin colliders. |
+| `Cuerpo > CartelPulsar` | "¡ARRIBA! PULSA A B X Y" sobre su cabeza, solo en la cuenta del jugador. |
+| `Arbitro.AlDecirNumero` | Evento nuevo con cada número, para sincronizar el gesto con la voz. |
+| *Tools > Boxeo > Montar réferi provisional* | Crea el prefab y sus materiales si faltan, y monta todo en el `Arbitro` de la escena abierta. Se usó en los cuatro niveles. |
+
+| Momento | Dónde se pone | Hacia dónde mira |
+|---|---|---|
+| Round | A 2 m de la línea entre el jugador y el rival, del lado en que ya estaba; solo se mueve si su sitio se aleja más de 0,35 m | Al centro de la pelea |
+| Cuenta del rival | 0,7 m hacia el jugador desde el rival y 0,7 m a un lado | Al rival, y lo señala con el brazo |
+| Cuenta del jugador | 1,05 m hacia el rival desde la cabeza del jugador y 0,4 m a un lado | Al jugador |
+| Preparación, descanso y final | Su sitio inicial, en un costado | Al centro del ring |
+
+En la cuenta tiene el brazo arriba. Con cada número lo baja de golpe en 0,12 s hasta apuntar al frente y lo vuelve a subir en 0,45 s. Nunca se acerca a menos de 0,6 m del rival ni de la cabeza del jugador, y se queda a 0,35 m de las cuerdas (`LimiteRing.DentroDelRing`).
+
+### Decisiones
+
+- **Delante del jugador, pero a un lado:** el boceto lo pone justo delante. Ahí se metería en el rival, que suele estar a 1,2 m, así que se aparta 0,4 m. De los dos lados posibles elige el que lo deja más dentro del ring y, si dan igual, el más cercano. Lo elige una vez por cuenta, para no cruzarse de lado.
+- **El rival no se va a una esquina neutral** durante la cuenta del jugador, como en el boxeo real. Habría que mover su IA y la de las rondas, y el réferi apartado ya evita el choque.
+- **Sin animación de caminar:** se desliza, a 1,6 m/s para ir a contar y a 0,8 m/s acompañando la pelea, igual que el rival cuando vuelve a su sitio.
+- **Cartel con los botones:** resuelve el pendiente del bloque B. Es texto, pero va en el mundo, sobre el réferi, y no pegado a la cámara. Solo aparece mientras el jugador está en el piso y late con cada número. Se quita dejando vacío `cartelPulsar`.
+- **Primera versión a 1,6 m de la pelea:** en las capturas desde los ojos del jugador quedaba demasiado presente en la vista, así que se alejó a 2 m (unos 2,1 m de cada boxeador).
+- **Para cambiar el modelo:** borrar `Cuerpo > Modelo`, poner el nuevo como hijo de `Cuerpo` y asignar en `CuerpoArbitro` su hombro derecho (`brazoCuenta`, gira en X) o su `Animator` (recibe el trigger `Contar` y el bool `Contando`).
+
+### Pruebas (Play en el Editor)
+
+| Prueba | Resultado |
+|---|---|
+| Round 1, nivel 2 | OK: a 1,60 m del centro de la pelea (antes del ajuste a 2 m), a 1,67 m del rival y 1,76 m del jugador, mirando la pelea |
+| Cuenta del rival, nivel 2 | OK: modo `CuentaRival` a 0,99 m del rival y 0,88 m del jugador, del 1 al 10; al levantarse el rival vuelve a la pelea |
+| Gesto | OK: la mano está a 1,97 m del piso, baja a 1,26–1,32 m con cada número y vuelve a subir |
+| Cuenta del jugador, nivel 2 | OK: a 1,12 m del jugador, mirándolo, con el cartel visible (captura 07); al acabarse la cuenta, K.O. y vuelta al menú |
+| Descanso | OK: vuelve a su sitio inicial con 0,00 m de error |
+| Cuenta del rival, nivel 4 | OK: lo señala con el brazo extendido (captura 08) |
+| Escenas | OK: sin materiales incrustados en la escena (el contorno del cartel va en `Arbitro_Cartel.mat`) |
+
+### Pendiente
+
+- El modelo definitivo del réferi (*Boxing Referee 3D Model* en la tabla de assets del informe), con animaciones de caminar y contar.
+- Ver con el visor si molesta en la periferia durante el round y si se lee el cartel.
+
+## Bloque G: registro de la sesión (RF-21)
+
+`RegistroSesion` se crea solo al arrancar el juego (`RuntimeInitializeOnLoadMethod`) y sobrevive a los cambios de escena, así que no hay que ponerlo en ninguna escena. En cada pelea escucha los eventos que ya existían y no cambia la lógica de nadie.
+
+| Se registra | Fuente |
+|---|---|
+| Nivel, rival, hora, si es un reintento y resultado (`VictoriaPorKO`, `VictoriaPorSalud`, `DerrotaPorKO`, `DerrotaPorSalud` o `Abandonado`) | `ControlCombate.Nivel`, `ControlRondas.AlTerminarCombate`, salida de la escena |
+| Round alcanzado y segundos de combate desde el primer round, sin pausas | `ControlRondas.AlIniciarRound`, `Time.time` |
+| Golpes lanzados, conectados (por tipo), bloqueados y esquivados por el rival, precisión y efectividad | `Puno.AlLanzarGolpe`, `Oponente.AlRecibirGolpe`, `AlBloquear`, `AlEsquivar` |
+| Ataques recibidos, conectados, bloqueados y esquivados por el jugador, y el porcentaje de bloqueo | `SaludJugador.AlResolverAtaque` |
+| Derribos al rival, caídas del jugador y cuentas superadas | `Oponente`, `RecuperacionJugador` |
+| Salud final de los dos, vibraciones y FPS durante los rounds (media y fotogramas por debajo de 72 FPS) | `AlCambiarSalud`, `Haptica.AlVibrar`, `Time.unscaledDeltaTime` |
+| Por sesión: duración, dispositivo, versión, combates, reintentos y victorias | |
+
+Se guarda en `Application.persistentDataPath/Sesiones`: un JSON por sesión, `sesion_aaaaMMdd_HHmmss.json`, reescrito al terminar cada combate, al salir de una escena y al pausar o cerrar la app, y `combates.csv`, con una fila por combate de todas las sesiones. En el Quest está en `/sdcard/Android/data/<paquete>/files/Sesiones` y se saca con `adb pull`. Hay ejemplos reales en `docs/ejemplos/`.
+
+### Decisiones
+
+- **Precisión = conectados / lanzados:** para contar también los golpes que no tocan al rival, `Puno` dispara `AlLanzarGolpe` cuando la mano se aleja de la cabeza a más de 1,5 m/s, y queda listo para el siguiente al bajar de 0,2 m/s. Un golpe que llega al rival sin superar ese umbral, como un uppercut corto, también cuenta como lanzado. Aparte se da la **efectividad**, conectados / golpes que llegaron al rival, que no depende del umbral.
+- **Reintento:** un combate de un nivel que ya se jugó en la misma sesión.
+- **Abandonado:** si se sale de la escena antes del final (menú de pausa o cierre).
+- **Las caídas se toman de `Oponente.Caidas` y `RecuperacionJugador.Derribos` al cerrar,** además de contarse por eventos. La última caída del rival cierra el combate antes de que el registro reciba su evento: en la primera prueba salían 2 derribos en vez de 3.
+- **FPS solo durante los rounds:** RNF-01 habla de "durante el combate". En el Editor las cifras no representan al Quest.
+- **Formato:** JSON para leer una sesión entera y CSV para juntar todas en una hoja de cálculo para las métricas HEART (engagement: duración y reintentos; task success: precisión, bloqueos y cuentas superadas). No se usa Unity Analytics, aunque el informe lo nombra como instrumento: el archivo local no necesita cuenta ni red, y basta para las pruebas de la semana 14.
+
+### Pruebas (Play en el Editor)
+
+| Prueba | Resultado |
+|---|---|
+| 2 golpes al aire y 4 golpes reales de `Puno` (3 conectados, 1 bloqueado) | OK: lanzados 6, conectados 3 (crosses), bloqueados por el rival 1 |
+| Ataques al jugador, uno lejos de la cabeza y otro a la cara | OK: esquivado y conectado, sumados a los del rival |
+| Nivel 2 ganado, nivel 3 abandonado, nivel 2 reintentado y perdido por K.O. | OK: 3 combates, 1 reintento, 1 victoria; 3 derribos en la victoria, `Abandonado` en el nivel 3 y 1 caída en la derrota |
+| Partida seguida del nivel 1 al 4 con *Probar: ganar el combate* | OK: 4 victorias por KO con 3 derribos cada una; Sandman esquivó 9 golpes. Sin errores propios en la consola |
+
+### Pendiente
+
+- Comprobar en el Quest la ruta y la escritura al pausar o quitar el visor.
+- Calibrar el umbral de golpe lanzado con golpes reales, porque de él depende la precisión.
+- La hoja de resultados al terminar el combate (RF-18, entregable 5) puede leer `RegistroSesion.Instancia.CombateActual` o escuchar `AlTerminarCombate`.
+
+## Pruebas de integración de la entrega
+
+| Prueba | Resultado |
+|---|---|
+| Compilación en el Editor | OK, sin errores ni warnings en `Assets/Scripts` ni `Assets/Editor` |
+| Compilación de los scripts para Android (`PlayerBuildInterface.CompilePlayerScripts`, sin generar el APK) | OK: `Assembly-CSharp.dll` sin errores ni warnings propios |
+| Partida del nivel 1 al 4 hasta volver al menú | OK: `nivelSuperado` subió de 2 a 4 y se cargó cada escena. Después se devolvió a 2, el valor que había en el Editor |
+| Capturas desde los ojos del jugador en Play (`docs/capturas/`) | Menú, los cuatro niveles, el réferi y sus dos cuentas, y la guardia fija frente a la grabada |
+
 ## Trazabilidad de requisitos
 
 Solo los requisitos que cambian respecto a `docs/Entrega3.md`.
 
 | ID | Requisito | Entregable | Estado |
 |---|---|---|---|
-| RF-07 | Rivales con patrón de ataque, velocidad y bloqueo o esquive propios | 3, 4 y 5 | Hecho para los niveles 1 a 4, con Mr. Sandman en modelo provisional; falta Iron Mike Tyson y validarlo con visor |
+| RF-07 | Rivales con patrón de ataque, velocidad y bloqueo o esquive propios | 3, 4 y 5 | Hecho para los niveles 1 a 4, con Mr. Sandman en modelo provisional. Los bloqueos usan una guardia grabada (provisional hasta grabarla con el visor). Falta Iron Mike Tyson y validarlo con visor |
 | RF-08 | Dificultad ascendente | 3, 4 y 5 | Hecho para los niveles 1 a 4; falta el nivel 5 y validarlo con visor |
 | RF-09 | Desbloqueo del siguiente nivel | 2 y 3 | Hecho para los cuatro niveles |
 | RF-10 | 3 rounds de 90 s con campana | 4 | Hecho; falta validarlo con visor |
 | RF-11 | Ganador por KO o por salud al final | 4 | Hecho; falta validarlo con visor |
-| RF-12 | Cuenta de 10 s y button mashing | 4 | Hecho con voz 3D y sin HUD, sin el modelo del réferi; falta validarlo con visor |
-| RF-13 | Derrota y reintento del nivel | 4 | Hecho: el K.O. y la derrota por salud vuelven al menú con el nivel abierto; falta validarlo con visor |
-| RF-16 | Audio 3D de golpes, multitud y réferi | 3 y 4 | Hecho; falta escuchar la campana y las voces con visor |
+| RF-12 | Cuenta de 10 s y button mashing | 4 | Hecho: voz 3D, réferi visible provisional que cuenta con el brazo, cartel con los botones y tic háptico por número. Falta el modelo definitivo del réferi y validarlo con visor |
+| RF-13 | Derrota y reintento del nivel | 4 | Hecho: el K.O. y la derrota por salud vuelven al menú con el nivel abierto, y el registro marca el reintento; falta validarlo con visor |
+| RF-14 | Salud diegética sin HUD | 3 y 4 | Hecho, también durante la cuenta |
+| RF-15 | Háptica conectado, bloqueado y recibido | 2, 3 y 4 | Hecho, también golpe esquivado, golpe que derriba y cuenta; falta sentirla con visor |
+| RF-16 | Audio 3D de golpes, multitud y réferi | 3 y 4 | Hecho; la voz del réferi ahora sale de su cabeza y se mueve con él. Falta escucharla con visor |
+| RF-18 | Estadísticas al terminar el combate | 5 | Pendiente; los datos ya están en `RegistroSesion` |
+| RF-21 | Registro de métricas por sesión | 4 y 5 | Hecho: JSON por sesión y CSV por combate; falta probarlo en el Quest |
+| RNF-01 | 72 FPS en Quest 2 | 4 y 5 | El registro mide los FPS durante los rounds; falta medirlos en el visor |
+| RNF-02 | Háptica en menos de 15 ms | 4 y 5 | La vibración se pide en la misma llamada que detecta el golpe; falta medirla en el visor y valorar la física a 72 Hz |
+| RNF-10 | Parámetros de cada rival configurables | 3 | Hecho, también la guardia grabada (`guardiaGrabada`) |

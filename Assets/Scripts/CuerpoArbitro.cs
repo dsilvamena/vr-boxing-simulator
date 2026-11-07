@@ -39,7 +39,7 @@ public class CuerpoArbitro : MonoBehaviour
 
     [Header("Posiciones")]
     [Tooltip("Distancia a la línea de la pelea durante el round, en metros")]
-    [SerializeField, Min(0.5f)] private float distanciaLateralPelea = 1.6f;
+    [SerializeField, Min(0.5f)] private float distanciaLateralPelea = 2f;
     [Tooltip("Cuenta del jugador: cuánto se adelanta hacia el rival desde la cabeza del jugador")]
     [SerializeField] private float adelanteCuentaJugador = 1.05f;
     [Tooltip("Cuenta del jugador: cuánto se aparta hacia un lado para no meterse en el rival")]

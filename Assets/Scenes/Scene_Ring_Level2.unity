@@ -10552,6 +10552,8 @@ MonoBehaviour:
   hapticaPulsacionInicial: 0.25
   hapticaPulsacionFinal: 1
   segundosHapticaPulsacion: 0.05
+  hapticaTicCuenta: {x: 0.2, y: 0.6}
+  segundosTicCuenta: 0.03
 --- !u!114 &237240853
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -17867,6 +17869,8 @@ MonoBehaviour:
   velocidadMinima: 0.5
   suavizado: 0.5
   enfriamiento: 0.25
+  rapidezLanzamiento: 1.5
+  rapidezRearme: 0.2
   rapidezVibracionMaxima: 2.5
   vibracionMinima: 0.4
 --- !u!54 &382466768
@@ -19808,6 +19812,8 @@ MonoBehaviour:
   velocidadMinima: 0.5
   suavizado: 0.5
   enfriamiento: 0.25
+  rapidezLanzamiento: 1.5
+  rapidezRearme: 0.2
   rapidezVibracionMaxima: 2.5
   vibracionMinima: 0.4
 --- !u!54 &423939003
@@ -67805,7 +67811,7 @@ MonoBehaviour:
   brazoCuenta: {fileID: 454400203}
   animador: {fileID: 0}
   cartelPulsar: {fileID: 1974831381}
-  distanciaLateralPelea: 1.6
+  distanciaLateralPelea: 2
   adelanteCuentaJugador: 1.05
   ladoCuentaJugador: 0.4
   adelanteCuentaRival: 0.7

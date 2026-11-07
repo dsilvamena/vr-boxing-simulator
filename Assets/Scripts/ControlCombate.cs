@@ -37,6 +37,8 @@ public class ControlCombate : MonoBehaviour
     [SerializeField] private float distanciaPanel = 1.2f;
 
     public bool Ganado { get; private set; }
+    /// <summary>Número de este nivel (1, 2, 3...).</summary>
+    public int Nivel => nivel;
 
     private GameObject panel;
     private TextMeshProUGUI texto;

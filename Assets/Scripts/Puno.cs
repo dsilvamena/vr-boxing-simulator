@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
@@ -17,6 +18,12 @@ public class Puno : MonoBehaviour
     [SerializeField, Range(0.05f, 1f)] private float suavizado = 0.5f;
     [Tooltip("Segundos tras un golpe conectado, bloqueado o esquivado en los que este puño no conecta otro")]
     [SerializeField] private float enfriamiento = 0.25f;
+
+    [Header("Golpes lanzados (RF-21)")]
+    [Tooltip("Rapidez (m/s) alejándose de la cabeza a partir de la cual la mano cuenta como un golpe lanzado, conecte o no")]
+    [SerializeField] private float rapidezLanzamiento = 1.5f;
+    [Tooltip("Por debajo de esta rapidez alejándose de la cabeza el puño queda listo para contar otro golpe lanzado")]
+    [SerializeField] private float rapidezRearme = 0.2f;
 
     [Header("Vibración")]
     [Tooltip("Rapidez del puño (m/s) con la que la vibración llega al máximo")]
@@ -44,6 +51,13 @@ public class Puno : MonoBehaviour
     private Vector3 velocidadLocal;
     private float listoEn;
     private Coroutine vibracion;
+    private bool lanzando; // ya contó el golpe que está lanzando
+
+    /// <summary>
+    /// Un puño lanzó un golpe: la mano se alejó deprisa de la cabeza, o tocó al rival sin haberlo hecho antes. Se cuenta una
+    /// vez por golpe, conecte o no; RegistroSesion lo usa para la precisión.
+    /// </summary>
+    public static event Action<Puno> AlLanzarGolpe;
 
     public Mano Mano { get; private set; }
     /// <summary>Velocidad de la mano relativa al jugador, expresada en mundo.</summary>
@@ -77,6 +91,24 @@ public class Puno : MonoBehaviour
         Vector3 medida = (posicion - posicionAnterior) / Time.fixedDeltaTime;
         velocidadLocal = Vector3.Lerp(velocidadLocal, medida, suavizado);
         posicionAnterior = posicion;
+        DetectarLanzamiento();
+    }
+
+    // Extender el brazo aleja la mano de la cabeza; volver a la guardia la acerca y deja el puño listo para el siguiente
+    private void DetectarLanzamiento()
+    {
+        if (cabeza == null || (jugador != null && jugador.Derribado)) return;
+        Vector3 desdeCabeza = transform.position - cabeza.position;
+        if (desdeCabeza.sqrMagnitude < 0.0001f) return;
+        float alejandose = Vector3.Dot(Velocidad, desdeCabeza.normalized);
+        if (!lanzando && alejandose > rapidezLanzamiento) ContarLanzamiento();
+        else if (lanzando && alejandose < rapidezRearme) lanzando = false;
+    }
+
+    private void ContarLanzamiento()
+    {
+        lanzando = true;
+        AlLanzarGolpe?.Invoke(this);
     }
 
     private void OnTriggerEnter(Collider other)
@@ -104,6 +136,8 @@ public class Puno : MonoBehaviour
         };
         ResultadoGolpe resultado = zona.Oponente.RecibirGolpe(golpe);
         if (resultado == ResultadoGolpe.NoCuenta) return;
+        // Un golpe corto o hacia arriba puede llegar sin superar rapidezLanzamiento: si toca al rival, también se lanzó
+        if (!lanzando) ContarLanzamiento();
 
         listoEn = Time.time + enfriamiento;
         // Dio al aire: solo un roce, sin vibración de impacto. El enfriamiento evita que el mismo golpe conecte en la otra zona

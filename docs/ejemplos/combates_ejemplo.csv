@@ -1,0 +1,8 @@
+sesion,inicio,nivel,rival,reintento,resultado,round,segundos,lanzados,conectados,bloqueadosPorRival,esquivadosPorRival,precision,efectividad,ataquesRecibidos,ataquesBloqueados,ataquesEsquivados,porcentajeBloqueo,caidasJugador,cuentasSuperadas,saludJugador,saludRival,fpsMedio,fotogramasLentos
+20261107_021310,2026-11-07T02:13:10,2,Bald Bull,0,VictoriaPorKO,1,21.2,67,27,40,0,0.403,0.403,0,0,0,0,0,0,1,0,60.394,0.206
+20261107_021310,2026-11-07T02:13:45,3,Soda Popinski,0,Abandonado,0,0.0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0
+20261107_021310,2026-11-07T02:13:49,2,Bald Bull,1,DerrotaPorKO,1,36.3,0,0,0,0,0,0,11,0,0,0,1,0,0,1,56.514,0.289
+20261107_022348,2026-11-07T02:23:48,1,Glass Joe,0,VictoriaPorKO,1,11.4,30,21,9,0,0.7,0.7,0,0,0,0,0,0,1,0,58.073,0.244
+20261107_022348,2026-11-07T02:24:14,2,Bald Bull,0,VictoriaPorKO,1,18.4,59,27,32,0,0.458,0.458,0,0,0,0,0,0,1,0,59.202,0.264
+20261107_022348,2026-11-07T02:24:45,3,Soda Popinski,0,VictoriaPorKO,1,23.7,77,36,41,0,0.468,0.468,1,0,0,0,0,0,0.91,0,47.648,0.535
+20261107_022348,2026-11-07T02:25:21,4,Mr. Sandman,0,VictoriaPorKO,1,23.0,74,32,33,9,0.432,0.432,2,0,1,0,0,0,0.92,0,44.148,0.644

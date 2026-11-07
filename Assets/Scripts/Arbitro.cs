@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 /// <summary>
@@ -9,7 +10,8 @@ using UnityEngine;
 /// Si alguien más lo levanta (el descanso, una prueba), la cuenta se cancela y la voz se calla.
 /// La cuenta usa tiempo escalado y la voz se pausa a mano, porque un AudioSource no se detiene con timeScale = 0.
 /// Sin este componente en la escena, el rival se levanta con segundosKnockdown, como antes.
-/// Va en un objeto propio de cada escena de pelea; la voz sale de un hijo que luego se puede cambiar por el modelo.
+/// Va en un objeto propio de cada escena de pelea. El cuerpo visible (CuerpoArbitro) es un hijo con la voz y el modelo,
+/// provisional por ahora; se cambia el modelo sin tocar este componente.
 /// </summary>
 public class Arbitro : MonoBehaviour
 {
@@ -35,6 +37,9 @@ public class Arbitro : MonoBehaviour
     [SerializeField, Min(0.1f)] private float segundosPorNumero = 1f;
 
     [SerializeField] private bool registrar = true;
+
+    /// <summary>Dice un número de la cuenta (1 a 10); el bool es true si cuenta al jugador. CuerpoArbitro hace el gesto con él.</summary>
+    public event Action<int, bool> AlDecirNumero;
 
     public bool ContandoRival { get; private set; }
     public bool ContandoJugador => recuperacion != null && recuperacion.Contando;
@@ -165,6 +170,7 @@ public class Arbitro : MonoBehaviour
     private void Decir(int numero)
     {
         if (registrar) Debug.Log($"Réferi: {numero}", this);
+        AlDecirNumero?.Invoke(numero, ContandoJugador);
         if (voz == null || numeros == null || numero > numeros.Length || numeros[numero - 1] == null) return;
         vozPausada = false;
         voz.clip = numeros[numero - 1];

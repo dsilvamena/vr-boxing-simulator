@@ -36,6 +36,15 @@ public class LimiteRing : MonoBehaviour
     /// <summary>Área jugable en X/Z (x, y del Rect = x, z del mundo), ya con el margen. El oponente también la respeta.</summary>
     public Rect AreaRing => Area();
 
+    /// <summary>Devuelve el punto limitado al área del ring, dejando ese margen hasta las cuerdas. No cambia la altura.</summary>
+    public Vector3 DentroDelRing(Vector3 punto, float margenCuerdas)
+    {
+        Rect area = Area();
+        punto.x = Mathf.Clamp(punto.x, area.xMin + margenCuerdas, area.xMax - margenCuerdas);
+        punto.z = Mathf.Clamp(punto.z, area.yMin + margenCuerdas, area.yMax - margenCuerdas);
+        return punto;
+    }
+
     private void Awake()
     {
         rig = GetComponentInParent<OVRCameraRig>();

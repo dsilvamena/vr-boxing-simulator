@@ -3,7 +3,6 @@ using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 /// <summary>
 /// Nocaut del jugador: cuando SaludJugador se queda sin salud, el jugador cae y tiene segundosParaLevantarse (10 s)
@@ -12,7 +11,8 @@ using UnityEngine.UI;
 /// Las oportunidades son limitadas y cada una devuelve menos salud: saludPorCaida = { 40, 30, 20 } significa
 /// que la 1.ª caída te levanta con 40, la 2.ª con 30 y la 3.ª con 20; la caída siguiente ya no da cuenta y pierdes
 /// al instante. Si se acaba el tiempo de una cuenta, también pierde por K.O.
-/// Va en el OVRCameraRig, junto a SaludJugador. El panel con la cuenta se crea por código, pegado a la cámara.
+/// Va en el OVRCameraRig, junto a SaludJugador. La cuenta no se muestra (sin HUD, RF-14): la dice el réferi (Arbitro) y el
+/// avance se nota en FeedbackSalud (viñeta, latido, háptica). Solo los carteles finales se crean por código, pegados a la cámara.
 /// La cuenta usa Time.deltaTime, así que se detiene con el menú de pausa (timeScale = 0).
 /// </summary>
 public class RecuperacionJugador : MonoBehaviour
@@ -34,13 +34,15 @@ public class RecuperacionJugador : MonoBehaviour
     [SerializeField] private string escenaAlPerder = "Main_Scene";
     [SerializeField] private float segundosAntesDeSalir = 3f;
 
-    [Header("Panel")]
-    [Tooltip("Distancia del panel a la cámara, en metros")]
+    [Header("Cartel de derrota")]
+    [Tooltip("Distancia del cartel a la cámara, en metros")]
     [SerializeField] private float distanciaPanel = 0.5f;
     [SerializeField] private bool registrar = true;
 
     /// <summary>Empieza la cuenta (el jugador cayó).</summary>
     public event Action AlDerribarse;
+    /// <summary>Una pulsación más; lleva el avance de la recuperación, de 0 a 1.</summary>
+    public event Action<float> AlPulsar;
     /// <summary>El jugador se repuso a tiempo.</summary>
     public event Action AlLevantarse;
     /// <summary>Se acabó el tiempo: pierde por K.O.</summary>
@@ -48,6 +50,8 @@ public class RecuperacionJugador : MonoBehaviour
 
     public bool Contando { get; private set; }
     public float SegundosRestantes { get; private set; }
+    /// <summary>Lo que dura una cuenta completa.</summary>
+    public float SegundosCuenta => segundosParaLevantarse;
     /// <summary>Avance de la recuperación, de 0 a 1.</summary>
     public float Progreso { get; private set; }
     /// <summary>Veces que el jugador ha caído en el combate.</summary>
@@ -59,7 +63,6 @@ public class RecuperacionJugador : MonoBehaviour
     private float saludObjetivo; // salud con la que se levantará en la caída actual
     private GameObject panel;
     private TextMeshProUGUI texto;
-    private RectTransform relleno;
 
     private void Awake()
     {
@@ -94,7 +97,6 @@ public class RecuperacionJugador : MonoBehaviour
 
         if (Progreso >= 1f) Levantar();
         else if (SegundosRestantes <= 0f) Perder();
-        else ActualizarPanel();
     }
 
     private void Empezar()
@@ -107,7 +109,6 @@ public class RecuperacionJugador : MonoBehaviour
         if (Derribos > Oportunidades)
         {
             if (registrar) Debug.Log($"Jugador derribado (caída {Derribos}): sin más oportunidades", this);
-            panel.SetActive(true);
             Perder("Sin más oportunidades");
             return;
         }
@@ -117,8 +118,6 @@ public class RecuperacionJugador : MonoBehaviour
         pulsaciones = 0;
         Progreso = 0f;
         saludObjetivo = Mathf.Clamp(saludPorCaida[Derribos - 1], 0f, jugador.SaludMaxima);
-        panel.SetActive(true);
-        ActualizarPanel();
         if (registrar) Debug.Log($"Jugador derribado (caída {Derribos} de {Oportunidades + 1}): {segundosParaLevantarse:F0} s para levantarse, se levantará con {saludObjetivo:F0} de salud", this);
     }
 
@@ -133,12 +132,12 @@ public class RecuperacionJugador : MonoBehaviour
         Progreso = Mathf.Clamp01((float)pulsaciones / pulsacionesNecesarias);
         // La salud sube con la recuperación, así FeedbackSalud va aclarando la visión
         jugador.EstablecerSalud(saludObjetivo * Progreso);
+        AlPulsar?.Invoke(Progreso);
     }
 
     private void Levantar()
     {
         Contando = false;
-        panel.SetActive(false);
         jugador.Levantarse(jugador.SaludMaxima > 0f ? saludObjetivo / jugador.SaludMaxima : 0f);
         if (registrar) Debug.Log($"Jugador se levantó con {SegundosRestantes:F1} s de sobra → salud {jugador.Salud:F0}/{jugador.SaludMaxima:F0} (caída {Derribos} de {Oportunidades + 1})", this);
         AlLevantarse?.Invoke();
@@ -147,11 +146,24 @@ public class RecuperacionJugador : MonoBehaviour
     private void Perder(string motivo = "Se acabó el tiempo")
     {
         Contando = false;
-        texto.text = $"<size=140><b>K.O.</b></size>\n<size=30>{motivo}</size>";
-        relleno.parent.gameObject.SetActive(false);
+        MostrarDerrota($"<size=140><b>K.O.</b></size>\n<size=30>{motivo}</size>");
         if (registrar) Debug.Log($"Jugador pierde por K.O.: {motivo}", this);
         AlPerderPorKO?.Invoke();
         if (!string.IsNullOrEmpty(escenaAlPerder)) StartCoroutine(SalirDeLaPelea());
+    }
+
+    /// <summary>Acabó el último round con menos salud que el rival: misma salida que un K.O., pero sin haber caído.</summary>
+    public void PerderPorSalud()
+    {
+        MostrarDerrota("<size=76><b>DERROTA</b></size>\n<size=30>Perdiste por salud</size>");
+        if (registrar) Debug.Log("Jugador pierde por salud", this);
+        if (!string.IsNullOrEmpty(escenaAlPerder)) StartCoroutine(SalirDeLaPelea());
+    }
+
+    private void MostrarDerrota(string mensaje)
+    {
+        texto.text = mensaje;
+        panel.SetActive(true);
     }
 
     private IEnumerator SalirDeLaPelea()
@@ -160,18 +172,9 @@ public class RecuperacionJugador : MonoBehaviour
         SceneManager.LoadScene(escenaAlPerder);
     }
 
-    private void ActualizarPanel()
-    {
-        int segundos = Mathf.CeilToInt(Mathf.Max(0f, SegundosRestantes));
-        string color = segundos <= 3 ? "#FF4040" : "#FFFFFF";
-        texto.text = $"<size=46>¡LEVÁNTATE!</size>\n<size=120><b><color={color}>{segundos}</color></b></size>\n" +
-                     $"<size=26>Pulsa A / B / X / Y rápido</size>\n<size=24><color=#9AA0A6>Caída {Derribos} de {Oportunidades + 1}</color></size>";
-        relleno.anchorMax = new Vector2(Progreso, 1f);
-    }
-
     private void CrearPanel(Transform camara)
     {
-        panel = new GameObject("PanelRecuperacion");
+        panel = new GameObject("CartelDerrota");
         panel.transform.SetParent(camara, false);
         panel.transform.localPosition = new Vector3(0f, 0f, distanciaPanel);
         panel.transform.localRotation = Quaternion.identity;
@@ -187,34 +190,13 @@ public class RecuperacionJugador : MonoBehaviour
         var goTexto = new GameObject("Texto", typeof(RectTransform), typeof(TextMeshProUGUI));
         goTexto.transform.SetParent(rt, false);
         var trt = (RectTransform)goTexto.transform;
-        trt.anchorMin = new Vector2(0f, 0.15f);
+        trt.anchorMin = Vector2.zero;
         trt.anchorMax = Vector2.one;
         trt.offsetMin = trt.offsetMax = Vector2.zero;
         texto = goTexto.GetComponent<TextMeshProUGUI>();
         texto.alignment = TextAlignmentOptions.Center;
         texto.color = Color.white;
         texto.raycastTarget = false;
-
-        // Barra de progreso: fondo y relleno que crece de izquierda a derecha
-        var goFondo = new GameObject("Barra", typeof(RectTransform), typeof(Image));
-        goFondo.transform.SetParent(rt, false);
-        var frt = (RectTransform)goFondo.transform;
-        frt.anchorMin = new Vector2(0.1f, 0.03f);
-        frt.anchorMax = new Vector2(0.9f, 0.10f);
-        frt.offsetMin = frt.offsetMax = Vector2.zero;
-        var fondo = goFondo.GetComponent<Image>();
-        fondo.color = new Color(0f, 0f, 0f, 0.6f);
-        fondo.raycastTarget = false;
-
-        var goRelleno = new GameObject("Relleno", typeof(RectTransform), typeof(Image));
-        goRelleno.transform.SetParent(frt, false);
-        relleno = (RectTransform)goRelleno.transform;
-        relleno.anchorMin = Vector2.zero;
-        relleno.anchorMax = new Vector2(0f, 1f);
-        relleno.offsetMin = relleno.offsetMax = Vector2.zero;
-        var imgRelleno = goRelleno.GetComponent<Image>();
-        imgRelleno.color = new Color(0.3f, 0.9f, 0.4f, 1f);
-        imgRelleno.raycastTarget = false;
 
         panel.SetActive(false);
     }

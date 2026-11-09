@@ -17,6 +17,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Scene_Ring_Level3.unity
     guid: f2170e6bc6a10481fa129a0146884798
+  - enabled: 1
+    path: Assets/Scenes/Scene_Ring_Level4.unity
+    guid: 73d5abf11829a3e4980c7b1e60d61bad
   m_configObjects:
     Unity.XR.Oculus.Settings: {fileID: 11400000, guid: e0c025f93c5ae474fb67834228f1a820, type: 2}
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 14be8f872c3cf104da70503e87c16523, type: 2}

@@ -4,9 +4,11 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Cierre del combate: cuando el Oponente cae por última vez (Derrotado), muestra la victoria frente al jugador
-/// y, pasados segundosAntesDeAvanzar, carga siguienteEscena (el siguiente nivel o, tras el último, el menú).
+/// Cierre del combate: al ganar muestra la victoria frente al jugador y, pasados segundosAntesDeAvanzar, carga
+/// siguienteEscena (el siguiente nivel o, tras el último, el menú).
 /// Guarda en PlayerPrefs ("nivelSuperado") el número de nivel más alto que se ha ganado.
+/// Con ControlRondas en la escena, obedece a su resultado: la derrota por salud la cierra RecuperacionJugador, igual
+/// que la derrota por K.O. Sin ControlRondas, gana cuando el Oponente cae por última vez (Derrotado).
 /// Va en un objeto propio de cada escena de pelea. El panel se crea por código, pegado a la cámara.
 /// La espera usa tiempo escalado, así que se detiene con el menú de pausa.
 /// </summary>
@@ -14,6 +16,10 @@ public class ControlCombate : MonoBehaviour
 {
     [Tooltip("Vacío = el Oponente de la escena")]
     [SerializeField] private Oponente oponente;
+    [Tooltip("Vacío = el ControlRondas de la escena; si no hay, el combate termina solo por KO")]
+    [SerializeField] private ControlRondas rondas;
+    [Tooltip("Vacío = el RecuperacionJugador de la escena")]
+    [SerializeField] private RecuperacionJugador recuperacion;
     [Tooltip("Número de este nivel (1, 2, 3...)")]
     [SerializeField, Min(1)] private int nivel = 1;
     [Tooltip("Escena a cargar al ganar (debe estar en Build Settings)")]
@@ -22,6 +28,8 @@ public class ControlCombate : MonoBehaviour
     [SerializeField] private string mensaje = "Derrotaste a {0}\nSiguiente: Nivel 2";
     [Tooltip("Nombre del rival que se muestra; vacío = el nombre de su perfil")]
     [SerializeField] private string nombreRival = "";
+    [Tooltip("Línea extra en el cartel si se gana por salud al acabar el último round")]
+    [SerializeField] private string textoPorSalud = "Ganaste por salud";
     [SerializeField] private float segundosAntesDeAvanzar = 6f;
 
     [Header("Panel")]
@@ -29,6 +37,8 @@ public class ControlCombate : MonoBehaviour
     [SerializeField] private float distanciaPanel = 1.2f;
 
     public bool Ganado { get; private set; }
+    /// <summary>Número de este nivel (1, 2, 3...).</summary>
+    public int Nivel => nivel;
 
     private GameObject panel;
     private TextMeshProUGUI texto;
@@ -42,36 +52,63 @@ public class ControlCombate : MonoBehaviour
             enabled = false;
             return;
         }
+        if (rondas == null) rondas = FindAnyObjectByType<ControlRondas>();
+        if (recuperacion == null) recuperacion = FindAnyObjectByType<RecuperacionJugador>();
         if (string.IsNullOrEmpty(nombreRival)) nombreRival = oponente.Nombre;
         if (Camera.main != null) CrearPanel(Camera.main.transform);
     }
 
     private void OnEnable()
     {
-        if (oponente != null) oponente.AlCaer += AlCaer;
+        if (rondas != null) rondas.AlTerminarCombate += AlTerminarCombate;
+        else if (oponente != null) oponente.AlCaer += AlCaer;
     }
 
     private void OnDisable()
     {
-        if (oponente != null) oponente.AlCaer -= AlCaer;
+        if (rondas != null) rondas.AlTerminarCombate -= AlTerminarCombate;
+        else if (oponente != null) oponente.AlCaer -= AlCaer;
     }
 
     private void AlCaer(Golpe golpe)
     {
-        if (!oponente.Derrotado || Ganado) return;
-        Ganado = true;
-        if (nivel > PlayerPrefs.GetInt("nivelSuperado", 0)) PlayerPrefs.SetInt("nivelSuperado", nivel);
-        Debug.Log($"Victoria en el nivel {nivel} contra {nombreRival} → {siguienteEscena}", this);
-        StartCoroutine(Avanzar());
+        if (oponente.Derrotado) Ganar(false);
     }
 
-    private IEnumerator Avanzar()
+    private void AlTerminarCombate(ResultadoCombate resultado)
+    {
+        switch (resultado)
+        {
+            case ResultadoCombate.VictoriaPorKO:
+                Ganar(false);
+                break;
+            case ResultadoCombate.VictoriaPorSalud:
+                Ganar(true);
+                break;
+            case ResultadoCombate.DerrotaPorSalud:
+                if (recuperacion != null) recuperacion.PerderPorSalud();
+                break;
+            // DerrotaPorKO: RecuperacionJugador ya la está cerrando
+        }
+    }
+
+    private void Ganar(bool porSalud)
+    {
+        if (Ganado) return;
+        Ganado = true;
+        if (nivel > PlayerPrefs.GetInt("nivelSuperado", 0)) PlayerPrefs.SetInt("nivelSuperado", nivel);
+        Debug.Log($"Victoria {(porSalud ? "por salud" : "por KO")} en el nivel {nivel} contra {nombreRival} → {siguienteEscena}", this);
+        StartCoroutine(Avanzar(porSalud));
+    }
+
+    private IEnumerator Avanzar(bool porSalud)
     {
         // Deja ver la caída antes de mostrar el cartel
         yield return new WaitForSeconds(1.5f);
         if (panel != null)
         {
-            texto.text = $"<size=100><b><color=#FFD23F>¡VICTORIA!</color></b></size>\n<size=34>{string.Format(mensaje, nombreRival)}</size>";
+            string linea = porSalud ? $"<size=34>{textoPorSalud}</size>\n" : "";
+            texto.text = $"<size=100><b><color=#FFD23F>¡VICTORIA!</color></b></size>\n{linea}<size=34>{string.Format(mensaje, nombreRival)}</size>";
             panel.SetActive(true);
         }
         yield return new WaitForSeconds(segundosAntesDeAvanzar);
@@ -87,7 +124,7 @@ public class ControlCombate : MonoBehaviour
 
         var canvas = panel.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
-        canvas.sortingOrder = 120; // por encima de la viñeta de FeedbackSalud y de la cuenta del jugador
+        canvas.sortingOrder = 120; // por encima de la viñeta de FeedbackSalud y del cartel de derrota
         var rt = (RectTransform)panel.transform;
         rt.sizeDelta = new Vector2(800f, 320f);
         rt.localScale = Vector3.one * 0.0015f; // 1,2 m de ancho

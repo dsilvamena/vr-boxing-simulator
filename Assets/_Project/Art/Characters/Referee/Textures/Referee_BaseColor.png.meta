@@ -1,0 +1,27 @@
+fileFormatVersion: 2
+guid: 458b9d7bbb744839b18d8d6db009f6c7
+TextureImporter:
+  serializedVersion: 13
+  mipmaps:
+    enableMipMap: 1
+    sRGBTexture: 1
+  textureType: 0
+  maxTextureSize: 4096
+  alphaUsage: 1
+  alphaIsTransparency: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 4096
+    textureCompression: 1
+    compressionQuality: 50
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    textureFormat: 50
+    textureCompression: 1
+    compressionQuality: 50
+    overridden: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

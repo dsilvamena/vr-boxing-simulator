@@ -170,7 +170,8 @@ public class SaludJugador : MonoBehaviour
         if (clip != null) AudioSource.PlayClipAtPoint(clip, punto, volumenGolpes);
     }
 
-    private void Vibrar(Vector2[] patron)
+    /// <summary>Vibra en los dos controles (x = amplitud, 0 = pausa; y = segundos), escalado por la opción "haptica".</summary>
+    public void Vibrar(Vector2[] patron)
     {
         float escala = PlayerPrefs.GetFloat("haptica", 1f);
         if (escala <= 0.01f) return;
@@ -184,8 +185,8 @@ public class SaludJugador : MonoBehaviour
         {
             float amplitud = pulso.x * escala;
             float frecuencia = amplitud > 0f ? 1f : 0f;
-            OVRInput.SetControllerVibration(frecuencia, amplitud, OVRInput.Controller.LTouch);
-            OVRInput.SetControllerVibration(frecuencia, amplitud, OVRInput.Controller.RTouch);
+            Haptica.Fijar(frecuencia, amplitud, OVRInput.Controller.LTouch);
+            Haptica.Fijar(frecuencia, amplitud, OVRInput.Controller.RTouch);
             yield return new WaitForSecondsRealtime(pulso.y);
         }
         ApagarControles();
@@ -202,7 +203,7 @@ public class SaludJugador : MonoBehaviour
 
     private static void ApagarControles()
     {
-        OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.LTouch);
-        OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.RTouch);
+        Haptica.Apagar(OVRInput.Controller.LTouch);
+        Haptica.Apagar(OVRInput.Controller.RTouch);
     }
 }

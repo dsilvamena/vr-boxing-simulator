@@ -1,11 +1,15 @@
 using UnityEngine;
 
 /// <summary>
-/// Ataca al jugador cada cierto tiempo (jabs y, cada uppercutCada ataques, un uppercut) y gira para mirarlo.
+/// Ataca al jugador cada cierto tiempo y gira para mirarlo. Si el perfil tiene combo, cada ataque encadena esos golpes;
+/// si está vacío, cada ataque es un golpe (jabs y, cada uppercutCada ataques, un uppercut).
 /// Cada golpe recibido reinicia la espera (esperaTrasGolpe), así que si el jugador lo presiona no le da tiempo a atacar.
 /// Si lo golpean mientras ataca, ReaccionAnimada cambia de estado y el ataque se corta. Caído no ataca.
-/// Al empezar el ataque fija el punto donde está la cabeza del jugador; al pasar retardoImpacto, si el ataque
+/// Al empezar cada golpe fija el punto donde está la cabeza del jugador; al pasar retardoImpacto, si el ataque
 /// sigue en curso, le avisa a SaludJugador, que decide si el jugador esquivó, bloqueó o recibió el golpe.
+/// Combo: el siguiente golpe arranca segundosEntreGolpesCombo después del impacto del anterior, sin pasar por Idle. Un
+/// golpe conectado, una caída, el jugador en el piso, Pausar (fin del round) o desactivar el componente cancelan el
+/// resto del combo y el impacto pendiente. Un golpe que el jugador bloquea no lo cancela.
 /// IA reactiva (perfil): ataca a velocidadAtaque, se acerca si el jugador se aleja (sin salir del ring de LimiteRing),
 /// adelanta el ataque si el jugador baja la guardia (castigoGuardiaBaja) y contraataca pronto tras bloquear.
 /// Choque con la guardia: si el jugador tiene las manos arriba y el golpe iba a llegar, el guante se frena contra sus
@@ -18,6 +22,8 @@ public class AtaqueOponente : MonoBehaviour
     private static readonly int Idle = Animator.StringToHash("Idle");
     private static readonly int AtaqueJab = Animator.StringToHash("Ataque_Jab");
     private static readonly int AtaqueUppercut = Animator.StringToHash("Ataque_Uppercut");
+    private static readonly int AtaqueGancho = Animator.StringToHash("Ataque_Gancho");
+    private static readonly int AtaqueGancho2 = Animator.StringToHash("Ataque_Gancho_2");
 
     [SerializeField] private Animator animator;
     [Tooltip("A quién mira y ataca; vacío = cámara principal (CenterEyeAnchor)")]
@@ -44,15 +50,25 @@ public class AtaqueOponente : MonoBehaviour
     private float proximoAtaque;
     private int ataques;
     private float impactoEn = -1f;
-    private bool impactoEsUppercut;
+    private TipoAtaque ataqueEnCurso;
+    private int siguienteDelCombo = -1; // índice del próximo golpe del combo; -1 = no hay combo en curso
+    private float siguienteGolpeEn;
+    private EsquiveOponente esquive;
     private Vector3 puntoApuntado;
     private LimiteRing ring;
     private bool frenado;     // el Animator está detenido con el guante contra la guardia
     private bool retirando;   // el golpe fue bloqueado: tras pausaGuardia se retira el brazo
     private float retirarEn;
+    private bool pausado;
+    private Vector3? destinoPausa;
 
-    /// <summary>Está lanzando un golpe (o empezando a lanzarlo).</summary>
-    public bool Atacando
+    /// <summary>Está lanzando un golpe (o empezando a lanzarlo), o en medio de un combo.</summary>
+    public bool Atacando => AnimandoAtaque || ComboEnCurso;
+
+    private bool ComboEnCurso => siguienteDelCombo >= 0;
+
+    // Solo mira el Animator: un golpe cortado por una reacción deja de contar aquí
+    private bool AnimandoAtaque
     {
         get
         {
@@ -66,12 +82,15 @@ public class AtaqueOponente : MonoBehaviour
     {
         oponente = GetComponent<Oponente>();
         if (animator == null) animator = GetComponentInChildren<Animator>();
+        esquive = GetComponent<EsquiveOponente>();
     }
 
     private void OnEnable()
     {
         oponente.AlRecibirGolpe += AlRecibirGolpe;
         oponente.AlBloquear += AlBloquear;
+        oponente.AlEsquivar += AlEsquivar;
+        oponente.AlCaer += AlCaer;
         oponente.AlLevantarse += AlLevantarse;
         Esperar(oponente.Perfil.intervaloAtaque);
     }
@@ -80,7 +99,10 @@ public class AtaqueOponente : MonoBehaviour
     {
         oponente.AlRecibirGolpe -= AlRecibirGolpe;
         oponente.AlBloquear -= AlBloquear;
+        oponente.AlEsquivar -= AlEsquivar;
+        oponente.AlCaer -= AlCaer;
         oponente.AlLevantarse -= AlLevantarse;
+        CancelarGolpes();
         frenado = retirando = false;
         animator.speed = 1f;
     }
@@ -88,23 +110,29 @@ public class AtaqueOponente : MonoBehaviour
     private void Update()
     {
         // velocidadAtaque solo acelera el ataque: en cuanto termina (o lo cortan) el Animator vuelve a su ritmo
-        if (!Mathf.Approximately(animator.speed, 1f) && !Atacando) animator.speed = 1f;
+        if (!Mathf.Approximately(animator.speed, 1f) && !AnimandoAtaque) animator.speed = 1f;
 
         if (jugador == null) jugador = FindAnyObjectByType<SaludJugador>();
         GestionarFreno();
 
         if (oponente.Caido)
         {
-            impactoEn = -1f;
+            CancelarGolpes();
             return;
         }
         MirarObjetivo();
+
+        if (pausado)
+        {
+            CaminarAlDestino();
+            return;
+        }
 
         // Si el jugador está en el piso (cuenta de 10 s), no ataca; al levantarse espera esperaTrasLevantarse
         if (jugador == null) jugador = FindAnyObjectByType<SaludJugador>();
         if (jugador != null && jugador.Derribado)
         {
-            impactoEn = -1f;
+            CancelarGolpes();
             proximoAtaque = Mathf.Max(proximoAtaque, Time.time + oponente.Perfil.esperaTrasLevantarse);
             return;
         }
@@ -112,39 +140,121 @@ public class AtaqueOponente : MonoBehaviour
         ResolverImpacto();
 
         PerfilOponente p = oponente.Perfil;
+        if (ComboEnCurso)
+        {
+            SeguirCombo(p);
+            return;
+        }
+
         // Guardia baja = abertura: la espera hasta el próximo ataque corre más rápido
         if (jugador != null && !jugador.EnGuardia) proximoAtaque -= Time.deltaTime * p.castigoGuardiaBaja;
 
         // Solo desde la guardia: si aún está reaccionando a un golpe, espera a que vuelva a Idle
         bool enIdle = !animator.IsInTransition(0) && animator.GetCurrentAnimatorStateInfo(0).shortNameHash == Idle;
-        if (enIdle) Acercarse();
+        // Mientras se aparta o vuelve de un esquive no camina: ese movimiento se suma a este y se pelearían
+        if (enIdle && (esquive == null || !esquive.EnMovimiento)) Acercarse();
         if (Time.time < proximoAtaque || !enIdle) return;
 
         ataques++;
-        int uppercutCada = oponente.Perfil.uppercutCada;
-        bool uppercut = uppercutCada > 0 && ataques % uppercutCada == 0;
-        animator.CrossFadeInFixedTime(uppercut ? AtaqueUppercut : AtaqueJab, mezclaAtaque, 0, 0f);
+        if (p.combo != null && p.combo.Length > 0)
+        {
+            siguienteDelCombo = 0;
+            LanzarSiguienteDelCombo(p);
+            return;
+        }
+
+        bool uppercut = p.uppercutCada > 0 && ataques % p.uppercutCada == 0;
+        Lanzar(uppercut ? TipoAtaque.Uppercut : TipoAtaque.Jab, p);
+        Esperar(p.intervaloAtaque);
+    }
+
+    private void Lanzar(TipoAtaque tipo, PerfilOponente p)
+    {
+        animator.CrossFadeInFixedTime(Estado(tipo), mezclaAtaque, 0, 0f);
         animator.speed = p.velocidadAtaque;
 
         // Apunta a donde está la cabeza del jugador ahora; si se mueve antes del impacto, esquiva
         puntoApuntado = jugador != null
             ? jugador.PosicionCabeza
-            : transform.position + Vector3.up * oponente.Perfil.alturaAtaque + transform.forward * oponente.Perfil.alcanceAtaque;
+            : transform.position + Vector3.up * p.alturaAtaque + transform.forward * p.alcanceAtaque;
 
-        impactoEsUppercut = uppercut;
-        float retardo = uppercut ? p.retardoImpactoUppercut : p.retardoImpactoJab;
-        impactoEn = Time.time + retardo / Mathf.Max(0.1f, p.velocidadAtaque);
-        Esperar(p.intervaloAtaque);
+        ataqueEnCurso = tipo;
+        impactoEn = Time.time + p.RetardoImpacto(tipo) / Mathf.Max(0.1f, p.velocidadAtaque);
+    }
+
+    // Espera el impacto del golpe en curso y a que el guante se suelte de la guardia antes de lanzar el siguiente
+    private void SeguirCombo(PerfilOponente p)
+    {
+        if (impactoEn >= 0f || frenado || Time.time < siguienteGolpeEn) return;
+        LanzarSiguienteDelCombo(p);
+    }
+
+    // El último golpe ya no deja combo en curso: desde él corre la espera normal hasta el próximo ataque
+    private void LanzarSiguienteDelCombo(PerfilOponente p)
+    {
+        Lanzar(p.combo[siguienteDelCombo], p);
+        siguienteDelCombo++;
+        if (siguienteDelCombo >= p.combo.Length)
+        {
+            siguienteDelCombo = -1;
+            Esperar(p.intervaloAtaque);
+        }
+    }
+
+    // Lo que tenía en camino ya no llega: ni el impacto pendiente ni el resto del combo
+    private void CancelarGolpes()
+    {
+        impactoEn = -1f;
+        siguienteDelCombo = -1;
+    }
+
+    /// <summary>
+    /// Deja de atacar y de buscar al jugador (descanso entre rounds, fin del combate) y corta el golpe que estuviera
+    /// lanzando. Sigue mirando al jugador y, si se indica un destino, camina hasta él.
+    /// </summary>
+    public void Pausar(Vector3? destino = null)
+    {
+        pausado = true;
+        destinoPausa = destino;
+        CancelarGolpes();
+        frenado = retirando = false;
+        animator.speed = 1f;
+        // Si acaba de caer, no le pisa la animación de caída
+        if (AnimandoAtaque && !oponente.Caido) animator.CrossFadeInFixedTime(Idle, retornoGuardia, 0, 0f);
+    }
+
+    /// <summary>Vuelve a pelear; el primer ataque llega tras la espera normal.</summary>
+    public void Reanudar()
+    {
+        pausado = false;
+        destinoPausa = null;
+        Esperar(oponente.Perfil.intervaloAtaque);
+    }
+
+    private void CaminarAlDestino()
+    {
+        if (destinoPausa == null) return;
+        transform.position = Vector3.MoveTowards(transform.position, destinoPausa.Value, oponente.Perfil.velocidadDesplazamiento * Time.deltaTime);
     }
 
     private void ResolverImpacto()
     {
         if (impactoEn < 0f || Time.time < impactoEn) return;
         impactoEn = -1f;
-        if (!Atacando) return; // lo golpearon y el ataque se cortó
+        PerfilOponente p = oponente.Perfil;
+        if (!AnimandoAtaque)
+        {
+            // El golpe se cortó sin que nadie lo cancelara: el combo tampoco sigue
+            if (ComboEnCurso)
+            {
+                siguienteDelCombo = -1;
+                Esperar(p.intervaloAtaque);
+            }
+            return;
+        }
+        siguienteGolpeEn = Time.time + p.segundosEntreGolpesCombo;
         if (jugador == null) return;
 
-        PerfilOponente p = oponente.Perfil;
         Vector3 origen = transform.position + Vector3.up * p.alturaAtaque;
         Vector3 haciaPunto = puntoApuntado - origen;
         // Si el punto apuntado queda más lejos que el alcance, el golpe se queda corto
@@ -155,7 +265,7 @@ public class AtaqueOponente : MonoBehaviour
             haciaPunto.normalized,
             alcance,
             p.radioImpacto,
-            impactoEsUppercut ? p.danoAtaqueUppercut : p.danoAtaqueJab);
+            p.DanoAtaque(ataqueEnCurso));
 
         if (!chocarConGuardia) return;
         if (resultado == ResultadoAtaque.Bloqueado)
@@ -181,7 +291,7 @@ public class AtaqueOponente : MonoBehaviour
         {
             bool cercaDelImpacto = anticipoGuardia > 0f && impactoEn >= 0f && Time.time >= impactoEn - anticipoGuardia;
             if (cercaDelImpacto && !oponente.Caido && jugador != null && !jugador.Derribado
-                && jugador.EnGuardia && Atacando && ElGolpeLlegaria())
+                && jugador.EnGuardia && AnimandoAtaque && ElGolpeLlegaria())
             {
                 frenado = true;
                 retirando = false;
@@ -191,7 +301,7 @@ public class AtaqueOponente : MonoBehaviour
         }
 
         // Ya frenado: se suelta si lo golpean/caen, si el ataque terminó o si el impacto se canceló sin choque
-        if (oponente.Caido || !Atacando) { Soltar(false); return; }
+        if (oponente.Caido || !AnimandoAtaque) { Soltar(false); return; }
         if (retirando)
         {
             if (Time.time >= retirarEn) RetirarGuante();
@@ -232,16 +342,22 @@ public class AtaqueOponente : MonoBehaviour
         animator.CrossFadeInFixedTime(Idle, retornoGuardia, 0, 0f);
     }
 
-    // La reacción ya corta el ataque en el Animator; aquí se cancela el impacto y se reinicia la espera
+    // La reacción ya corta el ataque en el Animator; aquí se cancelan el impacto y el combo, y se reinicia la espera
     private void AlRecibirGolpe(Golpe golpe)
     {
-        impactoEn = -1f;
+        CancelarGolpes();
         if (frenado) Soltar(false);
         Esperar(oponente.Perfil.esperaTrasGolpe);
     }
 
     // Paró el golpe: aprovecha que el jugador quedó expuesto
     private void AlBloquear(Golpe golpe) => Esperar(oponente.Perfil.contraataqueTrasBloqueo);
+
+    // Se apartó y el jugador quedó con el brazo estirado: contraataca enseguida
+    private void AlEsquivar(Golpe golpe) => Esperar(oponente.Perfil.ventanaContraataque);
+
+    // Una caída sin golpe (Derribar) no pasa por AlRecibirGolpe
+    private void AlCaer(Golpe golpe) => CancelarGolpes();
 
     private void AlLevantarse() => proximoAtaque = Time.time + oponente.Perfil.esperaTrasLevantarse;
 
@@ -273,16 +389,19 @@ public class AtaqueOponente : MonoBehaviour
 
         Vector3 destino = transform.position + haciaJugador.normalized * Mathf.Min(sobra, p.velocidadDesplazamiento * Time.deltaTime);
         if (ring == null) ring = FindAnyObjectByType<LimiteRing>();
-        if (ring != null)
-        {
-            Rect area = ring.AreaRing;
-            destino.x = Mathf.Clamp(destino.x, area.xMin + margenRing, area.xMax - margenRing);
-            destino.z = Mathf.Clamp(destino.z, area.yMin + margenRing, area.yMax - margenRing);
-        }
-        transform.position = destino;
+        transform.position = ring != null ? ring.DentroDelRing(destino, margenRing) : destino;
     }
 
-    private static bool EsAtaque(int estado) => estado == AtaqueJab || estado == AtaqueUppercut;
+    private static bool EsAtaque(int estado) =>
+        estado == AtaqueJab || estado == AtaqueUppercut || estado == AtaqueGancho || estado == AtaqueGancho2;
+
+    private static int Estado(TipoAtaque tipo) => tipo switch
+    {
+        TipoAtaque.Jab => AtaqueJab,
+        TipoAtaque.Uppercut => AtaqueUppercut,
+        TipoAtaque.Gancho => AtaqueGancho,
+        _ => AtaqueGancho2,
+    };
 
     // Con el oponente seleccionado se ve el alcance máximo del golpe; el ataque real apunta a la cabeza del jugador
     private void OnDrawGizmosSelected()

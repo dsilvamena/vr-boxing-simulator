@@ -9,6 +9,8 @@ using UnityEngine;
 /// La guardia se ve con IK de manos (Animator Humanoid): sube los guantes frente a la cara sin necesitar un clip.
 /// OnAnimatorIK solo llega al objeto del Animator, por eso se le añade un RelevoIK que llama a AplicarIK.
 /// La capa base del Animator Controller necesita IK Pass activado.
+/// Si el perfil tiene guardiaGrabada (GrabadoraGuardia), los guantes siguen esa trayectoria grabada con el visor al subir y,
+/// al revés, al bajar; si no, van en línea recta a posicionGuantes.
 /// </summary>
 [RequireComponent(typeof(Oponente))]
 public class DefensaOponente : MonoBehaviour
@@ -32,6 +34,8 @@ public class DefensaOponente : MonoBehaviour
 
     /// <summary>Tiene la guardia arriba: el próximo golpe se bloquea.</summary>
     public bool EnGuardia => Time.time < guardiaHasta && !Atacando;
+    /// <summary>Tiene la guardia arriba o acaba de bajarla. EsquiveOponente no esquiva entonces: la abertura es el premio del jugador.</summary>
+    public bool GuardiaOcupada => Time.time < guardiaHasta + aberturaTrasGuardia;
     /// <summary>Probabilidad de bloquear el próximo golpe si llega ahora.</summary>
     public float ProbabilidadActual
     {
@@ -83,6 +87,14 @@ public class DefensaOponente : MonoBehaviour
         return true;
     }
 
+    /// <summary>Baja la guardia y olvida los golpes seguidos (descanso entre rounds).</summary>
+    public void Reiniciar()
+    {
+        guardiaHasta = -10f;
+        ultimoGolpe = -10f;
+        seguidos = 0;
+    }
+
     private void Update()
     {
         bool arriba = EnGuardia && !oponente.Caido;
@@ -101,13 +113,48 @@ public class DefensaOponente : MonoBehaviour
         Transform cabeza = animator.GetBoneTransform(HumanBodyBones.Head);
         if (cabeza == null) return;
         // El rival siempre mira al jugador (AtaqueOponente lo gira), así que su frente es hacia el jugador
-        float escala = transform.lossyScale.y;
         Vector3 frente = transform.forward;
         Vector3 derecha = transform.right;
+
+        GrabacionGuardia grabada = oponente.Perfil.guardiaGrabada;
+        if (grabada != null && grabada.Valida)
+        {
+            AplicarGrabacion(grabada, cabeza, frente, derecha);
+            return;
+        }
+
+        float escala = transform.lossyScale.y;
         Vector3 centro = cabeza.position + (frente * posicionGuantes.z + Vector3.up * posicionGuantes.y) * escala;
         animator.SetIKPosition(AvatarIKGoal.LeftHand, centro - derecha * posicionGuantes.x * escala);
         animator.SetIKPosition(AvatarIKGoal.RightHand, centro + derecha * posicionGuantes.x * escala);
     }
+
+    // La subida grabada, escalada a la altura del rival. peso es el avance: al subir va hacia delante y al bajar hacia atrás.
+    // La grabación empieza con las manos de quien grabó (abajo, en el pecho), y el rival ya tiene las manos arriba en la
+    // animación de Idle: la trayectoria arranca en la pose animada y esa diferencia se va borrando a lo largo de la subida,
+    // así se conserva la forma del movimiento grabado sin saltos ni bajar las manos de más.
+    private void AplicarGrabacion(GrabacionGuardia grabada, Transform cabeza, Vector3 frente, Vector3 derecha)
+    {
+        float alturaRival = cabeza.position.y - transform.position.y;
+        float escala = grabada.alturaCabeza > 0.1f ? alturaRival / grabada.alturaCabeza : transform.lossyScale.y;
+        grabada.Evaluar(0f, out Vector3 izquierda0, out Vector3 derecha0);
+        grabada.Evaluar(peso, out Vector3 izquierda, out Vector3 derechaLocal);
+        Vector3 Mundo(Vector3 local) => cabeza.position + Marco(local, frente, derecha) * escala;
+        Colocar(AvatarIKGoal.LeftHand, Mundo(izquierda), Mundo(izquierda0));
+        Colocar(AvatarIKGoal.RightHand, Mundo(derechaLocal), Mundo(derecha0));
+    }
+
+    private void Colocar(AvatarIKGoal mano, Vector3 grabado, Vector3 inicioGrabado)
+    {
+        // Con peso 0 en este fotograma, GetIKPosition devuelve dónde deja la mano la animación
+        animator.SetIKPositionWeight(mano, 0f);
+        Vector3 animada = animator.GetIKPosition(mano);
+        animator.SetIKPositionWeight(mano, 1f);
+        animator.SetIKPosition(mano, grabado + (animada - inicioGrabado) * (1f - peso));
+    }
+
+    private static Vector3 Marco(Vector3 local, Vector3 frente, Vector3 derecha) =>
+        derecha * local.x + Vector3.up * local.y + frente * local.z;
 
     [ContextMenu("Probar: subir la guardia")]
     private void ProbarGuardia() => guardiaHasta = Time.time + oponente.Perfil.segundosGuardia * 3f;

@@ -1,6 +1,11 @@
 using UnityEngine;
 
 /// <summary>
+/// Golpes que puede lanzar un oponente. Cada uno es un estado del Animator Controller con su propio retardo de impacto.
+/// </summary>
+public enum TipoAtaque { Jab, Uppercut, Gancho, Gancho2 }
+
+/// <summary>
 /// Datos de un personaje (salud, ataques, cómo reacciona, sonidos). Un asset por oponente.
 /// </summary>
 [CreateAssetMenu(menuName = "Boxeo/Perfil de oponente", fileName = "PerfilOponente")]
@@ -24,7 +29,11 @@ public class PerfilOponente : ScriptableObject
     [Header("Caídas")]
     [Tooltip("La caída número N es la derrota y ya no se levanta; las anteriores son knockdowns")]
     public int caidasParaDerrota = 3;
-    [Tooltip("Segundos de un knockdown hasta que se levanta (con animación, lo que dura el clip)")]
+    [Tooltip("Número de la cuenta del réferi en el que se levanta (10 = la cuenta completa, más bajo = se repone antes)")]
+    [Range(1, 10)] public int cuentaKnockdown = 10;
+    [Tooltip("Segundos que tarda en incorporarse al terminar la cuenta; en ese tiempo no recibe golpes (míralo en el clip)")]
+    public float segundosAlLevantarse = 1.3f;
+    [Tooltip("Solo sin réferi en la escena: segundos de un knockdown hasta que se levanta (con animación, lo que dura el clip)")]
     public float segundosKnockdown = 3.7f;
     [Tooltip("Segundos tras un golpe en los que no recibe otro")]
     public float invulnerabilidad = 0.2f;
@@ -44,6 +53,22 @@ public class PerfilOponente : ScriptableObject
     public float segundosGuardia = 0.7f;
     [Tooltip("Fracción del daño que pasa al bloquear (0 = nada, 1 = todo)")]
     [Range(0f, 1f)] public float danoTrasBloqueo = 0.15f;
+    [Tooltip("Cómo sube los guantes al bloquear, grabado con el visor (GrabadoraGuardia). Vacío = en línea recta hasta la guardia fija de DefensaOponente")]
+    public GrabacionGuardia guardiaGrabada;
+
+    [Header("Esquive (RF-07)")]
+    [Tooltip("Probabilidad de esquivar un golpe del jugador (0 = nunca esquiva, aunque tenga EsquiveOponente)")]
+    [Range(0f, 1f)] public float probabilidadEsquive = 0f;
+    [Tooltip("Metros que se aparta al esquivar")]
+    public float distanciaEsquive = 0.35f;
+    [Tooltip("Segundos desde un esquive hasta que puede volver a esquivar")]
+    public float enfriamientoEsquive = 1.5f;
+    [Tooltip("Tras esquivar, segundos hasta su contraataque (se elige uno al azar en el rango)")]
+    public Vector2 ventanaContraataque = new Vector2(0.3f, 0.6f);
+    [Tooltip("Segundos que tarda en apartarse; en ese tiempo tampoco le llegan otros golpes")]
+    public float segundosEsquive = 0.15f;
+    [Tooltip("Segundos que tarda en volver a su sitio; en ese tiempo ya se le puede pegar")]
+    public float segundosRegresoEsquive = 0.35f;
 
     [Header("Velocidad")]
     [Tooltip("Multiplica la velocidad de sus animaciones de ataque (más alto = menos tiempo para esquivar)")]
@@ -58,6 +83,10 @@ public class PerfilOponente : ScriptableObject
     public Vector2 intervaloAtaque = new Vector2(4f, 6f);
     [Tooltip("Cada cuántos ataques uno es uppercut; el resto son jabs (0 = nunca)")]
     public int uppercutCada = 4;
+    [Tooltip("Golpes que encadena en cada ataque, en orden. Vacío = un solo golpe por ataque, con el ciclo de uppercutCada")]
+    public TipoAtaque[] combo = new TipoAtaque[0];
+    [Tooltip("Segundos desde el impacto de un golpe del combo hasta que arranca el siguiente")]
+    public float segundosEntreGolpesCombo = 0.15f;
     [Tooltip("Tras recibir un golpe, segundos hasta que puede volver a atacar (reinicia la espera)")]
     public Vector2 esperaTrasGolpe = new Vector2(1.5f, 2.5f);
     [Tooltip("Segundos tras levantarse de un knockdown antes del primer ataque")]
@@ -70,9 +99,12 @@ public class PerfilOponente : ScriptableObject
     [Header("Daño al jugador (RF-04, RF-05, RF-06)")]
     public float danoAtaqueJab = 8f;
     public float danoAtaqueUppercut = 14f;
+    public float danoAtaqueGancho = 10f;
     [Tooltip("Segundos desde que empieza la animación hasta que el puño llega (míralo en el clip)")]
     public float retardoImpactoJab = 0.35f;
     public float retardoImpactoUppercut = 0.45f;
+    public float retardoImpactoGancho = 0.9f;
+    public float retardoImpactoGancho2 = 0.5f;
     [Tooltip("Hasta dónde llega el golpe desde el oponente, en metros")]
     public float alcanceAtaque = 1.5f;
     [Tooltip("Qué tan lejos de la línea del golpe puede estar la cabeza y aún recibirlo, en metros")]
@@ -96,4 +128,19 @@ public class PerfilOponente : ScriptableObject
     public AudioClip[] sonidosGolpe;
     public AudioClip sonidoBloqueo;
     public AudioClip sonidoKO;
+
+    public float DanoAtaque(TipoAtaque tipo) => tipo switch
+    {
+        TipoAtaque.Jab => danoAtaqueJab,
+        TipoAtaque.Uppercut => danoAtaqueUppercut,
+        _ => danoAtaqueGancho,
+    };
+
+    public float RetardoImpacto(TipoAtaque tipo) => tipo switch
+    {
+        TipoAtaque.Jab => retardoImpactoJab,
+        TipoAtaque.Uppercut => retardoImpactoUppercut,
+        TipoAtaque.Gancho => retardoImpactoGancho,
+        _ => retardoImpactoGancho2,
+    };
 }

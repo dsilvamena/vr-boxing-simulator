@@ -72,6 +72,9 @@ public static class OponenteBuilder
 
             CrearHitboxes(cuerpo);
         }
+
+        // Esquive (RF-07): no hace nada mientras la probabilidad de su perfil sea 0
+        Obtener<EsquiveOponente>(raiz);
         Selection.activeGameObject = raiz;
     }
 

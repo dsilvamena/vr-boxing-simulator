@@ -126,3 +126,16 @@ InitTestScene*.unity*
 
 # Capas OpenXR que genera el Meta XR Simulator
 /Assets/XR/APILayers~/
+
+# Informe del curso (se entrega aparte, no va al repositorio)
+Informe_SimuladorDeBoxeo.docx
+Informe_SimuladorDeBoxeo.pdf
+# Archivos temporales de bloqueo de Word
+~$*
+
+# Respaldos automáticos de Blender (.blend1, .blend2...)
+*.blend[0-9]
+
+# Copias de escenas que Unity guarda tras un cierre inesperado
+/Assets/_Recovery/
+/Assets/_Recovery.meta

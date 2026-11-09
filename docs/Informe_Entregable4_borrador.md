@@ -12,7 +12,7 @@ Según el cronograma (sección 8.1), el Entregable 4 comprende la IA de los nive
 
 Además se adelantó el registro de métricas por sesión (RF-21, previsto para las semanas 13 y 14), que servirá para las pruebas HEART de la semana 14.
 
-Todo se implementó en Unity 6000.4.7f1 para Meta Quest (OpenXR, Android) y se probó en el Editor. Por no contar todavía con los modelos 3D del réferi, de Mr. Sandman y de Iron Mike Tyson, se usaron modelos provisionales que se reemplazan sin modificar el código.
+Todo se implementó en Unity 6000.4.7f1 para Meta Quest (OpenXR, Android) y se probó en el Editor. El réferi y Mr. Sandman ya usan sus modelos 3D definitivos, riggeados por el equipo; Mr. Sandman reutiliza las animaciones de Soda Popinski gracias al avatar humanoide de Unity. El modelo de Iron Mike Tyson también está listo y se integrará con el nivel 5.
 
 ### 11.2 Rondas de 3 × 90 segundos (RF-10, RF-11)
 
@@ -27,12 +27,14 @@ El réferi (script `Arbitro`) cuenta en voz alta del 1 al 10 con una voz espacia
 - **Caída del jugador:** al quedarse sin salud empieza una cuenta de 10 s. Pulsar rápido los botones A, B, X o Y lo levanta. Cada pulsación aclara la visión periférica, calma el latido y vibra más fuerte. Si la cuenta termina, el jugador pierde por K.O. y vuelve al menú con el nivel todavía disponible para reintentarlo (RF-13).
 - **Caída del rival:** el réferi cuenta y el rival se levanta al terminar la cuenta. La animación de caída se sostiene en el piso hasta ese momento. La caída final (la tercera) no se cuenta: termina el combate.
 
-**Réferi visible (modelo provisional).** El script `CuerpoArbitro` da cuerpo al réferi (figura 6). Durante el round se mantiene a 2 m de la línea de la pelea, en la periferia de la vista. En la cuenta del rival se acerca a él y lo señala. En la cuenta del jugador se coloca delante de este, ligeramente a un lado para no superponerse al rival, como en el boceto del estado de knockout (figura 4 de la sección 4.4). Con cada número baja el brazo y lo vuelve a subir, sincronizado con la voz. Sobre su cabeza aparece el cartel "¡ARRIBA! PULSA A B X Y", que indica cómo levantarse. Está anclado al réferi dentro del mundo y no a la cámara, de modo que se mantiene el principio de no usar HUD (figura 7). El modelo provisional está hecho con primitivas (camisa blanca, pantalón y pajarita negros). El modelo definitivo de la tabla de assets se coloca en su lugar sin modificar el código.
+**Réferi visible.** El script `CuerpoArbitro` da cuerpo al réferi (figuras 6 y 7). Durante el round se mantiene a 2 m de la línea de la pelea, en la periferia de la vista, medio agachado en postura de vigilar. En la cuenta del rival se acerca a él, se inclina y marca la cuenta con el brazo. En la cuenta del jugador se coloca delante de este, ligeramente a un lado para no superponerse al rival, como en el boceto del estado de knockout (figura 4 de la sección 4.4). Con cada número baja el brazo y lo vuelve a subir, sincronizado con la voz. Sobre su cabeza aparece el cartel "¡ARRIBA! PULSA A B X Y", que indica cómo levantarse. Está anclado al réferi dentro del mundo y no a la cámara, de modo que se mantiene el principio de no usar HUD (figura 8).
+
+**Modelo del réferi.** El modelo 3D del réferi (camisa azul, pantalón oscuro y pajarita) tiene un esqueleto humanoide y dos poses: de pie en T y agachado vigilando. Su malla original tenía unos 379 000 triángulos, unas 50 veces más que la de los rivales, demasiado para el Meta Quest 2, así que se redujo a 20 000 en Blender conservando el esqueleto, el UV y la textura. A partir de la pose en T se generó una pose de pie relajada que respira, y el réferi pasa suavemente de una postura a otra según la fase del combate. El gesto de la cuenta se aplica sobre el brazo derecho del esqueleto después de la animación, así que sirve para cualquier modelo humanoide. Como el modelo no trae una animación de caminar, el réferi se desliza por el ring.
 
 ### 11.4 IA de los niveles 3 y 4 (RF-07, RF-08)
 
 - **Soda Popinski (nivel 3), combinaciones rápidas de ganchos:** cada ataque encadena tres golpes (izquierda, derecha, izquierda) con 0,12 s entre ellos. Cada golpe vuelve a apuntar a la cabeza del jugador, así que se puede esquivar uno sin esquivar el combo entero. Un golpe conectado o una caída del rival cortan la combinación sin dejar impactos pendientes.
-- **Mr. Sandman (nivel 4), alta velocidad y esquive activo:** decide al contacto si esquiva, antes que el bloqueo, con un 45 % de probabilidad y un enfriamiento de 1 s. Se aparta 0,35 m hacia el lado contrario del guante o hacia atrás sin salir del ring, y contraataca entre 0,25 y 0,5 s después. No esquiva mientras ataca ni justo después de bajar la guardia: ese momento es la ventana del jugador. Usa provisionalmente el modelo de Soda con otros colores.
+- **Mr. Sandman (nivel 4), alta velocidad y esquive activo:** decide al contacto si esquiva, antes que el bloqueo, con un 45 % de probabilidad y un enfriamiento de 1 s. Se aparta 0,35 m hacia el lado contrario del guante o hacia atrás sin salir del ring, y contraataca entre 0,25 y 0,5 s después. No esquiva mientras ataca ni justo después de bajar la guardia: ese momento es la ventana del jugador. Su modelo tiene un esqueleto propio y botas altas: como el retarget humanoide no sabe cuánto calzado hay bajo el tobillo, un componente (`ApoyoEnSuelo`) corrige la altura de la cadera después de cada fotograma de animación para que las botas no atraviesen la lona.
 
 Los parámetros de los cuatro rivales están en un asset `PerfilOponente` por personaje (RNF-10). La dificultad sube del nivel 1 al 4 (tabla 11.1).
 
@@ -54,7 +56,7 @@ Para que los bloqueos de los rivales no sean un movimiento rígido en línea rec
 - **Grabación:** con el visor puesto y las manos abajo, el jugador pulsa a la vez los dos sticks. Tras una cuenta atrás háptica, el script `GrabadoraGuardia` registra durante 2 s la posición y la rotación de ambos controladores respecto a la cabeza y conserva solo el tramo en que se sube la guardia. El resultado es un asset `GrabacionGuardia`.
 - **Reproducción:** cuando un rival bloquea, `DefensaOponente` lleva sus guantes por esa trayectoria mediante cinemática inversa (IK) de manos, hacia delante al subir la guardia y al revés al bajarla. La trayectoria parte de la pose animada del rival y se escala a su estatura.
 
-Mientras no se disponga de una grabación hecha con el visor, los cuatro rivales usan una trayectoria provisional sintetizada. Además, el escalado por estatura corrigió un defecto de Soda Popinski, cuyos guantes atravesaban su cara con la guardia fija anterior (figuras 9 y 10).
+Mientras no se disponga de una grabación hecha con el visor, los cuatro rivales usan una trayectoria provisional sintetizada. Además, el escalado por estatura corrigió un defecto de Soda Popinski, cuyos guantes atravesaban su cara con la guardia fija anterior (figuras 10 y 11).
 
 ### 11.6 Háptica diferenciada (RF-15)
 
@@ -99,18 +101,19 @@ Los scripts compilan sin errores para Android. Queda pendiente validar con el vi
 *Figuras de esta sección (en `docs/capturas/`):*
 
 1. Figura 5. Menú principal diegético dentro de la arena (`01_menu_principal.png`).
-2. Figura 6. Nivel 1, Glass Joe, con el réferi provisional a la izquierda, desde los ojos del jugador (`02_nivel1_glass_joe.png`).
-3. Figura 7. Cuenta del jugador: el réferi delante, con el brazo en alto y el cartel de los botones (`07_cuenta_del_jugador.png`).
-4. Figura 8. Cuenta del rival: el réferi señala a Mr. Sandman en la lona (`08_cuenta_del_rival.png`).
-5. Figuras 9 y 10. Guardia de Soda Popinski con la posición fija anterior y con la trayectoria grabada (`09_guardia_fija.png`, `10_guardia_grabada.png`).
-6. Figuras 11 a 13. Niveles 2, 3 y 4 (`03_…`, `04_…`, `05_…`).
+2. Figura 6. Nivel 1, Glass Joe, con el réferi vigilando a la izquierda, desde los ojos del jugador (`02_nivel1_glass_joe.png`).
+3. Figura 7. El réferi en el ring, en postura de vigilar la pelea (`06_referi.png`).
+4. Figura 8. Cuenta del jugador: el réferi delante, con el brazo en alto y el cartel de los botones (`07_cuenta_del_jugador.png`).
+5. Figura 9. Cuenta del rival: el réferi marca la cuenta junto a Mr. Sandman en la lona (`08_cuenta_del_rival.png`).
+6. Figuras 10 y 11. Guardia de Soda Popinski con la posición fija anterior y con la trayectoria grabada (`09_guardia_fija.png`, `10_guardia_grabada.png`).
+7. Figuras 12 a 14. Niveles 2, 3 y 4 (`03_…`, `04_…`, `05_…`).
 
 ### 11.9 Resumen de cumplimiento (semana 13)
 
 | Actividad planificada | Implementación en Unity / scripts C# | Estado |
 |---|---|---|
-| IA de los niveles 3 y 4 | `AtaqueOponente` (combos), `EsquiveOponente`, perfiles de Soda Popinski y Mr. Sandman | Completado (Mr. Sandman con modelo provisional) |
-| Réferi con cuenta regresiva y button mashing | `Arbitro`, `CuerpoArbitro`, `RecuperacionJugador`, voz 3D sintetizada | Completado (modelo del réferi provisional) |
+| IA de los niveles 3 y 4 | `AtaqueOponente` (combos), `EsquiveOponente`, perfiles de Soda Popinski y Mr. Sandman, modelo de Mr. Sandman con `ApoyoEnSuelo` | Completado |
+| Réferi con cuenta regresiva y button mashing | `Arbitro`, `CuerpoArbitro`, `RecuperacionJugador`, voz 3D sintetizada, modelo 3D del réferi | Completado |
 | Rondas de 3 × 90 s | `ControlRondas`, campana 3D | Completado |
 | Hand Grab Recorder en los bloqueos | `GrabadoraGuardia`, `GrabacionGuardia`, `DefensaOponente` | Completado (falta grabar una guardia real con el visor) |
 | Háptica diferenciada | `Puno`, `SaludJugador`, `FeedbackSalud`, `Haptica` | Completado |

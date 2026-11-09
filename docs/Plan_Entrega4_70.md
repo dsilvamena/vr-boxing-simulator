@@ -17,14 +17,14 @@
 |---|---|---|---|
 | A | Rondas de 3 × 90 s con campana y ganador por KO o por salud | RF-10, RF-11 | Hecho |
 | B | Réferi: cuenta de 10 s en voz 3D y button mashing sin HUD | RF-12, RF-13, RF-16 | Hecho |
-| C | IA de los niveles 3 y 4: combos de Soda, esquive y contraataque de Sandman, nivel 4 jugable | RF-07, RF-08, RF-09 | Hecho |
+| C | IA de los niveles 3 y 4: combos de Soda, esquive y contraataque de Sandman, nivel 4 jugable | RF-07, RF-08, RF-09 | Hecho, con el modelo definitivo de Sandman (`MrSandman.fbx`, riggeado por el equipo) |
 | D | Hand Grab Recorder: grabar guardias con el visor y usarlas en los bloqueos del rival | RF-07 (presentación) | Hecho, con una guardia provisional sintetizada hasta grabar una real |
 | E | Háptica diferenciada completa: golpe esquivado por el rival, golpe que lo derriba y tic de la cuenta | RF-15 | Hecho |
-| F | Réferi visible en 3D (modelo provisional) que se coloca, cuenta con el brazo y muestra los botones | RF-12 | Hecho, con el modelo hecho de primitivas |
+| F | Réferi visible en 3D que se coloca, cuenta con el brazo y muestra los botones | RF-12 | Hecho, con el modelo definitivo (`Referee.fbx`, reducido para el Quest) |
 | G | Registro de métricas de la sesión (JSON y CSV) y FPS durante los rounds | RF-21, base de RNF-01 y RF-18 | Hecho; falta medirlo en el Quest |
 
 Fuera de esta entrega, según el cronograma: Iron Mike Tyson y el nivel 5, la escena de resultados con el cinturón (RF-18, RF-19), la optimización a 72–90 FPS y la latencia háptica medidas en el visor (RNF-01, RNF-02) y las pruebas HEART (semana 14).
 
 ## Restricción
 
-No hay visor ni modelos para el réferi, Mr. Sandman ni Tyson. Todo se probó en Play en el Editor, con los menús contextuales y llamadas por código, y se dejó listo para cambiar el modelo sin tocar el código.
+No hay visor. Los modelos del réferi y de Mr. Sandman llegaron al final de la entrega y ya están montados; el de Iron Mike Tyson también llegó y quedó guardado en `Art/Characters/MikeTyson/Source~` para el nivel 5. Todo se probó en Play en el Editor, con los menús contextuales y llamadas por código.

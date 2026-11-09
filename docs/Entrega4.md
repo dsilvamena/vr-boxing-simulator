@@ -129,7 +129,7 @@ Estas pruebas se hicieron sin visor ni Meta XR Simulator, con los menús context
 
 ## Bloque C: IA de los niveles 3 y 4 (RF-07, RF-08)
 
-Soda Popinski lanza combinaciones de ganchos, Mr. Sandman esquiva y contraataca, y el nivel 4 ya se puede jugar con un modelo provisional. Los valores van en `PerfilOponente`, en los assets de `Assets/_Project/Data/Oponentes/`.
+Soda Popinski lanza combinaciones de ganchos, Mr. Sandman esquiva y contraataca, y el nivel 4 se juega con su modelo definitivo (ver *Modelo definitivo de Mr. Sandman*). Los valores van en `PerfilOponente`, en los assets de `Assets/_Project/Data/Oponentes/`.
 
 ### Combos
 
@@ -193,7 +193,38 @@ Va junto a `DefensaOponente` y solo está montado en el nivel 4. *Configurar opo
 
 `Scene_Ring_Level4.unity` es una copia de la 3 con `Arbitro`, `ControlRondas`, `PausaGuardian`, `PauseMenu` y `Multitud`. Tiene `nivel` = 4 y vuelve a `Main_Scene`. El nivel 3 ahora carga el 4 con el mensaje "Siguiente: Nivel 4". El mensaje del 4 ya no dice "eres el campeón", porque según el informe ese título llega con Iron Mike Tyson.
 
-**Modelo provisional:** la misma instancia de Soda con cuatro materiales lisos propios (`MrSandman/Materials/Sandman_*.mat`), su `AnimatorOverrideController` y `MrSandman.asset`. No se usó `mr_sandman.glb`: no tiene esqueleto y `AtaqueOponente` necesita un Animator. Para cambiarlo sin tocar código: poner el modelo nuevo en la escena, usar *Tools > Boxeo > Configurar oponente seleccionado*, añadirle `AtaqueOponente`, asignarle `MrSandman.asset` y volver a medir los `retardoImpacto`.
+**Primer modelo (provisional):** la misma instancia de Soda con cuatro materiales lisos propios, su `AnimatorOverrideController` y `MrSandman.asset`. No se usó `mr_sandman.glb` porque no tiene esqueleto y `AtaqueOponente` necesita un Animator. Al final de la entrega se cambió por el modelo riggeado del equipo; ver la sección siguiente.
+
+### Modelo definitivo de Mr. Sandman
+
+El equipo riggeó el modelo de Sketchfab en Blender (`mr_sandman_tpose_rig.blend`): esqueleto humanoide de 21 huesos con nombres propios (`Hips`, `Spine`, `Chest`, `UpperArm.L`...), en pose T y con 1,88 m de altura. No es un rig de Mixamo y no trae animaciones. El `.glb` que venía al lado era el modelo viejo sin esqueleto.
+
+| Archivo (`Assets/_Project/Art/Characters/MrSandman/`) | Qué es |
+|---|---|
+| `MrSandman.fbx` | El modelo que usa el juego: Humanoid, avatar propio, una sola malla |
+| `Textures/Sandman_<pieza>.png` | Las 22 texturas que el `.blend` traía empaquetadas (paletas de 16 a 256 px) |
+| `MrSandman.prefab` | El modelo con el controlador de Soda y `ApoyoEnSuelo`, como `BaldBull.prefab` y `SodaPopinski.prefab` |
+| `Source~/` | Los `.blend` del equipo (el riggeado y sus respaldos) y el `.zip` original. Unity no importa esta carpeta |
+| `mr_sandman.glb` | El modelo viejo sin esqueleto; solo lo usa la decoración de `Main_Scene` |
+
+- **Exportación reproducible:** `Tools/exportar_sandman.py` abre el `.blend` en Blender sin interfaz, quita el cubo, la cámara y la luz de la escena, une las 22 piezas en una malla (en el Quest cada `SkinnedMeshRenderer` se skinnea aparte), renombra los materiales a `Sandman_<pieza>`, guarda las texturas y exporta `MrSandman.fbx` en metros, sin huesos hoja. Queda en 14 131 triángulos y 9 034 vértices, entre los rivales (6 652 Glass Joe, 8 636 Bald Bull) y el réferi (20 000). Se regenera con `Blender -b <Source~/mr_sandman_tpose_rig.blend> --python Tools/exportar_sandman.py -- Assets/_Project/Art/Characters/MrSandman`.
+- **Avatar:** el mapeo automático reconoció 18 huesos, pero no `Chest` ni los dedos de los pies. Se asignaron a mano en el importador; `Chest` hace falta porque de él cuelga la hitbox del torso.
+- **Animaciones:** usa las de Soda (`SodaPopinski.overrideController`), retargeteadas por el avatar humanoide. Como los clips son los mismos, los `retardoImpacto` medidos siguen valiendo. Escala 1 (Soda va a 0,8).
+- **Cambio en la escena:** se conservó la raíz `MrSandman` con todos sus componentes (`Oponente`, `AtaqueOponente`, `DefensaOponente`, `EsquiveOponente`, `ReaccionAnimada`) y con las referencias que le tienen `Arbitro`, `ControlRondas` y los demás. Solo se cambiaron sus hijos (el modelo), el avatar del `Animator` y las hitboxes, que *Configurar oponente seleccionado* volvió a crear en `Head` y `Chest`. Antes se comprobó que nada de la escena apuntaba a huesos del modelo de Soda.
+- **Botas hundidas en la lona → `ApoyoEnSuelo`:** el retarget humanoide coloca el cuerpo por su centro de masa y no sabe cuánto calzado hay bajo el tobillo. Sandman tiene 22 cm de bota bajo el tobillo (Unity calculaba 6 cm), así que con el `Idle` de Soda la cadera bajaba de 0,74 a 0,54 m y las botas quedaban 23 cm bajo la lona. No sirve subir la raíz una cantidad fija, porque tendido en el `Knockdown` quedaría flotando. Tampoco sirve subir el nodo `Armature`: el humanoide coloca la cadera respecto a la raíz y lo ignora. `ApoyoEnSuelo` corre después de la animación, mide los puntos de las suelas (los vértices de cada pie a menos de 4 cm del más bajo en reposo, guardados en el espacio del hueso desde el Editor, así la malla no necesita Read/Write en el Quest) y sube la cadera lo que se hayan hundido. Nunca baja la cadera y no hace nada si las suelas no están bajo la lona. Si el `Animator` no escribe en un fotograma (pausa, culling), deshace la corrección anterior para no acumularla. La guardia con IK no se descuadra porque se calcula desde el hueso de la cabeza, que sube con todo el cuerpo.
+
+**Pruebas (Play en el Editor, nivel 4):**
+
+| Prueba | Resultado |
+|---|---|
+| Avatar | Válido, 21 huesos mapeados |
+| `Idle` | OK: guardia arriba, mirando al jugador. Corrección de 0,23 a 0,25 m, vértice más bajo a 0,000 m de la lona, cabeza a 1,61 m |
+| Combo (`Ataque_Gancho_2`, `Ataque_Uppercut`) | OK: corrección de 0,24 a 0,37 m, suelas siempre a 0,000 m, cabeza entre 1,46 y 1,63 m |
+| *Probar: contar al rival* | OK: `Knockdown`, cuenta del 1 al 10 y se levanta |
+| Combate completo con el jugador sin defenderse | OK: K.O. al jugador, registro de la sesión guardado y vuelta al menú. Sin errores propios en la consola |
+| Captura desde los ojos del jugador | `docs/capturas/05_nivel4_mr_sandman.png`, rehecha con el modelo definitivo |
+
+**Pendiente:** ver con visor si las proporciones (piernas cortas y torso largo) se notan raras en los golpes de Soda, y si hace falta un `Idle` o golpes propios.
 
 Su combo es `Gancho2`, `Uppercut`, `Gancho2`, que en este modelo son un gancho, un barrido de `Ataque_Fuerte` (el primero, a 0,30 s) y otro gancho. No usa los golpes de `Ataque_Jab` porque en este rig son lentos (1,13 s de preparación). Tampoco los de Glass Joe: traen un paso adelante que, adaptado a este cuerpo, lo metería en el jugador, y quitarlo cambiaría también a Glass Joe.
 
@@ -381,15 +412,15 @@ Se grabaron con `Haptica.AlVibrar` todas las llamadas, con su tiempo real.
 
 ## Bloque F: réferi visible (RF-12)
 
-Hasta ahora el réferi era solo una voz en un costado del ring. Ahora tiene un cuerpo provisional que se mueve por el ring y cuenta con el brazo, como en el boceto del estado de knockout del informe (figura 4). La estructura queda lista para cambiar el modelo por el definitivo sin tocar código.
+Hasta ahora el réferi era solo una voz en un costado del ring. Ahora tiene un cuerpo que se mueve por el ring y cuenta con el brazo, como en el boceto del estado de knockout del informe (figura 4). Primero se hizo con un modelo provisional de primitivas; después se cambió por el modelo definitivo (`Referee.fbx`, ver *Modelo definitivo* más abajo).
 
 | Pieza | Qué hace |
 |---|---|
 | `Arbitro > Cuerpo` (`CuerpoArbitro`) | Se coloca según la pelea, gira y hace el gesto de cada número. La voz (`Voz`) es su hija, a la altura de la cabeza, así que suena desde donde está. |
-| `Cuerpo > Modelo` | El modelo provisional `ArbitroProvisional.prefab`: primitivas con camisa blanca, pantalón y pajarita negros, ojos y nariz para ver hacia dónde mira, y sin colliders. |
-| `Cuerpo > CartelPulsar` | "¡ARRIBA! PULSA A B X Y" sobre su cabeza, solo en la cuenta del jugador. |
+| `Cuerpo > Modelo` | `Referee.fbx` (Humanoid) con su `Animator` y `Referee.controller`, sin colliders. |
+| `Cuerpo > CartelPulsar` | "¡ARRIBA! PULSA A B X Y" sobre su cabeza (a 2,15 m), solo en la cuenta del jugador. |
 | `Arbitro.AlDecirNumero` | Evento nuevo con cada número, para sincronizar el gesto con la voz. |
-| *Tools > Boxeo > Montar réferi provisional* | Crea el prefab y sus materiales si faltan, y monta todo en el `Arbitro` de la escena abierta. Se usó en los cuatro niveles. |
+| *Tools > Boxeo > Montar réferi* | Crea la pose de pie y el controlador si faltan, y monta el modelo en el `Arbitro` de la escena abierta (cambia el que hubiera). Se usó en los cuatro niveles. |
 
 | Momento | Dónde se pone | Hacia dónde mira |
 |---|---|---|
@@ -407,7 +438,30 @@ En la cuenta tiene el brazo arriba. Con cada número lo baja de golpe en 0,12 s 
 - **Sin animación de caminar:** se desliza, a 1,6 m/s para ir a contar y a 0,8 m/s acompañando la pelea, igual que el rival cuando vuelve a su sitio.
 - **Cartel con los botones:** resuelve el pendiente del bloque B. Es texto, pero va en el mundo, sobre el réferi, y no pegado a la cámara. Solo aparece mientras el jugador está en el piso y late con cada número. Se quita dejando vacío `cartelPulsar`.
 - **Primera versión a 1,6 m de la pelea:** en las capturas desde los ojos del jugador quedaba demasiado presente en la vista, así que se alejó a 2 m (unos 2,1 m de cada boxeador).
-- **Para cambiar el modelo:** borrar `Cuerpo > Modelo`, poner el nuevo como hijo de `Cuerpo` y asignar en `CuerpoArbitro` su hombro derecho (`brazoCuenta`, gira en X) o su `Animator` (recibe el trigger `Contar` y el bool `Contando`).
+- **Para cambiar el modelo:** con un modelo Humanoid basta con cambiar `RutaModelo` en `ArbitroBuilder` y volver a montar: el gesto usa los huesos del brazo derecho del avatar. Un modelo sin esqueleto se monta a mano y se asigna su hombro derecho en `brazoCuenta` (gira en X).
+
+### Modelo definitivo
+
+El modelo llegó en la carpeta `Referee_Unity` (FBX con esqueleto humanoide, textura de 4096 px y dos materiales, uno URP y otro Built-in). Se organizó como los demás personajes, en `Assets/_Project/Art/Characters/Referee/`:
+
+| Archivo | Qué es |
+|---|---|
+| `Referee.fbx` | El modelo reducido que usa el juego: Humanoid, avatar propio, clips `Pose_Referee` y `TPose` |
+| `Source~/Referee.fbx` | El original, sin tocar. La carpeta termina en `~`, así que Unity no la importa |
+| `Materials/M_Referee_BuiltIn.mat` | El material Standard con la textura. El de URP (`M_Referee.mat`) no se trajo: el proyecto usa el pipeline integrado y en él se vería magenta |
+| `Materials/Arbitro_Cartel.mat` | El contorno del cartel, movido desde la carpeta del provisional con su mismo GUID |
+| `Textures/Referee_BaseColor.png` | La textura; en Android se limita a 2048 px (ya venía así en su `.meta`) |
+| `Animations/Referee_DePie.anim`, `Referee.controller` | La pose de pie y el controlador, generados por *Montar réferi* |
+
+Se borró `ArbitroProvisional/` (prefab y materiales), que ya no usaba ninguna escena.
+
+- **Malla reducida de 378 936 a 20 000 triángulos (10 132 vértices en Blender, 14 316 en Unity por las costuras del UV):** el original pesaba unas 50 veces más que los rivales (6 652 triángulos Glass Joe, 8 636 Bald Bull). En un `SkinnedMeshRenderer` el coste es por vértice en cada fotograma, así que el *Mesh LOD* de Unity 6 no servía: comparte el buffer de vértices y el skinning costaría lo mismo. `Tools/reducir_referi.py` aplica en Blender un *Decimate* antes del modificador *Armature*, lo que conserva los pesos de los huesos, el UV y el material, y exporta el FBX. Se regenera con `Blender -b --python Tools/reducir_referi.py -- <Source~/Referee.fbx> <Referee.fbx> 20000`; sobrescribir el FBX conserva su `.meta`.
+- **Las poses del FBX son de un fotograma:** el importador las dejaba en el rango 0–0 y salían vacías; se fijó el rango del take en `clipAnimations`. `Pose_Referee` es la postura de vigilar la pelea, muy agachado (cabeza a 1,12 m); `TPose` mide 1,82 m con el pelo.
+- **Pose de pie generada:** no hay un idle de réferi, y el de los boxeadores no sirve. `Referee_DePie.anim` es la `TPose` en espacio de músculos con los brazos caídos, los codos y las rodillas algo doblados y las piernas un poco abiertas, y respira (pecho y brazos en un ciclo de 4 s).
+- **Postura por fase:** `Referee.controller` tiene un blend tree en el float `Agachado` entre la pose de pie (0) y `Pose_Referee` (1). `CuerpoArbitro` lo lleva a 0,55 en el round (medio agachado, vigilando), a 0,3 en la cuenta del rival (inclinado hacia él) y a 0 en la cuenta del jugador y fuera de los rounds.
+- **Gesto con el esqueleto:** girar el hombro en su X local, como con las primitivas, no vale con huesos reales, cuya rotación de reposo no es la identidad. Con un `Animator` humanoide y `brazoCuenta` vacío, `CuerpoArbitro` toma `RightUpperArm`, `RightLowerArm` y `RightHand` y, en `LateUpdate` (después de la animación), gira el brazo y el antebrazo para que apunten en la dirección del gesto, con el mismo ángulo de antes. Entra y sale por peso, así que el brazo sube suave desde la pose animada. Vale para cualquier rig humanoide.
+- **Parámetros del Animator:** solo se mandan los que existen en el controlador (`Agachado`, `Contando`, `Contar`), para no llenar la consola de avisos.
+- **Sin caminar:** el FBX no trae ciclo de caminar, así que sigue deslizándose.
 
 ### Pruebas (Play en el Editor)
 
@@ -420,11 +474,15 @@ En la cuenta tiene el brazo arriba. Con cada número lo baja de golpe en 0,12 s 
 | Descanso | OK: vuelve a su sitio inicial con 0,00 m de error |
 | Cuenta del rival, nivel 4 | OK: lo señala con el brazo extendido (captura 08) |
 | Escenas | OK: sin materiales incrustados en la escena (el contorno del cartel va en `Arbitro_Cartel.mat`) |
+| Modelo definitivo, round 1, nivel 1 | OK: medio agachado (`Agachado` 0,55, cabeza a 1,31 m) a un lado de la pelea (captura 02 y primer plano en la 06) |
+| Modelo definitivo, cuenta del rival, nivel 1 | OK: a 0,99 m de Glass Joe, `Agachado` 0,3, brazo derecho arriba (mano a 1,65 m del piso) y de vuelta a la pelea al levantarse el rival |
+| Modelo definitivo, cuenta del jugador, nivel 1 | OK: de pie a 1,11 m del jugador, mano a 1,80 m, cartel visible; al acabarse la cuenta, K.O. y vuelta al menú, sin errores en la consola |
+| Modelo definitivo, capturas | OK: cuenta del jugador en el nivel 2 (captura 07) y del rival en el nivel 4 (captura 08) |
 
 ### Pendiente
 
-- El modelo definitivo del réferi (*Boxing Referee 3D Model* en la tabla de assets del informe), con animaciones de caminar y contar.
-- Ver con el visor si molesta en la periferia durante el round y si se lee el cartel.
+- Animaciones de caminar y de contar para el réferi (el FBX trae solo dos poses).
+- Ver con el visor si molesta en la periferia durante el round, si se lee el cartel y el coste del modelo en el Quest.
 
 ## Bloque G: registro de la sesión (RF-21)
 
@@ -473,7 +531,7 @@ Se guarda en `Application.persistentDataPath/Sesiones`: un JSON por sesión, `se
 | Compilación en el Editor | OK, sin errores ni warnings en `Assets/Scripts` ni `Assets/Editor` |
 | Compilación de los scripts para Android (`PlayerBuildInterface.CompilePlayerScripts`, sin generar el APK) | OK: `Assembly-CSharp.dll` sin errores ni warnings propios |
 | Partida del nivel 1 al 4 hasta volver al menú | OK: `nivelSuperado` subió de 2 a 4 y se cargó cada escena. Después se devolvió a 2, el valor que había en el Editor |
-| Capturas desde los ojos del jugador en Play (`docs/capturas/`) | Menú, los cuatro niveles, el réferi y sus dos cuentas, y la guardia fija frente a la grabada |
+| Capturas desde los ojos del jugador en Play (`docs/capturas/`) | Menú, los cuatro niveles, el réferi y sus dos cuentas, y la guardia fija frente a la grabada. Las del réferi (02, 06, 07 y 08) y la del nivel 4 (05) se rehicieron con los modelos definitivos |
 
 ## Trazabilidad de requisitos
 
@@ -481,12 +539,12 @@ Solo los requisitos que cambian respecto a `docs/Entrega3.md`.
 
 | ID | Requisito | Entregable | Estado |
 |---|---|---|---|
-| RF-07 | Rivales con patrón de ataque, velocidad y bloqueo o esquive propios | 3, 4 y 5 | Hecho para los niveles 1 a 4, con Mr. Sandman en modelo provisional. Los bloqueos usan una guardia grabada (provisional hasta grabarla con el visor). Falta Iron Mike Tyson y validarlo con visor |
+| RF-07 | Rivales con patrón de ataque, velocidad y bloqueo o esquive propios | 3, 4 y 5 | Hecho para los niveles 1 a 4, cada rival con su propio modelo riggeado (Soda todavía con materiales lisos). Los bloqueos usan una guardia grabada (provisional hasta grabarla con el visor). Falta Iron Mike Tyson y validarlo con visor |
 | RF-08 | Dificultad ascendente | 3, 4 y 5 | Hecho para los niveles 1 a 4; falta el nivel 5 y validarlo con visor |
 | RF-09 | Desbloqueo del siguiente nivel | 2 y 3 | Hecho para los cuatro niveles |
 | RF-10 | 3 rounds de 90 s con campana | 4 | Hecho; falta validarlo con visor |
 | RF-11 | Ganador por KO o por salud al final | 4 | Hecho; falta validarlo con visor |
-| RF-12 | Cuenta de 10 s y button mashing | 4 | Hecho: voz 3D, réferi visible provisional que cuenta con el brazo, cartel con los botones y tic háptico por número. Falta el modelo definitivo del réferi y validarlo con visor |
+| RF-12 | Cuenta de 10 s y button mashing | 4 | Hecho: voz 3D, réferi visible con su modelo definitivo que cuenta con el brazo, cartel con los botones y tic háptico por número. Falta validarlo con visor |
 | RF-13 | Derrota y reintento del nivel | 4 | Hecho: el K.O. y la derrota por salud vuelven al menú con el nivel abierto, y el registro marca el reintento; falta validarlo con visor |
 | RF-14 | Salud diegética sin HUD | 3 y 4 | Hecho, también durante la cuenta |
 | RF-15 | Háptica conectado, bloqueado y recibido | 2, 3 y 4 | Hecho, también golpe esquivado, golpe que derriba y cuenta; falta sentirla con visor |

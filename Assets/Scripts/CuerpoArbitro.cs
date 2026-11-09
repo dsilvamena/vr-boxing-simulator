@@ -9,9 +9,11 @@ using UnityEngine;
 /// - Fuera de los rounds (preparación, descanso, final) vuelve a su sitio inicial.
 /// Cada número que dice el Arbitro baja el brazo de golpe y lo vuelve a subir, como un réferi de verdad.
 /// No hay animación de caminar: se desliza, igual que el rival al volver a su sitio en el descanso.
-/// El modelo es provisional (primitivas). Para cambiarlo: borrar el hijo Modelo, poner el modelo definitivo como hijo de
-/// este objeto y asignar brazoCuenta (el hombro que gira) o, si trae Animator, el campo animador, que recibe el trigger
-/// "Contar" en cada número y el bool "Contando" mientras dura la cuenta. La voz es hija de este objeto, así que se mueve con él.
+/// El modelo (hijo Modelo, Referee.fbx) es Humanoid: con un Animator humanoide y brazoCuenta vacío, el gesto se hace
+/// girando el brazo derecho del esqueleto después de la animación, así que vale para cualquier rig humanoide. Con
+/// brazoCuenta asignado se gira ese transform en su eje X local (modelos sin esqueleto). El Animator recibe, si los tiene,
+/// el float "Agachado" (0 de pie, 1 la postura de vigilar), el trigger "Contar" en cada número y el bool "Contando".
+/// La voz es hija de este objeto, así que se mueve con él.
 /// Va en el hijo Cuerpo del Arbitro de cada escena de pelea. Usa tiempo escalado, así que se queda quieto en la pausa.
 /// </summary>
 public class CuerpoArbitro : MonoBehaviour
@@ -30,9 +32,9 @@ public class CuerpoArbitro : MonoBehaviour
     [SerializeField] private LimiteRing limite;
 
     [Header("Modelo")]
-    [Tooltip("Hombro del brazo que marca la cuenta: gira en su eje X local. Vacío = sin gesto")]
+    [Tooltip("Hombro del brazo que marca la cuenta: gira en su eje X local. Vacío = el brazo derecho del Animator si es Humanoid; si no, sin gesto")]
     [SerializeField] private Transform brazoCuenta;
-    [Tooltip("Opcional, para el modelo definitivo: recibe el trigger \"Contar\" y el bool \"Contando\"")]
+    [Tooltip("Animator del modelo: recibe \"Agachado\", \"Contar\" y \"Contando\" si los tiene. Vacío = el de los hijos")]
     [SerializeField] private Animator animador;
     [Tooltip("Cartel con los botones del button mashing; solo se ve en la cuenta del jugador. Vacío = sin cartel")]
     [SerializeField] private GameObject cartelPulsar;
@@ -73,8 +75,17 @@ public class CuerpoArbitro : MonoBehaviour
     [Tooltip("Segundos que tarda en volver a subirlo")]
     [SerializeField, Min(0.01f)] private float segundosSubir = 0.45f;
 
+    [Header("Postura (Animator con \"Agachado\")")]
+    [Tooltip("Durante el round: 0 = de pie, 1 = la postura de vigilar entera, muy agachado")]
+    [SerializeField, Range(0f, 1f)] private float agachadoPelea = 0.55f;
+    [Tooltip("Contando al rival se inclina hacia él")]
+    [SerializeField, Range(0f, 1f)] private float agachadoCuentaRival = 0.3f;
+    [Tooltip("Rapidez con la que cambia de postura")]
+    [SerializeField, Min(0.1f)] private float velocidadPostura = 2f;
+
     private static readonly int Contar = Animator.StringToHash("Contar");
     private static readonly int Contando = Animator.StringToHash("Contando");
+    private static readonly int Agachado = Animator.StringToHash("Agachado");
 
     private Modo modo = Modo.Neutral;
     private Vector3 posicionInicial;
@@ -85,6 +96,12 @@ public class CuerpoArbitro : MonoBehaviour
     private float desdeNumero = 999f;  // segundos desde el último número; grande = sin gesto pendiente
     private float anguloBrazo;
     private Vector3 escalaCartel;
+
+    // Esqueleto humanoide: el gesto se aplica sobre la pose animada, con un peso que sube al empezar la cuenta
+    private Transform hombro, codo, mano;
+    private float pesoBrazo;
+    private float agachado;
+    private bool tieneContar, tieneContando, tieneAgachado;
 
     public bool EnPosicion => PlanoXZ(destino - transform.position).magnitude < 0.05f;
 
@@ -100,6 +117,24 @@ public class CuerpoArbitro : MonoBehaviour
             Debug.LogWarning($"{name}: CuerpoArbitro necesita un Arbitro en el padre, un Oponente y un SaludJugador en la escena.", this);
             enabled = false;
             return;
+        }
+        if (animador == null) animador = GetComponentInChildren<Animator>();
+        if (animador != null)
+        {
+            // Solo se mandan los parámetros que existen: SetBool/SetTrigger de uno inexistente avisa en cada llamada
+            foreach (var parametro in animador.parameters)
+            {
+                if (parametro.nameHash == Contar) tieneContar = true;
+                else if (parametro.nameHash == Contando) tieneContando = true;
+                else if (parametro.nameHash == Agachado) tieneAgachado = true;
+            }
+            if (brazoCuenta == null && animador.isHuman)
+            {
+                hombro = animador.GetBoneTransform(HumanBodyBones.RightUpperArm);
+                codo = animador.GetBoneTransform(HumanBodyBones.RightLowerArm);
+                mano = animador.GetBoneTransform(HumanBodyBones.RightHand);
+                if (codo == null || mano == null) hombro = null;
+            }
         }
         posicionInicial = transform.position;
         rotacionInicial = transform.rotation;
@@ -158,7 +193,7 @@ public class CuerpoArbitro : MonoBehaviour
         desdeNumero = 999f;
         lado = ElegirLado(nuevo);
         bool contando = nuevo == Modo.CuentaJugador || nuevo == Modo.CuentaRival;
-        if (animador != null) animador.SetBool(Contando, contando);
+        if (tieneContando) animador.SetBool(Contando, contando);
         if (cartelPulsar != null) cartelPulsar.SetActive(nuevo == Modo.CuentaJugador);
     }
 
@@ -245,7 +280,7 @@ public class CuerpoArbitro : MonoBehaviour
     private void AlDecirNumero(int numero, bool alJugador)
     {
         desdeNumero = 0f;
-        if (animador != null) animador.SetTrigger(Contar);
+        if (tieneContar) animador.SetTrigger(Contar);
     }
 
     // Con cuenta: brazo arriba, y en cada número baja de golpe y vuelve a subir. Sin cuenta: brazo abajo
@@ -262,6 +297,15 @@ public class CuerpoArbitro : MonoBehaviour
         bool enGesto = contando && desdeNumero < segundosBajar + segundosSubir;
         anguloBrazo = enGesto ? objetivo : Mathf.MoveTowards(anguloBrazo, objetivo, 400f * Time.deltaTime);
         if (brazoCuenta != null) brazoCuenta.localRotation = Quaternion.Euler(anguloBrazo, 0f, 0f);
+        // El esqueleto no tiene una pose de reposo con el brazo recto: el gesto entra y sale por peso
+        pesoBrazo = Mathf.MoveTowards(pesoBrazo, contando ? 1f : 0f, 3f * Time.deltaTime);
+
+        if (tieneAgachado)
+        {
+            float postura = modo == Modo.Pelea ? agachadoPelea : modo == Modo.CuentaRival ? agachadoCuentaRival : 0f;
+            agachado = Mathf.MoveTowards(agachado, postura, velocidadPostura * Time.deltaTime);
+            animador.SetFloat(Agachado, agachado);
+        }
 
         // El cartel late con cada número para que llame la atención
         if (cartelPulsar != null && cartelPulsar.activeSelf)
@@ -269,6 +313,25 @@ public class CuerpoArbitro : MonoBehaviour
             float latido = 1f + 0.15f * Mathf.Exp(-desdeNumero * 6f);
             cartelPulsar.transform.localScale = escalaCartel * latido;
         }
+    }
+
+    // Después del Animator: el brazo derecho apunta en la dirección del gesto (el mismo ángulo que el hombro de un modelo
+    // sin esqueleto, medido desde el brazo colgando y girando hacia delante), recto del hombro a la mano
+    private void LateUpdate()
+    {
+        // También en la pausa: el Animator sigue escribiendo la pose aunque no avance
+        if (hombro == null || pesoBrazo <= 0.001f) return;
+        Vector3 direccion = transform.rotation * (Quaternion.Euler(anguloBrazo, 0f, 0f) * Vector3.down);
+        Apuntar(hombro, codo.position, direccion, pesoBrazo);
+        Apuntar(codo, mano.position, direccion, pesoBrazo);
+    }
+
+    private static void Apuntar(Transform hueso, Vector3 hijo, Vector3 direccion, float peso)
+    {
+        Vector3 actual = hijo - hueso.position;
+        if (actual.sqrMagnitude < 1e-6f) return;
+        Quaternion giro = Quaternion.FromToRotation(actual, direccion);
+        hueso.rotation = Quaternion.Slerp(Quaternion.identity, giro, peso) * hueso.rotation;
     }
 
     private static Vector3 PlanoXZ(Vector3 v) => new Vector3(v.x, 0f, v.z);

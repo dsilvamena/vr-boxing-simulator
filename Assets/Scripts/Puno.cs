@@ -14,7 +14,8 @@ public class Puno : MonoBehaviour
 {
     [Tooltip("Velocidad mínima (m/s) para que cuente como golpe")]
     [SerializeField] private float velocidadMinima = 0.5f;
-    [Tooltip("Suavizado de la velocidad medida (0-1, más alto = más reacción)")]
+    [Tooltip("Suavizado de la velocidad medida (0-1, más alto = más reacción), por cada 0,02 s: se calibró con la física a 50 Hz " +
+             "y se ajusta al paso real para que reaccione igual con cualquier Fixed Timestep")]
     [SerializeField, Range(0.05f, 1f)] private float suavizado = 0.5f;
     [Tooltip("Segundos tras un golpe conectado, bloqueado o esquivado en los que este puño no conecta otro")]
     [SerializeField] private float enfriamiento = 0.25f;
@@ -30,6 +31,9 @@ public class Puno : MonoBehaviour
     [SerializeField] private float rapidezVibracionMaxima = 2.5f;
     [Tooltip("Intensidad mínima de la vibración, para que un golpe suave también se note")]
     [SerializeField, Range(0f, 1f)] private float vibracionMinima = 0.4f;
+
+    // Paso de física con el que se calibraron suavizado y umbrales (50 Hz, hasta la entrega 4)
+    private const float PasoCalibracion = 0.02f;
 
     // Patrones de vibración por tipo de golpe: x = amplitud (0 = pausa), y = segundos
     private static readonly Vector2[] PatronJab = { new(0.7f, 0.05f) };                                  // seco y corto
@@ -88,8 +92,11 @@ public class Puno : MonoBehaviour
     private void FixedUpdate()
     {
         Vector3 posicion = PosicionLocal();
-        Vector3 medida = (posicion - posicionAnterior) / Time.fixedDeltaTime;
-        velocidadLocal = Vector3.Lerp(velocidadLocal, medida, suavizado);
+        float paso = Time.fixedDeltaTime;
+        Vector3 medida = (posicion - posicionAnterior) / paso;
+        // Mismo filtro en segundos con cualquier paso: con 0,02 s es exactamente Lerp(..., suavizado)
+        float alfa = 1f - Mathf.Pow(1f - suavizado, paso / PasoCalibracion);
+        velocidadLocal = Vector3.Lerp(velocidadLocal, medida, alfa);
         posicionAnterior = posicion;
         DetectarLanzamiento();
     }

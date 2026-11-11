@@ -105,7 +105,7 @@ public class PantallaResultados : MonoBehaviour
             if (c.golpesLanzados > 0)
             {
                 Escribir(valorPrecision, Porcentaje(c.precision));
-                Escribir(detallePrecision, $"{c.golpesConectados} de {c.golpesLanzados} golpes");
+                Escribir(detallePrecision, $"{c.golpesConectados} de {Contar(c.golpesLanzados, "golpe", "golpes")}");
             }
             else
             {
@@ -115,12 +115,12 @@ public class PantallaResultados : MonoBehaviour
 
             Escribir(valorBloqueos, c.ataquesBloqueados.ToString(CultureInfo.InvariantCulture));
             Escribir(detalleBloqueos, c.ataquesRecibidos > 0
-                ? $"de {c.ataquesRecibidos} ataques ({Porcentaje(c.porcentajeBloqueo)})"
+                ? $"de {Contar(c.ataquesRecibidos, "ataque", "ataques")} ({Porcentaje(c.porcentajeBloqueo)})"
                 : "No recibiste ataques");
 
             int segundos = Mathf.RoundToInt(c.segundosCombate);
             Escribir(valorTiempo, $"{segundos / 60}:{segundos % 60:00}");
-            Escribir(detalleTiempo, c.roundAlcanzado == 1 ? "1 round" : $"{c.roundAlcanzado} rounds");
+            Escribir(detalleTiempo, Contar(c.roundAlcanzado, "round", "rounds"));
 
             Escribir(detalle, $"El rival bloqueó {c.golpesBloqueadosPorRival} y esquivó {c.golpesEsquivadosPorRival} de tus golpes" +
                               $"   ·   Derribos: {c.derribosAlRival} al rival, {c.caidasJugador} tuyos");
@@ -198,6 +198,8 @@ public class PantallaResultados : MonoBehaviour
             default: return c.resultado;
         }
     }
+
+    private static string Contar(int n, string singular, string plural) => $"{n} {(n == 1 ? singular : plural)}";
 
     private static string Porcentaje(float proporcion) => $"{Mathf.RoundToInt(proporcion * 100f)} %";
 

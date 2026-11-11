@@ -154,6 +154,9 @@ public class AtaqueOponente : MonoBehaviour
         // Mientras se aparta o vuelve de un esquive no camina: ese movimiento se suma a este y se pelearían
         if (enIdle && (esquive == null || !esquive.EnMovimiento)) Acercarse();
         if (Time.time < proximoAtaque || !enIdle) return;
+        // Con la espera corta de Tyson llegaba a lanzar combos enteros al aire mientras aún caminaba hacia el jugador:
+        // fuera de alcance sigue acercándose, y el ataque sale en cuanto llega
+        if (FueraDeAlcance(p)) return;
 
         ataques++;
         if (p.combo != null && p.combo.Length > 0)
@@ -167,6 +170,10 @@ public class AtaqueOponente : MonoBehaviour
         Lanzar(uppercut ? TipoAtaque.Uppercut : TipoAtaque.Jab, p);
         Esperar(p.intervaloAtaque);
     }
+
+    // Misma geometría que el impacto (ResolverImpacto): el golpe sale de alturaAtaque y llega hasta alcanceAtaque
+    private bool FueraDeAlcance(PerfilOponente p) =>
+        jugador != null && Vector3.Distance(transform.position + Vector3.up * p.alturaAtaque, jugador.PosicionCabeza) > p.alcanceAtaque;
 
     private void Lanzar(TipoAtaque tipo, PerfilOponente p)
     {

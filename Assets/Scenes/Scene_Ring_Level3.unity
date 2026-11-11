@@ -2275,8 +2275,8 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 6070939551732403511, guid: 236fc4a4da0ae1a4abd6770bb450a960, type: 3}
-  - {fileID: -7294730226826786420, guid: 236fc4a4da0ae1a4abd6770bb450a960, type: 3}
+  - {fileID: 2100000, guid: 6935c68ad00b44f7f8a04df64a8cb43f, type: 2}
+  - {fileID: 2100000, guid: 173ea0b7ed970476e808bcf900bcebb6, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -10965,6 +10965,7 @@ MonoBehaviour:
   - 40
   - 30
   - 20
+  escenaResultados: Scene_Results
   escenaAlPerder: Main_Scene
   segundosAntesDeSalir: 3
   distanciaPanel: 0.5
@@ -27277,8 +27278,8 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 6070939551732403511, guid: 236fc4a4da0ae1a4abd6770bb450a960, type: 3}
-  - {fileID: -7294730226826786420, guid: 236fc4a4da0ae1a4abd6770bb450a960, type: 3}
+  - {fileID: 2100000, guid: 6935c68ad00b44f7f8a04df64a8cb43f, type: 2}
+  - {fileID: 2100000, guid: 173ea0b7ed970476e808bcf900bcebb6, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -84706,6 +84707,7 @@ MonoBehaviour:
   rondas: {fileID: 0}
   recuperacion: {fileID: 0}
   nivel: 3
+  escenaResultados: Scene_Results
   siguienteEscena: Scene_Ring_Level4
   mensaje: 'Derrotaste a {0}
 

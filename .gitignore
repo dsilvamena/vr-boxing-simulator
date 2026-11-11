@@ -139,3 +139,7 @@ Informe_SimuladorDeBoxeo.pdf
 # Copias de escenas que Unity guarda tras un cierre inesperado
 /Assets/_Recovery/
 /Assets/_Recovery.meta
+
+# Datos sacados del visor en las sesiones de prueba (docs/Protocolo_Rendimiento.md y docs/Protocolo_HEART.md)
+datos_visor/
+datos_heart/

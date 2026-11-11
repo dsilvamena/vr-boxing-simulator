@@ -18,7 +18,7 @@ public class MainMenu : MonoBehaviour
     public Button[] levelButtons;
 
     // Escenas de cada nivel, en orden (deben estar en Build Settings)
-    public static readonly string[] Levels = { "Scene_Ring_Level1", "Scene_Ring_Level2", "Scene_Ring_Level3", "Scene_Ring_Level4" };
+    public static readonly string[] Levels = { "Scene_Ring_Level1", "Scene_Ring_Level2", "Scene_Ring_Level3", "Scene_Ring_Level4", "Scene_Ring_Level5" };
 
     // Nivel más alto ganado; lo guarda ControlCombate al derrotar al rival
     const string ProgressKey = "nivelSuperado";

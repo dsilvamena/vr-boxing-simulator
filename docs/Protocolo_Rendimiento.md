@@ -16,9 +16,11 @@ Duración estimada: **1 h 30 min** (15 min de preparación, 35 min de niveles, 3
 
 - Meta Quest 2 cargado al 100 % (la sesión larga gasta batería y calienta el visor) y sus dos controles con pilas nuevas.
 - Cable USB-C de datos (no solo de carga).
-- El Mac con el repositorio en la rama `entrega5/rendimiento` y los APK de `Builds/Android/`:
-  - `vrboxing_dev.apk`: *Development Build*. Es el que se usa en todo el protocolo (deja depurar con `adb` y sacar el `logcat` completo).
-  - `vrboxing_release.apk`: el mismo juego sin *Development*. Solo para la comparación del paso 5.
+- El Mac con el repositorio en la rama `entrega5/visto-bueno` y los APK de `Builds/Android/`:
+  - `vrboxing_dev.apk` (193,6 MB): *Development Build*. Es el que se usa en todo el protocolo (deja depurar con `adb` y sacar el `logcat` completo).
+  - `vrboxing_release.apk` (172,7 MB): el mismo juego sin *Development*. Solo para la comparación del paso 5.
+
+  Los dos se generaron el 2026-11-11 con los cambios del visto bueno (guantes con texturas ASTC, MSAA 4×, nombre nuevo). Si se regeneran para medir su tamaño, usar `CleanBuildCache`: una build incremental puede dejar huecos de varios MB dentro del APK.
 - `adb`: viene con Unity. Para no escribir la ruta entera:
 
   ```bash
@@ -56,9 +58,9 @@ adb install -r Builds/Android/vrboxing_dev.apk
 
 Si responde `INSTALL_FAILED_UPDATE_INCOMPATIBLE` (otra firma), sacar los datos, `adb uninstall com.utec.vrhola` y repetir.
 
-**Opción B, Build And Run:** en Unity, *File > Build Profiles > Android*, marcar *Development Build*, elegir el visor en *Run Device* y pulsar *Build And Run*. Tarda unos 6 minutos y deja el APK donde se le indique (usar `Builds/Android/`, que git ignora). Solo hace falta si el código cambió después de generar los APK.
+**Opción B, Build And Run:** en Unity, *File > Build Profiles > Android*, marcar *Development Build*, elegir el visor en *Run Device* y pulsar *Build And Run*. Tarda de 2 a 6 minutos (6 la primera vez en un equipo, unos 2 con la caché de IL2CPP) y deja el APK donde se le indique (usar `Builds/Android/`, que git ignora). Solo hace falta si el código cambió después de generar los APK.
 
-El juego aparece en la biblioteca, en *Orígenes desconocidos*, con el nombre **vrhola**.
+El juego aparece en la biblioteca, en *Orígenes desconocidos*, con el nombre **Simulador de Boxeo RV** (hasta el 2026-11-11 se llamaba *vrhola*; el paquete sigue siendo `com.utec.vrhola`, así que `install -r` actualiza la misma app y conserva sus datos).
 
 ## Paso 2. Comprobar que arranca y empezar a registrar
 
@@ -241,6 +243,6 @@ Columnas `fpsMedio` y `porcentajeFotogramasLentos` de `Tools/tabla_rendimiento.p
 
 ## Si no se cumple
 
-- **FPS:** aplicar los recortes de la lista ordenada del bloque J en `docs/Entrega5.md`, de uno en uno y empezando por arriba, generar el APK y repetir solo el nivel peor. OVR Metrics Tool dice si el cuello es la GPU (luces, sombras, texturas, resolución) o la CPU (draw calls, skinning).
+- **FPS:** lo primero que se compara es el **MSAA 4×**, que se activó en la calidad *Medium* (la de Android) tras el visto bueno, sin medirlo en el visor: generar un APK con `antiAliasing` = 0 en *Medium* (*Project Settings > Quality*) y repetir el nivel peor. Si con 0 se llega a 72 FPS y con 4× no, decidir entre bajarlo a 2× o quitarlo y aplicar recortes. Después, aplicar los recortes de la lista ordenada del bloque J en `docs/Entrega5.md`, de uno en uno y empezando por arriba, generar el APK y repetir solo el nivel peor. OVR Metrics Tool dice si el cuello es la GPU (luces, sombras, MSAA, texturas, resolución) o la CPU (draw calls, skinning).
 - **Latencia:** si el tramo 2 es alto, mirar qué se ejecuta entre `RecibirGolpe` y la vibración (el `Debug.Log` de `Oponente.registrarGolpes`, los sonidos). Si el tramo 1 es alto, es que se pierden fotogramas: se arregla con los FPS.
 - **Sesión larga:** guardar el `logcat` y el JSON de esa sesión; un cierre se diagnostica con la traza de `AndroidRuntime` o de `Unity`.

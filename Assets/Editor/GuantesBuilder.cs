@@ -6,11 +6,19 @@ using UnityEngine;
 /// Menú Tools/Boxeo para poner los guantes en las manos en lugar de las esferas de los Puno.
 /// El .glb trae los dos guantes en una sola malla con esqueleto (squash & stretch); aquí se separan por huesos
 /// en dos mallas estáticas, con los nudillos hacia +Z, el centro del puño en el origen y tamaño real.
+/// Los guantes usan materiales Standard propios (Materials/), con texturas que importa Unity (ASTC en Android),
+/// y no los del glb: glTFast importa sus texturas sin comprimir. Así el glb no entra en el APK.
 /// </summary>
 public static class GuantesBuilder
 {
     private const string RutaGlb = "Assets/_Project/Art/boxing-gloves/source/Boxing gloves.glb";
     private const string CarpetaMallas = "Assets/_Project/Art/boxing-gloves";
+    /// <summary>Material propio que sustituye a cada material del glb, por su nombre en el glb.</summary>
+    private static readonly Dictionary<string, string> MaterialesPropios = new Dictionary<string, string>
+    {
+        { "Glove", CarpetaMallas + "/Materials/Guante_Cuero.mat" },
+        { "Velcro", CarpetaMallas + "/Materials/Guante_Velcro.mat" },
+    };
     /// <summary>Largo del guante, del puño al final del puño elástico, en metros.</summary>
     private const float Largo = 0.3f;
     /// <summary>Altura (0 = puño elástico, 1 = nudillos) que queda en el origen: el centro del puño.</summary>
@@ -25,6 +33,9 @@ public static class GuantesBuilder
         var smr = glb != null ? glb.GetComponentInChildren<SkinnedMeshRenderer>() : null;
         if (smr == null) { Debug.LogWarning($"No se pudo cargar la malla de {RutaGlb}."); return; }
 
+        Material[] materiales = Materiales(smr.sharedMaterials);
+        if (materiales == null) return;
+
         Mesh izquierdo = Hornear(smr, true, "Guante_Izquierdo");
         Mesh derecho = Hornear(smr, false, "Guante_Derecho");
 
@@ -32,8 +43,27 @@ public static class GuantesBuilder
         {
             var rig = puno.GetComponentInParent<OVRCameraRig>();
             bool esIzquierdo = rig != null && puno.transform.IsChildOf(rig.leftHandAnchor);
-            Vestir(puno, esIzquierdo, esIzquierdo ? izquierdo : derecho, smr.sharedMaterials);
+            Vestir(puno, esIzquierdo, esIzquierdo ? izquierdo : derecho, materiales);
         }
+    }
+
+    /// <summary>Los materiales propios en el orden de las submallas (el de los materiales del glb), o null si falta alguno.</summary>
+    private static Material[] Materiales(Material[] delGlb)
+    {
+        var materiales = new Material[delGlb.Length];
+        for (int i = 0; i < delGlb.Length; i++)
+        {
+            string nombre = delGlb[i] != null ? delGlb[i].name : "";
+            materiales[i] = MaterialesPropios.TryGetValue(nombre, out string ruta)
+                ? AssetDatabase.LoadAssetAtPath<Material>(ruta)
+                : null;
+            if (materiales[i] == null)
+            {
+                Debug.LogWarning($"Falta el material propio del material \"{nombre}\" del glb (ver GuantesBuilder.MaterialesPropios). No se cambió nada.");
+                return null;
+            }
+        }
+        return materiales;
     }
 
     private static void Vestir(Puno puno, bool esIzquierdo, Mesh malla, Material[] materiales)

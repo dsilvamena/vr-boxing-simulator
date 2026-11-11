@@ -5,7 +5,8 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Cierre del combate: al ganar muestra la victoria frente al jugador y, pasados segundosAntesDeAvanzar, carga
-/// siguienteEscena (el siguiente nivel o, tras el último, el menú).
+/// escenaResultados (Scene_Results, RF-18), que ofrece seguir al siguiente nivel. Si escenaResultados está vacío, carga
+/// directamente siguienteEscena (el siguiente nivel o, tras el último, el menú).
 /// Guarda en PlayerPrefs ("nivelSuperado") el número de nivel más alto que se ha ganado.
 /// Con ControlRondas en la escena, obedece a su resultado: la derrota por salud la cierra RecuperacionJugador, igual
 /// que la derrota por K.O. Sin ControlRondas, gana cuando el Oponente cae por última vez (Derrotado).
@@ -22,7 +23,10 @@ public class ControlCombate : MonoBehaviour
     [SerializeField] private RecuperacionJugador recuperacion;
     [Tooltip("Número de este nivel (1, 2, 3...)")]
     [SerializeField, Min(1)] private int nivel = 1;
-    [Tooltip("Escena a cargar al ganar (debe estar en Build Settings)")]
+    [Tooltip("Escena de resultados que se carga al ganar (debe estar en Build Settings); vacío = cargar siguienteEscena")]
+    [SerializeField] private string escenaResultados = "Scene_Results";
+    [Tooltip("Escena a cargar al ganar si no hay escena de resultados (debe estar en Build Settings). " +
+             "Desde los resultados, SIGUIENTE NIVEL usa MainMenu.Levels")]
     [SerializeField] private string siguienteEscena = "Scene_Ring_Level2";
     [Tooltip("Texto bajo ¡VICTORIA!; {0} = nombre del rival")]
     [SerializeField] private string mensaje = "Derrotaste a {0}\nSiguiente: Nivel 2";
@@ -97,7 +101,7 @@ public class ControlCombate : MonoBehaviour
         if (Ganado) return;
         Ganado = true;
         if (nivel > PlayerPrefs.GetInt("nivelSuperado", 0)) PlayerPrefs.SetInt("nivelSuperado", nivel);
-        Debug.Log($"Victoria {(porSalud ? "por salud" : "por KO")} en el nivel {nivel} contra {nombreRival} → {siguienteEscena}", this);
+        Debug.Log($"Victoria {(porSalud ? "por salud" : "por KO")} en el nivel {nivel} contra {nombreRival} → {Destino}", this);
         StartCoroutine(Avanzar(porSalud));
     }
 
@@ -112,8 +116,10 @@ public class ControlCombate : MonoBehaviour
             panel.SetActive(true);
         }
         yield return new WaitForSeconds(segundosAntesDeAvanzar);
-        if (!string.IsNullOrEmpty(siguienteEscena)) SceneManager.LoadScene(siguienteEscena);
+        if (!string.IsNullOrEmpty(Destino)) SceneManager.LoadScene(Destino);
     }
+
+    private string Destino => !string.IsNullOrEmpty(escenaResultados) ? escenaResultados : siguienteEscena;
 
     private void CrearPanel(Transform camara)
     {

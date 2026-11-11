@@ -4,7 +4,7 @@ Registro de lo implementado según `docs/Plan_Entrega5.md`. Las capturas están 
 
 ## Bloque H: Iron Mike Tyson y el nivel 5 (RF-07, RF-08, RF-09)
 
-`Scene_Ring_Level5.unity` es el último combate: Iron Mike Tyson, el rival más difícil del juego. Se llega desde el nivel 4 o desde el menú, con el nivel 5 bloqueado hasta ganar el 4. Al ganarlo se vuelve al menú; la escena de resultados y el cinturón son el bloque I.
+`Scene_Ring_Level5.unity` es el último combate: Iron Mike Tyson, el rival más difícil del juego. Se llega desde el nivel 4 o desde el menú, con el nivel 5 bloqueado hasta ganar el 4. Al cerrar el bloque H, ganarlo volvía al menú; desde el bloque I lleva a la escena de resultados con el cinturón.
 
 ### Modelo
 
@@ -70,7 +70,7 @@ Los cuatro golpes llegan a 0,33; 0,97; 1,27 y 1,70 s desde el inicio del combo. 
 ### Escena y flujo
 
 - **`Scene_Ring_Level5.unity`** es una copia del nivel 4 con `Arbitro`, `ControlRondas`, `Multitud`, `PauseMenu`, `PausaGuardian`, rig y Canvas. Igual que con Sandman, se conservó la raíz del rival (ahora `MikeTyson`) con todos sus componentes y las referencias que le tienen `Arbitro`, `ControlRondas` y los demás; solo se cambiaron sus hijos (el modelo), el avatar, el perfil, las suelas y las hitboxes. Antes se comprobó que solo `ApoyoEnSuelo` apuntaba a huesos del modelo viejo. Está en Build Settings con el índice 5.
-- **`ControlCombate`:** nivel 4 → `Scene_Ring_Level5` con "Siguiente: Nivel 5"; nivel 5 (`nivel` = 5) → `Main_Scene` con "¡Eres el nuevo campeón!". El 4 ya no dice "Volviendo al menú principal".
+- **`ControlCombate`:** nivel 4 → `Scene_Ring_Level5` con "Siguiente: Nivel 5"; nivel 5 (`nivel` = 5) → `Main_Scene` con "¡Eres el nuevo campeón!". El 4 ya no dice "Volviendo al menú principal". Desde el bloque I, toda victoria pasa antes por `Scene_Results`, y `siguienteEscena` solo se usa si no hay escena de resultados.
 - **Menú:** `MainMenu.Levels` tiene las cinco escenas y `levelButtons` cinco botones. `ButtonNivel5` ("NIVEL 5 / IRON MIKE TYSON", `PlayLevel(5)`) va solo en una segunda fila, centrado bajo los otros cuatro, y ATRÁS baja a y = −110: cinco botones en fila ocuparían 1 950 px de los 2 128 del Canvas. Ver `docs/capturas/12_menu_niveles_5.png`.
 - **`RegistroSesion`:** no necesitó cambios; los combates del nivel 5 quedan en `combates.csv` con nivel 5 y rival "Iron Mike Tyson".
 
@@ -141,4 +141,127 @@ Sin visor, para los ataques se desactivó `OVRCameraRig` en Play y se recolocaro
 - El rendimiento (bloque J): 14 999 triángulos y 15 366 vértices skinneados, más que Sandman (9 034 vértices). Si hace falta, se baja el objetivo de `reducir_tyson.py`.
 - El botón del nivel 5 con el puntero láser: se invocó su `onClick` desde código.
 - Cambiar `Guardia_Provisional` por una guardia grabada (bloque L).
-- "¡Eres el nuevo campeón!" sale todavía sin cinturón ni escena de resultados, que son el bloque I.
+- ~~"¡Eres el nuevo campeón!" sale todavía sin cinturón ni escena de resultados~~: resuelto en el bloque I.
+
+## Bloque I: escena de resultados y cinturón de campeón (RF-18, RF-19)
+
+Al terminar cualquier combate de los niveles 1 a 5, ganado o perdido, el juego muestra antes el cartel de siempre (¡VICTORIA!, K.O. o DERROTA) y después carga `Scene_Results`: una hoja con la precisión de golpes, los golpes bloqueados y el tiempo total, y dos botones para seguir. Al ganar a Iron Mike Tyson, la hoja cambia a "¡CAMPEÓN!", con el texto de cierre del arco narrativo y el cinturón de campeón girando a su lado.
+
+### Cómo llega el resultado a la escena
+
+No hay estado nuevo. `RegistroSesion` vive en `DontDestroyOnLoad` y cierra el combate (`CerrarCombate`) en cuanto `ControlRondas` lanza `AlTerminarCombate`, que en los cinco niveles llega antes del cartel y del cambio de escena. `CombateActual` conserva ese combate cerrado hasta que empieza otro, así que `PantallaResultados` lo lee en su `Start`:
+
+| Dato de `DatosCombate` | Para qué lo usa la hoja |
+|---|---|
+| `resultado` (`VictoriaPorKO`, `VictoriaPorSalud`, `DerrotaPorKO`, `DerrotaPorSalud`) | Título, línea de cómo terminó y si se ganó |
+| `nivel` | Siguiente nivel (`MainMenu.Levels[nivel]`) y si es el último (cinturón) |
+| `escena`, `rival`, `roundAlcanzado` | REINTENTAR / REPETIR cargan la misma escena; subtítulo |
+| `precision`, `golpesConectados`, `golpesLanzados` | Estadística 1 |
+| `ataquesBloqueados`, `ataquesRecibidos`, `porcentajeBloqueo` | Estadística 2 |
+| `segundosCombate` | Estadística 3 |
+| `golpesBloqueadosPorRival`, `golpesEsquivadosPorRival`, `derribosAlRival`, `caidasJugador` | Línea de detalle |
+
+`RegistroSesion` no cambió: ni sus métricas ni el JSON ni el CSV. Solo se corrigió el comentario de `CombateActual`, que decía que era null fuera de las peleas. Ya tenía todos los datos que pide RF-18.
+
+"Golpes bloqueados" son los ataques del rival que el jugador bloqueó (su defensa). Los golpes del jugador que paró el rival van en la línea de detalle. El tiempo total es el de `RegistroSesion`: desde la campana del primer round hasta el final, con los descansos y sin las pausas.
+
+### Flujo
+
+| Situación | Antes | Ahora | Botón principal | Otro botón |
+|---|---|---|---|---|
+| Ganar los niveles 1 a 4 | ¡VICTORIA! → siguiente nivel | ¡VICTORIA! → `Scene_Results` | SIGUIENTE NIVEL (nivel + 1) | MENÚ |
+| Ganar el nivel 5 | ¡VICTORIA! → `Main_Scene` | ¡VICTORIA! → `Scene_Results` con cinturón | REPETIR (nivel 5) | MENÚ |
+| Perder por K.O. o por salud | K.O. / DERROTA → `Main_Scene` | K.O. / DERROTA → `Scene_Results` | REINTENTAR (mismo nivel) | MENÚ |
+| Abrir `Scene_Results` sin combate (solo en el Editor) | — | "Todavía no has terminado ningún combate" | (oculto) | MENÚ, centrado |
+
+- **`ControlCombate`:** nuevo campo `escenaResultados` (por defecto `Scene_Results`). Si está vacío, carga `siguienteEscena` como antes. `nivelSuperado` se sigue guardando al ganar, antes del cartel.
+- **`RecuperacionJugador`:** nuevo campo `escenaResultados` (por defecto `Scene_Results`), con `escenaAlPerder` como respaldo. Vale para el K.O. y para `PerderPorSalud`.
+- Los campos nuevos toman su valor por defecto en las cinco escenas sin volver a guardarlas, así que las escenas de pelea no cambiaron.
+- La pausa no lleva a resultados: VOLVER AL MENÚ sigue yendo a `Main_Scene`, y `RegistroSesion` registra ese combate como `Abandonado`.
+- Un reintento desde la hoja vuelve a cargar la escena del combate. `RegistroSesion` lo marca como `reintento` porque ese nivel ya se jugó en la sesión.
+
+### La escena
+
+`Scene_Results.unity` es una copia de `Main_Scene` (índice 6 en Build Settings): la misma arena de MarpaStudio con su iluminación, el `OVRCameraRig` en el mismo punto que en las peleas (0, −1,22, −3), `EventSystem` con `OVRInputModule`, `LaserPointer` con `LaserCursor` y `MenuMusic`. Se quitaron los tres boxeadores de decoración, `GrabadoraGuardia` del rig y el componente `MainMenu` con sus paneles.
+
+El Canvas World Space (el del menú, con `OVRRaycaster`) queda a 1,5 m del jugador, con el centro a 1,57 m del suelo, y tiene un solo panel, `Resultados` (1 300 × 700 px, unos 2,1 × 1,1 m):
+
+| Elemento | Qué muestra |
+|---|---|
+| `Titulo` | ¡VICTORIA! (dorado), DERROTA (rojo) o ¡CAMPEÓN! (dorado), en Bangers |
+| `Subtitulo` | "Nivel N: rival" y cómo terminó ("Ganaste por K.O. en el round 2", "Perdiste por salud al terminar el último round"...), o el texto de cierre |
+| `Estadisticas/Precision` | "48 %" y "33 de 69 golpes" |
+| `Estadisticas/Bloqueos` | "27" y "de 27 ataques (100 %)" |
+| `Estadisticas/Tiempo` | "0:59" y "1 round" |
+| `Detalle` | "El rival bloqueó 30 y esquivó 6 de tus golpes · Derribos: 3 al rival, 0 tuyos" |
+| `BotonPrincipal`, `BotonMenu` | Los botones del menú con su estilo, enlazados a `PantallaResultados.Continuar` e `IrAlMenu` |
+
+Al abrir la hoja de una victoria suena una vez `Multitud_Ovacion.wav` (fuente 2D en `PantallaResultados/Ovacion`). No hay HUD durante el combate (RF-14): la hoja solo aparece fuera de él.
+
+### Cinturón de campeón (RF-19)
+
+En el repositorio no había ningún modelo de cinturón, y el plan pedía no descargar el de Sketchfab sin verificar su licencia. Se usó el respaldo que prevé el plan: un cinturón propio y sencillo, generado por código en Blender sin interfaz.
+
+| Archivo (`Assets/_Project/Art/CinturonCampeon/`) | Qué es |
+|---|---|
+| `CinturonCampeon.fbx` | El modelo: una malla con 3 materiales, 1 540 triángulos y 2 294 vértices en Unity, sin UV ni texturas |
+| `Materials/Cinturon_Cuero.mat`, `Cinturon_Oro.mat`, `Cinturon_Esmalte.mat` | Standard (pipeline integrado). El oro es metálico (0,7) y deja `_EMISSION` activa en negro para el brillo; el esmalte rojo tiene una emisión fija suave porque la arena es oscura |
+| `CinturonCampeon.prefab` | El modelo sin sombras, con `CinturonCampeon` en la raíz |
+| `Source~/cinturon_campeon.blend` | El `.blend` que deja el script (Unity no lo importa) |
+| `Tools/crear_cinturon.py` | El script que lo construye y lo exporta |
+
+- **Forma:** una correa de cuero negro en lazo elíptico (0,40 × 0,30 m, 10 cm de alto), como un cinturón cerrado, con filetes dorados en los bordes; delante, la placa dorada (27 × 21 cm) con un óvalo de esmalte rojo, una estrella dorada en relieve y una corona; a cada lado, dos placas octogonales doradas con el centro de esmalte. Ver `docs/capturas/15_resultados_campeon.png`.
+- **Se regenera con** `Blender -b --python Tools/crear_cinturon.py -- Assets/_Project/Art/CinturonCampeon`. Sobrescribir el FBX conserva su `.meta` (sin animación ni rig, materiales remapeados por nombre). La conversión de ejes va horneada en la malla (`bake_space_transform`), así que el nodo no lleva rotación y el frente mira a +Z.
+- **Animación (`CinturonCampeon`):** al activarse sube 0,6 m creciendo desde el 20 % con un pequeño rebote (1,6 s) mientras gira cuatro veces más rápido; después gira a 35 °/s. El oro pulsa la emisión (0,2 a 0,75, a 0,7 Hz) con un `MaterialPropertyBlock` y da un destello al terminar de subir. Usa tiempo sin escalar. No lleva luz propia: en el Quest cada luz en tiempo real añade una pasada por objeto, y la emisión y el reflejo del metal bastan.
+- **Colocación:** en la escena, desactivado, a la izquierda del jugador (−0,72 m), 1,2 m por delante y a 1,5 m del suelo, con escala 1,4. Al ganar el nivel 5, `PantallaResultados` lo activa y aparta el Canvas 0,45 m a la derecha, girado 15° hacia el jugador y al 80 % de su tamaño, para que los dos quepan en la vista.
+- **Coste:** 1 540 triángulos y 3 draw calls, sin texturas. Solo existe en esta escena, donde no hay ningún rival.
+
+**Texto de cierre** (el desenlace de la tabla del arco narrativo del informe, `s01_05_introduccion_requisitos_marco.tex`): "¡CAMPEÓN!" y "Derrotaste a Iron Mike Tyson, el campeón invicto. El cinturón de campeón regional es tuyo." Retoma lo que dice el informe: la meta es "el cinturón de campeón regional" y Tyson es "el campeón invicto". El cartel del nivel 5 sigue diciendo "Derrotaste a Iron Mike Tyson / ¡Eres el nuevo campeón!" antes de cargar la hoja. El texto está en el campo `textoCampeon` de `PantallaResultados`.
+
+### Criterio de terminado
+
+| Criterio | Resultado |
+|---|---|
+| Al ganar a Tyson se ven el cinturón y las tres estadísticas | OK: ¡CAMPEÓN!, texto de cierre, cinturón desplegado y girando, precisión 46 %, 4 de 4 ataques bloqueados y 0:33 (`docs/capturas/15_resultados_campeon.png`) |
+| Tras cualquier combate de los niveles 1 a 5 se muestran precisión, bloqueos y tiempo, y los botones van a donde deben | OK en los cinco niveles: ver las pruebas |
+| Menú → nivel 5 → resultados → menú, con `nivelSuperado` correcto | OK: `nivelSuperado` = 5 sin cambios en todo el recorrido |
+| Nivel 4 → resultados → nivel 5, con `nivelSuperado` correcto | OK: con `nivelSuperado` = 3, ganar el 4 lo sube a 4, SIGUIENTE NIVEL carga el 5 y ganarlo lo sube a 5 |
+| Sin errores ni warnings propios; compila para Android | OK en el Editor y al compilar los scripts para Android (70 ensamblados), sin generar el APK. Los únicos avisos son de OpenXR y OVRPlugin por no haber visor |
+
+### Pruebas (Play en el Editor, Unity 6000.4.7f1)
+
+Todo en una sola sesión de Play encadenada, empezando en el nivel 4, con los botones de la hoja y del menú pulsados invocando su `onClick` (lo mismo que hace `OVRInputModule` con el puntero láser). Para que el jugador aguantara, se desactivó `OVRCameraRig` en cada pelea y se fijaron, desde `Application.onBeforeRender`, la cabeza a 1,65 m y las dos manos en guardia; el delegado se quita solo al destruirse el rig. En esta sesión el Meta XR Simulator ponía la cabeza a 1,70 m también sin el arnés, y los ataques llegaban. `nivelSuperado` valía 5 antes de empezar: se bajó a 3 para la prueba del nivel 4 y quedó en 5 al terminar. Ninguna escena se guardó durante las pruebas.
+
+| Prueba | Resultado |
+|---|---|
+| Nivel 4 sin guardia (Sandman tumba al jugador y no se pulsa en la cuenta) | OK: K.O. → DERROTA, "Perdiste por K.O. en el round 1", 0 de 11 ataques bloqueados, 0:20, REINTENTAR → `Scene_Ring_Level4` |
+| Nivel 4 en guardia y *Probar: ganar el combate* (`nivelSuperado` = 3) | OK: sube a 4; ¡VICTORIA!, 48 % (33 de 69), 27 de 27 bloqueados, 0:59; SIGUIENTE NIVEL → `Scene_Ring_Level5` (`docs/capturas/13_resultados_victoria.png`) |
+| Nivel 5 en guardia, ganando a los 30 s | Tyson tumbó antes al jugador (los bloqueos aún quitan el 15 %): DERROTA, 40 % (14 de 35), 39 de 39, 0:48; REINTENTAR → nivel 5 (`docs/capturas/14_resultados_derrota.png`) |
+| Nivel 5 reintentado, ganando desde la campana | OK: `reintento` = true en el registro; `nivelSuperado` 4 → 5; ¡CAMPEÓN!, cinturón, REPETIR → `Scene_Ring_Level5`; MENÚ → `Main_Scene` |
+| Menú → botón NIVEL 5 → victoria → MENÚ | OK: `nivelSuperado` = 5 sin cambios, cinturón otra vez |
+| Nivel 1, *Probar: ganar por salud* | OK: "Ganaste por salud al terminar el último round", la ovación suena, SIGUIENTE NIVEL → `Scene_Ring_Level2` |
+| Nivel 2, *Probar: perder por salud* | OK: cartel DERROTA y luego la hoja, sin ovación, REINTENTAR → nivel 2 |
+| Nivel 2 reintentado, *Probar: derribar al jugador* sin pulsar | OK: K.O. a los 10 s y la hoja con "Derribos: 0 al rival, 1 tuyos" |
+| Nivel 3, *Probar: ganar el combate* | OK: 40 % (34 de 84), SIGUIENTE NIVEL → `Scene_Ring_Level4` |
+| `Scene_Results` abierta directamente | OK: "Todavía no has terminado ningún combate", sin botón principal y MENÚ centrado |
+| Singular | OK: "1 de 1 golpe", "de 1 ataque (100 %)", "1 round" |
+| Menús contextuales de `PantallaResultados` (*victoria en el nivel 2*, *derrota en el nivel 3*, *campeón*) | OK: rellenan la hoja con datos inventados, para revisarla sin jugar |
+| Consola | Sin errores ni warnings de los scripts del juego |
+
+Con *Probar: ganar el combate*, los golpes llegan directamente a `RecibirGolpe`, sin `Puno`. `RegistroSesion` los cuenta como lanzados porque "un golpe que llega al rival también se lanzó", y la precisión baja por los que el rival bloquea o esquiva.
+
+### Pendiente de validar con visor
+
+- **Los botones con el puntero láser.** Se probaron invocando su `onClick`, que es lo que hace `OVRInputModule`.
+- **Si se leen** los textos pequeños (los detalles de las tarjetas y la línea de abajo, a 28 px, unos 4,5 cm de alto a 1,5 m) y si el panel, de unos 70° de ancho, cabe sin girar la cabeza. Las capturas tienen un campo de visión más ancho que el del visor.
+- **El cinturón en el Quest:** si el oro se ve dorado con la luz de la arena (en el Editor se oscurecía y se le subió la emisión), si el despliegue y el giro marean, y si conviene acercarlo o agrandarlo.
+- **El rendimiento** de la escena (bloque J): la arena completa más 1 540 triángulos del cinturón; es la escena más ligera del juego.
+- **El volumen** de la ovación (0,8) junto a la música del menú, que sigue sonando.
+
+### Decisiones que esperan el visto bueno
+
+- **El cinturón propio en vez del modelo de Sketchfab** que cita el informe (tabla de recursos de `s06_08_desarrollo_plan_cronograma.tex`). Si el equipo encuentra un modelo con licencia CC verificada, basta con poner su prefab en el campo `cinturon` de `PantallaResultados`; `CinturonCampeon` sirve para cualquier modelo (`indiceOro` indica qué material brilla). En ese caso hay que corregir el informe, que hoy menciona el de Sketchfab.
+- **El texto de cierre** ("Derrotaste a Iron Mike Tyson, el campeón invicto. El cinturón de campeón regional es tuyo.").
+- **Los botones:** tras ganar el nivel 5, REPETIR vuelve a jugar contra Tyson. La alternativa era dejar solo MENÚ.
+- **Todas las derrotas pasan por la hoja**, también las del nivel 1, antes de reintentar. RF-18 lo pide "al terminar cada combate".
+- **La música del menú sigue sonando en la hoja**, también tras una derrota.

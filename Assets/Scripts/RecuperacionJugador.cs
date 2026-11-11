@@ -10,7 +10,8 @@ using UnityEngine.SceneManagement;
 /// devuelve parte de la salud. Si llega a tiempo, se levanta y el oponente espera antes de volver a atacar.
 /// Las oportunidades son limitadas y cada una devuelve menos salud: saludPorCaida = { 40, 30, 20 } significa
 /// que la 1.ª caída te levanta con 40, la 2.ª con 30 y la 3.ª con 20; la caída siguiente ya no da cuenta y pierdes
-/// al instante. Si se acaba el tiempo de una cuenta, también pierde por K.O.
+/// al instante. Si se acaba el tiempo de una cuenta, también pierde por K.O. Tras el cartel de la derrota (por K.O. o
+/// por salud) carga escenaResultados (Scene_Results, RF-18), que ofrece reintentar el nivel.
 /// Va en el OVRCameraRig, junto a SaludJugador. La cuenta no se muestra (sin HUD, RF-14): la dice el réferi (Arbitro) y el
 /// avance se nota en FeedbackSalud (viñeta, latido, háptica). Solo los carteles finales se crean por código, pegados a la cámara.
 /// La cuenta usa Time.deltaTime, así que se detiene con el menú de pausa (timeScale = 0).
@@ -29,8 +30,10 @@ public class RecuperacionJugador : MonoBehaviour
              "(por ejemplo { 40, 30 } = pierdes en la 3.ª caída)")]
     [SerializeField] private float[] saludPorCaida = { 40f, 30f, 20f };
 
-    [Header("Al perder por K.O.")]
-    [Tooltip("Escena a cargar al perder (debe estar en Build Settings); vacío = no cambia de escena")]
+    [Header("Al perder (por K.O. o por salud)")]
+    [Tooltip("Escena de resultados que se carga al perder (RF-18; debe estar en Build Settings); vacío = cargar escenaAlPerder")]
+    [SerializeField] private string escenaResultados = "Scene_Results";
+    [Tooltip("Escena a cargar al perder si no hay escena de resultados (debe estar en Build Settings); vacías las dos = no cambia de escena")]
     [SerializeField] private string escenaAlPerder = "Main_Scene";
     [SerializeField] private float segundosAntesDeSalir = 3f;
 
@@ -149,7 +152,7 @@ public class RecuperacionJugador : MonoBehaviour
         MostrarDerrota($"<size=140><b>K.O.</b></size>\n<size=30>{motivo}</size>");
         if (registrar) Debug.Log($"Jugador pierde por K.O.: {motivo}", this);
         AlPerderPorKO?.Invoke();
-        if (!string.IsNullOrEmpty(escenaAlPerder)) StartCoroutine(SalirDeLaPelea());
+        if (!string.IsNullOrEmpty(EscenaSalida)) StartCoroutine(SalirDeLaPelea());
     }
 
     /// <summary>Acabó el último round con menos salud que el rival: misma salida que un K.O., pero sin haber caído.</summary>
@@ -157,7 +160,7 @@ public class RecuperacionJugador : MonoBehaviour
     {
         MostrarDerrota("<size=76><b>DERROTA</b></size>\n<size=30>Perdiste por salud</size>");
         if (registrar) Debug.Log("Jugador pierde por salud", this);
-        if (!string.IsNullOrEmpty(escenaAlPerder)) StartCoroutine(SalirDeLaPelea());
+        if (!string.IsNullOrEmpty(EscenaSalida)) StartCoroutine(SalirDeLaPelea());
     }
 
     private void MostrarDerrota(string mensaje)
@@ -169,8 +172,10 @@ public class RecuperacionJugador : MonoBehaviour
     private IEnumerator SalirDeLaPelea()
     {
         yield return new WaitForSecondsRealtime(segundosAntesDeSalir);
-        SceneManager.LoadScene(escenaAlPerder);
+        SceneManager.LoadScene(EscenaSalida);
     }
+
+    private string EscenaSalida => !string.IsNullOrEmpty(escenaResultados) ? escenaResultados : escenaAlPerder;
 
     private void CrearPanel(Transform camara)
     {

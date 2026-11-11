@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: MikeTyson
   m_EditorClassIdentifier: Assembly-CSharp::PerfilOponente
   nombre: Iron Mike Tyson
-  saludMaxima: 190
+  saludMaxima: 250
   danoJab: 3
   danoCross: 5
   danoUppercut: 6
@@ -50,9 +50,9 @@ MonoBehaviour:
   esperaTrasLevantarse: 1.5
   contraataqueTrasBloqueo: {x: 0.3, y: 0.6}
   castigoGuardiaBaja: 1.2
-  danoAtaqueJab: 8
-  danoAtaqueUppercut: 12
-  danoAtaqueGancho: 8
+  danoAtaqueJab: 9
+  danoAtaqueUppercut: 14
+  danoAtaqueGancho: 9
   retardoImpactoJab: 1.1
   retardoImpactoUppercut: 0.3
   retardoImpactoGancho: 0.8

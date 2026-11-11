@@ -47,6 +47,17 @@ public class DatosCombate
     public int fotogramas;
     public float fpsMedio;
     public float porcentajeFotogramasLentos; // fotogramas por debajo de fpsObjetivo
+
+    [Header("Latencia háptica (RNF-02)")]
+    public float pasoFisicaMs;               // Time.fixedDeltaTime con que se jugó
+    public int muestrasLatencia;             // golpes del jugador que vibraron
+    public float latenciaHapticaMediaMs;     // de Puno.OnTriggerEnter a la vuelta de OVRInput: solo lo que controla el código
+    public float latenciaHapticaP95Ms;
+    public float latenciaHapticaMaxMs;
+    public int muestrasRetraso;              // golpes con estimación de retraso de detección
+    public float retrasoDeteccionMedioMs;    // estimado: del contacto del guante a que lo detecta el paso de física
+    public float retrasoDeteccionP95Ms;
+    public float retrasoDeteccionMaxMs;
 }
 
 [Serializable]
@@ -71,7 +82,9 @@ public class DatosSesion
 /// eventos de los componentes, sin cambiar su lógica.
 /// Escribe en Application.persistentDataPath/Sesiones: un JSON por sesión (sesion_aaaaMMdd_HHmmss.json, se reescribe al
 /// terminar cada combate, al salir de la escena y al pausar o cerrar la app) y combates.csv, con una fila por combate de
-/// todas las sesiones. En el Quest: /sdcard/Android/data/&lt;paquete&gt;/files/Sesiones (adb pull).
+/// todas las sesiones. En el Quest: /sdcard/Android/data/com.utec.vrhola/files/Sesiones (adb pull).
+/// Las columnas nuevas se añaden siempre al final del CSV; si combates.csv ya existía con menos columnas, se reescribe solo
+/// su cabecera, así las filas viejas siguen siendo válidas (les faltan los últimos campos).
 /// </summary>
 public class RegistroSesion : MonoBehaviour
 {
@@ -100,6 +113,9 @@ public class RegistroSesion : MonoBehaviour
     private readonly HashSet<int> nivelesJugados = new HashSet<int>();
     private int fotogramasLentos;
     private double sumaDelta;
+    private readonly List<double> latencias = new List<double>(); // ms
+    private readonly List<double> retrasos = new List<double>();  // ms
+    private bool cabeceraRevisada;
 
     private Oponente oponente;
     private SaludJugador jugador;
@@ -138,6 +154,8 @@ public class RegistroSesion : MonoBehaviour
         SceneManager.sceneUnloaded += AlDescargarEscena;
         Puno.AlLanzarGolpe += AlLanzarGolpe;
         Haptica.AlVibrar += AlVibrar;
+        Haptica.AlMedirLatencia += AlMedirLatencia;
+        Puno.AlEstimarRetrasoDeteccion += AlEstimarRetraso;
     }
 
     private void OnDisable()
@@ -146,6 +164,8 @@ public class RegistroSesion : MonoBehaviour
         SceneManager.sceneUnloaded -= AlDescargarEscena;
         Puno.AlLanzarGolpe -= AlLanzarGolpe;
         Haptica.AlVibrar -= AlVibrar;
+        Haptica.AlMedirLatencia -= AlMedirLatencia;
+        Puno.AlEstimarRetrasoDeteccion -= AlEstimarRetraso;
         Desconectar();
     }
 
@@ -205,6 +225,8 @@ public class RegistroSesion : MonoBehaviour
         inicioCombate = rondas == null ? Time.time : -1f;
         fotogramasLentos = 0;
         sumaDelta = 0;
+        latencias.Clear();
+        retrasos.Clear();
         sesion.combatesJugados.Add(combate);
 
         oponente.AlRecibirGolpe += AlConectar;
@@ -346,6 +368,16 @@ public class RegistroSesion : MonoBehaviour
         if (Registrando && amplitud > 0f) combate.vibraciones++;
     }
 
+    private void AlMedirLatencia(OVRInput.Controller control, double milisegundos)
+    {
+        if (Registrando) latencias.Add(milisegundos);
+    }
+
+    private void AlEstimarRetraso(Puno puno, float segundos)
+    {
+        if (Registrando) retrasos.Add(segundos * 1000.0);
+    }
+
     private void AlTerminarCombateRondas(ResultadoCombate resultado) => CerrarCombate(resultado.ToString());
 
     private void CerrarCombate(string resultado)
@@ -369,6 +401,15 @@ public class RegistroSesion : MonoBehaviour
         if (oponente != null) combate.saludFinalRival = Redondear(oponente.SaludNormalizada);
         combate.fpsMedio = sumaDelta > 0 ? Redondear((float)(combate.fotogramas / sumaDelta)) : 0f;
         combate.porcentajeFotogramasLentos = Proporcion(fotogramasLentos, combate.fotogramas);
+        combate.pasoFisicaMs = Redondear(Time.fixedDeltaTime * 1000f);
+        combate.muestrasLatencia = latencias.Count;
+        combate.latenciaHapticaMediaMs = Media(latencias);
+        combate.latenciaHapticaP95Ms = Percentil(latencias, 0.95);
+        combate.latenciaHapticaMaxMs = Percentil(latencias, 1.0);
+        combate.muestrasRetraso = retrasos.Count;
+        combate.retrasoDeteccionMedioMs = Media(retrasos);
+        combate.retrasoDeteccionP95Ms = Percentil(retrasos, 0.95);
+        combate.retrasoDeteccionMaxMs = Percentil(retrasos, 1.0);
 
         if (combate.reintento) sesion.reintentos++;
         if (combate.resultado.StartsWith("Victoria")) sesion.victorias++;
@@ -383,6 +424,24 @@ public class RegistroSesion : MonoBehaviour
 
     private static float Proporcion(int parte, int total) => total > 0 ? Redondear((float)parte / total) : 0f;
     private static float Redondear(float valor) => Mathf.Round(valor * 1000f) / 1000f;
+
+    private static float Media(List<double> valores)
+    {
+        if (valores.Count == 0) return 0f;
+        double suma = 0;
+        foreach (double v in valores) suma += v;
+        return Redondear((float)(suma / valores.Count));
+    }
+
+    // Percentil por rango más cercano (p = 1 es el máximo)
+    private static float Percentil(List<double> valores, double p)
+    {
+        if (valores.Count == 0) return 0f;
+        var ordenados = new List<double>(valores);
+        ordenados.Sort();
+        int i = Mathf.Clamp((int)Math.Ceiling(p * ordenados.Count) - 1, 0, ordenados.Count - 1);
+        return Redondear((float)ordenados[i]);
+    }
 
     /// <summary>Escribe el JSON de la sesión. Se puede llamar en cualquier momento.</summary>
     public void Guardar()
@@ -407,6 +466,9 @@ public class RegistroSesion : MonoBehaviour
         "bloqueadosPorRival", "esquivadosPorRival", "precision", "efectividad", "ataquesRecibidos", "ataquesBloqueados",
         "ataquesEsquivados", "porcentajeBloqueo", "caidasJugador", "cuentasSuperadas", "saludJugador", "saludRival",
         "fpsMedio", "fotogramasLentos",
+        // Entrega 5, bloque J: siempre al final, para no romper los CSV anteriores
+        "pasoFisicaMs", "muestrasLatencia", "latenciaMediaMs", "latenciaP95Ms", "latenciaMaxMs", "muestrasRetraso",
+        "retrasoDeteccionMedioMs", "retrasoDeteccionP95Ms", "retrasoDeteccionMaxMs",
     };
 
     private void AgregarCsv(DatosCombate c)
@@ -421,10 +483,14 @@ public class RegistroSesion : MonoBehaviour
             c.ataquesEsquivados.ToString(inv), c.porcentajeBloqueo.ToString(inv), c.caidasJugador.ToString(inv),
             c.cuentasSuperadas.ToString(inv), c.saludFinalJugador.ToString(inv), c.saludFinalRival.ToString(inv),
             c.fpsMedio.ToString(inv), c.porcentajeFotogramasLentos.ToString(inv),
+            c.pasoFisicaMs.ToString(inv), c.muestrasLatencia.ToString(inv), c.latenciaHapticaMediaMs.ToString(inv),
+            c.latenciaHapticaP95Ms.ToString(inv), c.latenciaHapticaMaxMs.ToString(inv), c.muestrasRetraso.ToString(inv),
+            c.retrasoDeteccionMedioMs.ToString(inv), c.retrasoDeteccionP95Ms.ToString(inv), c.retrasoDeteccionMaxMs.ToString(inv),
         };
         try
         {
             bool nuevo = !File.Exists(RutaCsv);
+            if (!nuevo) ActualizarCabecera();
             var linea = new StringBuilder();
             if (nuevo) linea.AppendLine(string.Join(",", Columnas));
             linea.AppendLine(string.Join(",", Array.ConvertAll(valores, v => v.Contains(",") ? $"\"{v}\"" : v)));
@@ -434,6 +500,19 @@ public class RegistroSesion : MonoBehaviour
         {
             Debug.LogWarning($"Registro: no se pudo escribir {RutaCsv}: {e.Message}", this);
         }
+    }
+
+    // Un combates.csv de una versión anterior tiene menos columnas: se completa su cabecera (las nuevas van al final)
+    private void ActualizarCabecera()
+    {
+        if (cabeceraRevisada) return;
+        cabeceraRevisada = true;
+        string cabecera = string.Join(",", Columnas);
+        string[] lineas = File.ReadAllLines(RutaCsv);
+        if (lineas.Length == 0 || lineas[0] == cabecera || !cabecera.StartsWith(lineas[0] + ",", StringComparison.Ordinal)) return;
+        lineas[0] = cabecera;
+        File.WriteAllLines(RutaCsv, lineas);
+        Debug.Log($"Registro: cabecera de {RutaCsv} ampliada con las columnas nuevas", this);
     }
 
     // Para probar sin visor: en Play, seleccionar el objeto RegistroSesion (DontDestroyOnLoad) y clic derecho en el componente

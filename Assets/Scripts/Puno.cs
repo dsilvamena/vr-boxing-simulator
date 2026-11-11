@@ -56,12 +56,23 @@ public class Puno : MonoBehaviour
     private float listoEn;
     private Coroutine vibracion;
     private bool lanzando; // ya contó el golpe que está lanzando
+    private Collider miCollider;
 
     /// <summary>
     /// Un puño lanzó un golpe: la mano se alejó deprisa de la cabeza, o tocó al rival sin haberlo hecho antes. Se cuenta una
     /// vez por golpe, conecte o no; RegistroSesion lo usa para la precisión.
     /// </summary>
     public static event Action<Puno> AlLanzarGolpe;
+
+    /// <summary>
+    /// Estimación del retraso de detección de un golpe que contó, en segundos: cuánto hacía que el guante había tocado la
+    /// hitbox cuando el paso de física lo detectó (profundidad de penetración / rapidez de entrada). La física solo mira
+    /// cada Fixed Timestep, así que de media debería rondar medio paso. RegistroSesion lo guarda junto a la latencia háptica.
+    /// </summary>
+    public static event Action<Puno, float> AlEstimarRetrasoDeteccion;
+
+    // Por encima de esto la estimación no es de fiar (el rival se metió en el guante, o el guante ya estaba dentro)
+    private const float RetrasoMaximoEstimable = 0.1f;
 
     public Mano Mano { get; private set; }
     /// <summary>Velocidad de la mano relativa al jugador, expresada en mundo.</summary>
@@ -72,6 +83,7 @@ public class Puno : MonoBehaviour
         var rb = GetComponent<Rigidbody>();
         rb.isKinematic = true;
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+        miCollider = GetComponent<Collider>();
 
         var rig = GetComponentInParent<OVRCameraRig>();
         if (rig != null)
@@ -120,6 +132,8 @@ public class Puno : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        // Inicio de la latencia háptica medible (RNF-02): el paso de física acaba de detectar el contacto
+        long detectado = Haptica.Ahora();
         if (Time.time < listoEn) return;
         // En el piso (cuenta de RecuperacionJugador) no se pega
         if (jugador != null && jugador.Derribado) return;
@@ -149,23 +163,31 @@ public class Puno : MonoBehaviour
         listoEn = Time.time + enfriamiento;
         // Dio al aire: solo un roce, sin vibración de impacto. El enfriamiento evita que el mismo golpe conecte en la otra zona
         if (resultado == ResultadoGolpe.Esquivado)
-        {
-            Vibrar(PatronEsquivado, 1f);
-            return;
-        }
-        if (resultado == ResultadoGolpe.Bloqueado)
-        {
-            Vibrar(PatronBloqueado, 1f, FrecuenciaBloqueo);
-            return;
-        }
+            Vibrar(PatronEsquivado, 1f, detectado);
+        else if (resultado == ResultadoGolpe.Bloqueado)
+            Vibrar(PatronBloqueado, 1f, detectado, FrecuenciaBloqueo);
         // Conectado y en el piso: este golpe lo tumbó (si ya estaba caído no habría contado)
-        if (zona.Oponente.Caido)
-        {
-            Vibrar(PatronDerribo, 1f);
-            return;
-        }
-        float intensidad = Mathf.Lerp(vibracionMinima, 1f, velocidad.magnitude / rapidezVibracionMaxima);
-        Vibrar(Patron(golpe.tipo), intensidad);
+        else if (zona.Oponente.Caido)
+            Vibrar(PatronDerribo, 1f, detectado);
+        else
+            Vibrar(Patron(golpe.tipo), Mathf.Lerp(vibracionMinima, 1f, velocidad.magnitude / rapidezVibracionMaxima), detectado);
+
+        // Después de vibrar, para no sumarlo a la latencia que se mide
+        if (EstimarRetrasoDeteccion(other, velocidad, out float retraso)) AlEstimarRetrasoDeteccion?.Invoke(this, retraso);
+    }
+
+    // Lo que el guante ya había entrado en la hitbox, pasado a tiempo con la rapidez con que entraba
+    private bool EstimarRetrasoDeteccion(Collider zona, Vector3 velocidad, out float segundos)
+    {
+        segundos = 0f;
+        if (miCollider == null) return false;
+        Transform propio = miCollider.transform, otro = zona.transform;
+        if (!Physics.ComputePenetration(miCollider, propio.position, propio.rotation, zona, otro.position, otro.rotation,
+                out Vector3 salida, out float profundidad)) return false;
+        float entrada = Vector3.Dot(velocidad, -salida);
+        if (entrada < velocidadMinima) return false;
+        segundos = profundidad / entrada;
+        return segundos <= RetrasoMaximoEstimable;
     }
 
     private static Vector2[] Patron(TipoGolpe tipo) => tipo switch
@@ -176,20 +198,23 @@ public class Puno : MonoBehaviour
         _ => PatronLateral,
     };
 
-    private void Vibrar(Vector2[] patron, float intensidad, float frecuencia = 1f)
+    // origenImpacto: Haptica.Ahora() de la detección del golpe; el primer pulso sale en esta misma llamada (la corrutina
+    // corre hasta su primer yield), así que Haptica mide la latencia del impacto a la vibración
+    private void Vibrar(Vector2[] patron, float intensidad, long origenImpacto, float frecuencia = 1f)
     {
         float escala = intensidad * PlayerPrefs.GetFloat("haptica", 1f);
         if (escala <= 0.01f) return;
         DetenerVibracion();
-        vibracion = StartCoroutine(Vibracion(patron, escala, frecuencia));
+        vibracion = StartCoroutine(Vibracion(patron, escala, frecuencia, origenImpacto));
     }
 
-    private IEnumerator Vibracion(Vector2[] patron, float escala, float frecuencia)
+    private IEnumerator Vibracion(Vector2[] patron, float escala, float frecuencia, long origenImpacto)
     {
         foreach (Vector2 pulso in patron)
         {
             float amplitud = pulso.x * escala;
-            Haptica.Fijar(amplitud > 0f ? frecuencia : 0f, amplitud, Controlador());
+            Haptica.Fijar(amplitud > 0f ? frecuencia : 0f, amplitud, Controlador(), origenImpacto);
+            origenImpacto = 0; // solo el primer pulso responde al impacto
             // Realtime para que se corte aunque el juego se pause justo después
             yield return new WaitForSecondsRealtime(pulso.y);
         }

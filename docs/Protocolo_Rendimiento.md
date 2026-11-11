@@ -16,11 +16,12 @@ Duración estimada: **1 h 30 min** (15 min de preparación, 35 min de niveles, 3
 
 - Meta Quest 2 cargado al 100 % (la sesión larga gasta batería y calienta el visor) y sus dos controles con pilas nuevas.
 - Cable USB-C de datos (no solo de carga).
-- El Mac con el repositorio en la rama `entrega5/visto-bueno` y los APK de `Builds/Android/`:
-  - `vrboxing_dev.apk` (193,6 MB): *Development Build*. Es el que se usa en todo el protocolo (deja depurar con `adb` y sacar el `logcat` completo).
-  - `vrboxing_release.apk` (172,7 MB): el mismo juego sin *Development*. Solo para la comparación del paso 5.
+- El Mac con el repositorio en la rama `entrega5/sin-visor` y los APK de `Builds/Android/`:
+  - `vrboxing_dev.apk` (193,6 MB): *Development Build*, MSAA 4×. Es el que se usa en todo el protocolo (deja depurar con `adb` y sacar el `logcat` completo).
+  - `vrboxing_dev_sinmsaa.apk` (193,6 MB): el mismo APK de desarrollo con el MSAA de *Medium* a 0. Solo para la comparación de "Si no se cumple", sin tener que recompilar.
+  - `vrboxing_release.apk` (172,7 MB): el mismo juego sin *Development* (MSAA 4×). Solo para la comparación del paso 5.
 
-  Los dos se generaron el 2026-11-11 con los cambios del visto bueno (guantes con texturas ASTC, MSAA 4×, nombre nuevo). Si se regeneran para medir su tamaño, usar `CleanBuildCache`: una build incremental puede dejar huecos de varios MB dentro del APK.
+  Los tres se generaron el 2026-11-11 desde el mismo código (commit `4009aed` de `entrega5/sin-visor`: los cambios del visto bueno más los tiempos de adopción de RNF-03 en `RegistroSesion`), con `CleanBuildCache`. Entre los dos de desarrollo solo cambia un byte de los ajustes de calidad (el MSAA). Si se regeneran para medir su tamaño, usar `CleanBuildCache`: una build incremental puede dejar huecos de varios MB dentro del APK.
 - `adb`: viene con Unity. Para no escribir la ruta entera:
 
   ```bash
@@ -243,6 +244,26 @@ Columnas `fpsMedio` y `porcentajeFotogramasLentos` de `Tools/tabla_rendimiento.p
 
 ## Si no se cumple
 
-- **FPS:** lo primero que se compara es el **MSAA 4×**, que se activó en la calidad *Medium* (la de Android) tras el visto bueno, sin medirlo en el visor: generar un APK con `antiAliasing` = 0 en *Medium* (*Project Settings > Quality*) y repetir el nivel peor. Si con 0 se llega a 72 FPS y con 4× no, decidir entre bajarlo a 2× o quitarlo y aplicar recortes. Después, aplicar los recortes de la lista ordenada del bloque J en `docs/Entrega5.md`, de uno en uno y empezando por arriba, generar el APK y repetir solo el nivel peor. OVR Metrics Tool dice si el cuello es la GPU (luces, sombras, MSAA, texturas, resolución) o la CPU (draw calls, skinning).
+- **FPS**, en este orden, repitiendo siempre **solo el nivel peor** (dos rounds, como en el paso 3) y anotando cada intento en una fila nueva de la tabla de FPS:
+  1. **El MSAA.** Se activó 4× en la calidad *Medium* tras el visto bueno, sin medirlo en el visor. Sacar los datos (paso 6), instalar el APK que ya está hecho sin MSAA y repetir el nivel peor:
+
+     ```bash
+     adb install -r Builds/Android/vrboxing_dev_sinmsaa.apk
+     ```
+
+     Si con 0 se llega a 72 FPS y con 4× no, decidir entre bajarlo a 2× (*Project Settings > Quality > Medium > Anti Aliasing*) o quitarlo, o mantenerlo y aplicar recortes. Volver después al APK que se decida.
+  2. **Los recortes**, de uno en uno y por orden (la lista del bloque J en `docs/Entrega5.md`). Los tres primeros se aplican con un clic en Unity, en *Tools > Boxeo > Rendimiento*:
+
+     | Menú | Qué cambia |
+     |---|---|
+     | *Recorte 1: quitar sombras (salvo la direccional)* | Sin sombra en las 33 luces no direccionales de cada escena (24 activas), en las 7 escenas |
+     | *Recorte 2: Mipmap Limit 1 en Medium* | Texturas a la mitad de lado en Android |
+     | *Recorte 3: foveación fija al iniciar* | Pone `FoveacionFija` (nivel *High*, fijo) en el objeto de `OVRManager` de las 7 escenas |
+     | *Deshacer recorte 1 / 2 / 3* | Lo devuelve exactamente como estaba |
+     | *Ver recortes aplicados* | Escribe en la consola qué hay aplicado y el MSAA de *Medium* |
+
+     Para cada uno: guardar o descartar los cambios de las escenas abiertas, aplicar el recorte, generar el APK de desarrollo (paso 1, opción B, o `unity command build --target Android --outputPath Builds/Android/vrboxing_dev.apk --options '["Development"]' --confirm true`), instalarlo y repetir el nivel peor. Si no basta, aplicar el siguiente sin deshacer el anterior. Lo aplicado queda apuntado en `ProjectSettings/RecortesRendimiento.json` (el valor anterior de cada ajuste); si se decide quedárselo, se hace commit de las escenas o ajustes y de ese archivo juntos, y si no, *Deshacer* deja el repositorio igual que antes. Del recorte 4 en adelante no hay menú: se hacen a mano.
+
+  OVR Metrics Tool (paso 4) dice si el cuello es la GPU (luces, sombras, MSAA, texturas, resolución: recortes 1 a 3) o la CPU (draw calls, skinning: recortes 4, 6 y 10).
 - **Latencia:** si el tramo 2 es alto, mirar qué se ejecuta entre `RecibirGolpe` y la vibración (el `Debug.Log` de `Oponente.registrarGolpes`, los sonidos). Si el tramo 1 es alto, es que se pierden fotogramas: se arregla con los FPS.
 - **Sesión larga:** guardar el `logcat` y el JSON de esa sesión; un cierre se diagnostica con la traza de `AndroidRuntime` o de `Unity`.

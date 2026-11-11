@@ -143,6 +143,15 @@ Sin visor, para los ataques se desactivó `OVRCameraRig` en Play y se recolocaro
 - Cambiar `Guardia_Provisional` por una guardia grabada (bloque L).
 - ~~"¡Eres el nuevo campeón!" sale todavía sin cinturón ni escena de resultados~~: resuelto en el bloque I.
 
+### Decisiones y visto bueno
+
+Revisadas el 2026-11-11: se aprobaron tal como estaban, salvo la que se indica.
+
+- **La dificultad de Tyson** (salud 250, daño 9 / 14, combo de cuatro golpes cada 2 a 3 s): **pendiente de confirmar con el visor**. Los valores no se tocan hasta que alguien juegue el combate.
+- **El cartel del nivel 5** ("Derrotaste a Iron Mike Tyson / ¡Eres el nuevo campeón!"): aprobado.
+- **El botón del nivel 5 solo en una segunda fila** del menú de niveles: aprobado.
+- **El cambio de `AtaqueOponente`** (no atacar con el jugador fuera de alcance, en los cinco rivales): aprobado.
+
 ## Bloque I: escena de resultados y cinturón de campeón (RF-18, RF-19)
 
 Al terminar cualquier combate de los niveles 1 a 5, ganado o perdido, el juego muestra antes el cartel de siempre (¡VICTORIA!, K.O. o DERROTA) y después carga `Scene_Results`: una hoja con la precisión de golpes, los golpes bloqueados y el tiempo total, y dos botones para seguir. Al ganar a Iron Mike Tyson, la hoja cambia a "¡CAMPEÓN!", con el texto de cierre del arco narrativo y el cinturón de campeón girando a su lado.
@@ -258,13 +267,15 @@ Con *Probar: ganar el combate*, los golpes llegan directamente a `RecibirGolpe`,
 - **El rendimiento** de la escena (bloque J): la arena completa más 1 540 triángulos del cinturón; es la escena más ligera del juego.
 - **El volumen** de la ovación (0,8) junto a la música del menú, que sigue sonando.
 
-### Decisiones que esperan el visto bueno
+### Decisiones y visto bueno
 
-- **El cinturón propio en vez del modelo de Sketchfab** que cita el informe (tabla de recursos de `s06_08_desarrollo_plan_cronograma.tex`). Si el equipo encuentra un modelo con licencia CC verificada, basta con poner su prefab en el campo `cinturon` de `PantallaResultados`; `CinturonCampeon` sirve para cualquier modelo (`indiceOro` indica qué material brilla). En ese caso hay que corregir el informe, que hoy menciona el de Sketchfab.
-- **El texto de cierre** ("Derrotaste a Iron Mike Tyson, el campeón invicto. El cinturón de campeón regional es tuyo.").
-- **Los botones:** tras ganar el nivel 5, REPETIR vuelve a jugar contra Tyson. La alternativa era dejar solo MENÚ.
-- **Todas las derrotas pasan por la hoja**, también las del nivel 1, antes de reintentar. RF-18 lo pide "al terminar cada combate".
-- **La música del menú sigue sonando en la hoja**, también tras una derrota.
+Revisadas el 2026-11-11: se aprobaron tal como estaban, salvo la que se indica.
+
+- **El cinturón propio en vez del modelo de Sketchfab:** aprobado. El cinturón queda como el modelo que genera `Tools/crear_cinturon.py`, y se corrigió el informe, que en la tabla de assets de `s06_08_desarrollo_plan_cronograma.tex` citaba el "Championship Belt" de Sketchfab: ahora dice modelo propio generado con Blender por script, sin licencia de terceros. Si algún día se usa otro modelo, basta con poner su prefab en el campo `cinturon` de `PantallaResultados`; `CinturonCampeon` sirve para cualquier modelo (`indiceOro` indica qué material brilla).
+- **El texto de cierre** ("Derrotaste a Iron Mike Tyson, el campeón invicto. El cinturón de campeón regional es tuyo."): aprobado.
+- **Los botones** (tras ganar el nivel 5, REPETIR vuelve a jugar contra Tyson): aprobado.
+- **Todas las derrotas pasan por la hoja**, también las del nivel 1, antes de reintentar: aprobado.
+- **La música del menú sigue sonando en la hoja**, también tras una derrota: **pendiente de confirmar con el visor**, junto con el volumen de la ovación.
 
 ## Bloque J (preparación sin visor): build, física y latencia (RNF-01, RNF-02, RNF-08)
 
@@ -279,9 +290,9 @@ Sin visor no se puede cerrar el bloque J: los FPS y la latencia del Editor no va
 | Tiempo de build | 5 min 42 s la primera vez; 1 min 55 s al regenerarla | 2 min 38 s (incremental) |
 | Errores / avisos | 0 / 1 (el del Pipeline, ver abajo) | 0 / 1 (el mismo) |
 
-Las 7 escenas de Build Settings van en el APK. Descomprimido ocupa 780 MB; el informe de Unity da 564 MB de assets propios, de los que **532 MB son texturas** (94 %): unas 220 texturas de 2 048 px de la arena de MarpaStudio, a 2,4 MB cada una en ASTC 6×6, y las del glb de los guantes (106,7 MB, ver los recortes). El código nativo (`libil2cpp.so`, `libunity.so`, `libOVRPlugin.so`) suma unos 140 MB más.
+Las 7 escenas de Build Settings van en el APK. Descomprimido ocupa 780 MB; el informe de Unity da 564 MB de assets propios, de los que **532 MB son texturas** (94 %): unas 220 texturas de 2 048 px de la arena de MarpaStudio, a 2,4 MB cada una en ASTC 6×6, y las del glb de los guantes (106,7 MiB, ver los recortes; en el APK, comprimidas por el zip, ocupaban unos 10 MiB). Estas cifras del informe de Unity son MiB. El código nativo (`libil2cpp.so`, `libunity.so`, `libOVRPlugin.so`) suma unos 140 MB más.
 
-**Ajustes que importan** (no se cambió ninguno):
+**Ajustes que importan** (en esta primera build no se cambió ninguno; los que cambiaron después están en "Cambios tras el visto bueno"):
 
 | Ajuste | Valor | Comentario |
 |---|---|---|
@@ -293,11 +304,11 @@ Las 7 escenas de Build Settings van en el APK. Descomprimido ocupa 780 MB; el in
 | Render multihilo, GPU skinning, graphics jobs, *Optimized Frame Pacing* | Activados | |
 | OpenXR en Android | `OpenXRLoader`, *Render Mode* `SinglePassInstanced` | En Android/Vulkan, OpenXR lo implementa como **Multiview**. *Latency Optimization*: *Prioritize Rendering* |
 | Funciones de OpenXR | Meta XR, Meta XR Foveation, Subsampled Layout, SpaceWarp, perfiles Touch | La foveación está disponible pero no se fija ningún nivel (el *Project Setup Tool* lo da como opción) |
-| Compresión de texturas | ASTC por defecto | Las texturas que importa Unity usan ASTC (194 en el nivel 1, una con ASTC 6×6 fijado a mano); las 6 del glb de los guantes no (las importa glTFast sin comprimir) |
-| Calidad en Android | *Medium* (nivel 2) | MSAA **desactivado**, sombras solo duras, distancia de sombra 20 m, 1 cascada, **1 luz por píxel**, texturas a resolución completa, sin reflection probes en tiempo real |
+| Compresión de texturas | ASTC por defecto | Las texturas que importa Unity usan ASTC (194 en el nivel 1, una con ASTC 6×6 fijado a mano); las 6 del glb de los guantes no (las importa glTFast sin comprimir). **Corregido tras el visto bueno:** los guantes usan texturas propias en ASTC |
+| Calidad en Android | *Medium* (nivel 2) | MSAA **desactivado** (4× tras el visto bueno), sombras solo duras, distancia de sombra 20 m, 1 cascada, **1 luz por píxel**, texturas a resolución completa, sin reflection probes en tiempo real |
 | `OVRManager` | Resolución dinámica activada (Quest 2: 0,7 a 1,3) | Si la GPU no llega, el runtime baja la resolución antes de perder fotogramas: hay que mirar las dos cosas |
 | Cámara del rig | HDR desactivado, plano lejano 1 000 m | |
-| Manifiesto | Paquete `com.utec.vrhola`, nombre "vrhola", versión 0.1 (1), `com.oculus.intent.category.VR`, `focusaware`, `supportedDevices` = `quest2` | |
+| Manifiesto | Paquete `com.utec.vrhola`, nombre "vrhola" ("Simulador de Boxeo RV" tras el visto bueno), versión 0.1 (1), `com.oculus.intent.category.VR`, `focusaware`, `supportedDevices` = `quest2` | |
 
 **Avisos:**
 
@@ -309,7 +320,7 @@ Las 7 escenas de Build Settings van en el APK. Descomprimido ocupa 780 MB; el in
 | En `Editor.log`: avisos de IL2CPP de TextMeshPro ("given its own cpp file") y de `clang` (`-x c++`) | Informativos |
 | *Project Setup Tool* de Meta (Android) | Nada obligatorio ni recomendado pendiente, salvo las dos tareas de la Platform SDK, que no aplican. Opcional: `OVROverlayCanvas` para el texto |
 | Permisos del manifiesto que el juego no usa: `RECORD_AUDIO`, `INTERNET`, `BLUETOOTH`, `FOREGROUND_SERVICE_MEDIA_PROJECTION`, hand tracking, anclas y escena | Los añaden los paquetes de `com.meta.xr.sdk.all` (voz, MR Utility Kit...). Un permiso del manifiesto no muestra ningún diálogo si nadie lo pide en ejecución; **comprobar en el visor** que no sale ninguno al abrir el juego |
-| `supportedDevices` solo dice `quest2` | El Quest 3 abre apps de Quest 2; si se quiere declararlo (RNF-09), es un ajuste del proyecto de Meta. Sin cambiar |
+| `supportedDevices` solo dice `quest2` | **Decidido** (2026-11-11): solo Quest 2, sin declarar Quest 3. Para RNF-09 basta con anotar si el APK funciona en un Quest 3, si alguna vez hay uno |
 
 ### Física a 72 Hz (RNF-02)
 
@@ -393,8 +404,8 @@ Dos medidas, ninguna del Quest:
 | Iluminación horneada | GI horneado activado (*Shadowmask*, Progressive CPU) pero **nunca horneado**: 0 lightmaps; 8 light probes. Las siete escenas comparten el `LightingData` de `Main_Scene` |
 | Reflection probe | Una, *Realtime*, *On Awake*, 128 px HDR. En *Medium* las probes en tiempo real están desactivadas: en el Quest no cuesta nada (ni refleja nada) |
 | Materiales (nivel 1) | 56, todos Standard salvo los del glb (glTF); **35 con parallax** (mapa de altura) y oclusión, 37 con mapa normal y de metal |
-| Texturas (nivel 1) | 200, 175 de ellas a 2 048 px: unos **420 MB** en ASTC 6×6 con mipmaps, más las 6 del glb de los guantes **sin comprimir** (RGB24/ARGB32, 2 048 px: 106,7 MB en el APK) |
-| Otros | Niebla activada, skybox procedural, sin *occlusion culling* horneado, plano lejano a 1 000 m, MSAA desactivado en *Medium* |
+| Texturas (nivel 1) | 200, 175 de ellas a 2 048 px: unos **420 MB** en ASTC 6×6 con mipmaps, más las 6 del glb de los guantes **sin comprimir** (RGB24/ARGB32, 2 048 px: 106,7 MiB en memoria y en los datos de la build; el zip del APK las dejaba en unos 10 MiB). Sustituidas tras el visto bueno |
+| Otros | Niebla activada, skybox procedural, sin *occlusion culling* horneado, plano lejano a 1 000 m, MSAA desactivado en *Medium* (4× tras el visto bueno) |
 | Réferi | 20 000 triángulos, 14 316 vértices, 54 huesos, con sombra: más que cualquier rival |
 
 ### Recortes posibles, ordenados por coste y beneficio (no aplicados)
@@ -407,7 +418,7 @@ Se deciden con los FPS del Quest: si `porcentajeFotogramasLentos` < 5 % en todos
 | 2 | Bajar las texturas en Android: *Mipmap Limit* de la calidad *Medium* a 1 (o *Max Size* 1024 en las de MarpaStudio) | Alto en memoria (~420 → ~105 MB) y en ancho de banda de GPU | Muy bajo: un ajuste de calidad | Arena algo más borrosa de cerca; casi siempre se ve de lejos |
 | 3 | Fijar el *foveated rendering* (nivel alto o dinámico) al iniciar | Medio en GPU: baja la resolución de la periferia | Muy bajo: la función de OpenXR ya está activada | Periferia algo borrosa |
 | 4 | Marcar la arena como *Batching Static* | Alto en CPU: de ~570 draw calls de la arena a unas decenas de lotes (56 materiales) | Bajo; más memoria y APK por la malla combinada | Ninguno |
-| 5 | Texturas de los guantes: materiales Standard con texturas ASTC en vez de las de glTFast | Memoria y APK (~100 MB menos); poco en FPS | Bajo | Ninguno |
+| 5 | Texturas de los guantes: materiales Standard con texturas ASTC en vez de las de glTFast | Memoria (~100 MiB menos); poco en FPS | Bajo | Ninguno. **Aplicado** tras el visto bueno |
 | 6 | Réferi a ~10 000 triángulos (`Tools/reducir_referi.py` ya existe) y sin sombra | Medio-bajo en GPU y skinning | Bajo | Mínimo |
 | 7 | Quitar el parallax de los 35 materiales que lo usan | Medio en GPU (una textura y un cálculo menos por píxel) | Bajo; son materiales de terceros: copiarlos o modificarlos | Menos relieve |
 | 8 | Hornear la iluminación: luces de relleno a *Baked* y lightmaps | Alto: 24 luces gratis en ejecución | Medio: horneado largo, UV2 de MarpaStudio, lightmaps en el APK | Puede cambiar el aspecto: revisar |
@@ -416,7 +427,7 @@ Se deciden con los FPS del Quest: si `porcentajeFotogramasLentos` < 5 % en todos
 | 11 | *Occlusion culling* horneado | Bajo-medio (gradas detrás de muros) | Medio | Ninguno |
 | 12 | Shaders móviles en lugar de Standard | Alto en GPU | Alto, y cambio visual grande | Último recurso |
 
-Aparte de RNF-01: con MSAA desactivado los bordes se ven dentados en el visor. Activar 4× MSAA en *Medium* cuesta poco en la GPU del Quest (*tile-based*), pero es una decisión de calidad: no se tocó.
+Aparte de RNF-01: con MSAA desactivado los bordes se ven dentados en el visor. Activar 4× MSAA en *Medium* cuesta poco en la GPU del Quest (*tile-based*). Se activó tras el visto bueno, y es lo primero que se compara si no se llega a 72 FPS.
 
 ### Herramientas para el día del visor
 
@@ -453,15 +464,66 @@ Aparte de RNF-01: con MSAA desactivado los bordes se ven dentados en el visor. A
 ### Pendiente con visor
 
 - **Toda la medida:** FPS por nivel, latencia en el Quest y la sesión de 30 minutos, siguiendo `docs/Protocolo_Rendimiento.md`. Después, pegar aquí las tablas de `Tools/tabla_rendimiento.py`.
-- Si los FPS no llegan: aplicar los recortes por orden, generar el APK y repetir el nivel peor.
+- Si los FPS no llegan: comparar primero con el MSAA desactivado (activado tras el visto bueno), y después aplicar los recortes por orden, generar el APK y repetir el nivel peor.
 - Comparar el APK de desarrollo con el que no lo es (los `Debug.Log` de cada golpe escriben en el `logcat` en la build de desarrollo).
 - Comprobar que no sale ningún diálogo de permisos al abrir el juego.
 - Si el visor se usa a 90 Hz, el *Fixed Timestep* debería ser 1/90 s; el juego no pide ninguna frecuencia, así que corre a 72 Hz.
-- RNF-09: si hay un Quest 3, instalar el mismo APK y anotar si funciona igual.
+- RNF-09 (opcional): si alguna vez hay un Quest 3, instalar el mismo APK y anotar si funciona. No se declara en `supportedDevices` (decidido: solo Quest 2).
 
-### Decisiones que esperan el visto bueno
+### Decisiones y visto bueno
 
-- **El *Fixed Timestep* a 1/72 s** (el plan dejaba abierto 1/90) y **el suavizado de `Puno` ajustado al paso**, para que el filtro siga siendo el calibrado a 50 Hz.
-- **Borrar `UnityPlayerAccountSettings.asset`**, el resto de Player Accounts sin script.
-- **Ningún ajuste gráfico se cambió.** Los recortes de la lista esperan a los FPS del visor, y el MSAA (hoy desactivado en Android) es una decisión de calidad aparte.
-- Sin cambiar, pero conviene decidirlo antes de las pruebas con usuarios: el nombre de la app en el visor ("vrhola", con el paquete `com.utec.vrhola`; cambiar el paquete cambia también la carpeta de datos), declarar Quest 3 en `supportedDevices` y los permisos que añade la SDK de Meta.
+Revisadas el 2026-11-11: se aprobaron tal como estaban, con las excepciones que se indican. Lo aplicado está en "Cambios tras el visto bueno", más abajo.
+
+- **El *Fixed Timestep* a 1/72 s** y **el suavizado de `Puno` ajustado al paso:** aprobados.
+- **Borrar `UnityPlayerAccountSettings.asset`:** aprobado.
+- **Los recortes de rendimiento:** se deciden con los FPS del visor, salvo el 5 (texturas de los guantes), que se aplicó.
+- **El MSAA:** se activó 4× en *Medium*; **pendiente de confirmar con los FPS del visor**. Es lo primero que se compara si no se llega a 72 FPS (`docs/Protocolo_Rendimiento.md`).
+- **El nombre de la app en el visor:** "Simulador de Boxeo RV" en lugar de "vrhola". El paquete sigue siendo `com.utec.vrhola`.
+- **Dispositivos admitidos:** decidido, solo Quest 2 (`supportedDevices` = `quest2`), sin declarar Quest 3.
+- **Los permisos que añade la SDK de Meta:** se dejan; **pendiente de comprobar en el visor** que no sale ningún diálogo al abrir el juego.
+
+### Cambios tras el visto bueno (2026-11-11)
+
+En la rama `entrega5/visto-bueno`, creada desde `entrega5/rendimiento`. No se tocaron los valores de Tyson, la escena de resultados, el *Fixed Timestep* ni los demás recortes.
+
+**1. Texturas de los guantes (recorte 5).** Los guantes usaban los dos materiales glTF del glb, cuyas seis texturas de 2 048 px importa glTFast sin comprimir. Ahora usan `Materials/Guante_Cuero.mat` y `Guante_Velcro.mat` (Standard) con texturas que importa Unity, en `Assets/_Project/Art/boxing-gloves/Textures/`:
+
+| Textura | Origen | En Android |
+|---|---|---|
+| `Glove_BaseColor.jpg`, `Velcro_BaseColor.jpg` | Los JPEG originales del glb, extraídos sin recomprimir | 1 024 px, ASTC 6×6 |
+| `Glove_Normal.jpg`, `Velcro_Normal.jpg` | Ídem (mapa normal) | 1 024 px, ASTC 4×4 (las normales sufren más con bloques grandes) |
+| `Glove_MetallicSmoothness.png`, `Velcro_MetallicSmoothness.png` | Convertidas del `metallicRoughness` de glTF (G = rugosidad, B = metal): R = metal, A = 1 − rugosidad. El metal es 0 en todo el mapa | 1 024 px, ASTC 6×6, lineal |
+
+- Los dos `.jpeg` que había en `boxing-gloves/textures/` eran dos de esas imágenes (los colores base) **volteadas en vertical**, sin la normal ni el metal; nadie los usaba y se borraron.
+- Las cinco escenas de pelea apuntan a los materiales nuevos (son las únicas con guantes). *Tools > Boxeo > Poner guantes en las manos* asigna también los propios, por el nombre del material del glb, y si falta alguno avisa sin cambiar nada.
+- `AssetDatabase.GetDependencies`: ninguna de las 7 escenas del build depende ya del glb, que solo sirve de fuente de las mallas en el Editor.
+- **Memoria de las texturas de los guantes: de 106,7 MiB a 5,1 MiB.** En la build, los assets empaquetados bajan de ~564 a 456,6 MiB, y las texturas de 532 a 430,4 MiB.
+- **Capturas antes y después** (Play en el nivel 1 con la cabeza y las manos fijas, guantes a unos 30 cm del ojo, calidad *Medium*, antes del MSAA): en las zonas de los guantes, diferencia media de 0,14 a 0,49 sobre 255, y menos del 0,1 % de los píxeles cambia más de un 10 %. A esa distancia no se distingue la textura de 1 024 px; se queda así.
+
+**2. MSAA 4×** en la calidad *Medium* (índice 2, la de Android); los demás niveles no cambian y la cámara del rig ya lo permitía (`allowMSAA` en las 7 escenas). Se confirma con los FPS del visor: es lo primero que se compara si no se llega a 72 FPS (`docs/Protocolo_Rendimiento.md`, "Si no se cumple"). El diff de `QualitySettings.asset` trae además la reescritura de Unity 6 (versión de serialización 3 → 5 y campos nuevos con su valor por defecto), porque el asset no se guardaba desde la migración.
+
+**3. Nombre de la app: "Simulador de Boxeo RV".** Es el título de la portada del informe ("Simulador inmersivo de boxeo en realidad virtual (1P vs. IA)") acortado para la biblioteca del Quest, con la sigla RV que usa el propio informe en la cabecera de cada página. Solo cambió `productName`; el paquete sigue siendo `com.utec.vrhola`, del que dependen la carpeta de datos (`/sdcard/Android/data/com.utec.vrhola/files`) y los PlayerPrefs del Quest, así que `adb install -r` actualiza la misma app y conserva sus datos. En el Editor de macOS, en cambio, `productName` decide dónde se guardan los PlayerPrefs y `persistentDataPath`: `nivelSuperado`, `volumen` y `haptica` se copiaron a la ubicación nueva (`~/Library/Application Support/utec/Simulador de Boxeo RV`), y **las sesiones y guardias grabadas antes en el Editor siguen en `~/Library/Application Support/utec/vrhola`**.
+
+**4. Limpieza.** Se descartaron los glifos que TMP añade solo a `Bangers SDF.asset`. `hola.pdf` y `docs/annotated-Informe_SimuladorBox_Semana_12.pdf` eran el mismo archivo (comparados con `cmp`): se borró el primero y el segundo quedó como `docs/informe/Informe_SimuladorBox_Semana_12.pdf`, la versión entregada en la semana 12 (30 páginas). Es la descarga anotada de la corrección: además de las páginas entregadas lleva dos notas del profesor (páginas 7 y 13), invisibles al abrirlo. En el informe se corrigió el origen del cinturón (ver el bloque I).
+
+**APK regenerados** (`Builds/`, ignorada por git):
+
+| Dato | APK de desarrollo | APK sin *Development* |
+|---|---|---|
+| Antes (bloque J) | 201 833 988 B (201,8 MB) | 178 934 939 B (178,9 MB) |
+| Ahora | **193 563 545 B (193,6 MB)**, −8,3 MB | **172 726 330 B (172,7 MB)**, −6,2 MB |
+| Descomprimido | 780,7 → 673,1 MB | |
+| Tiempo de build | 2 min 20 s (con `CleanBuildCache`, ver abajo) | 2 min 4 s (incremental) |
+| Errores / avisos | 0 / 1 (el del Pipeline) | 0 / 1 (el mismo) |
+| `aapt2` | `com.utec.vrhola`, etiqueta "Simulador de Boxeo RV", `supportedDevices` = `quest2`, los mismos permisos que antes | Ídem |
+
+El APK baja mucho menos que los 101 MiB de datos que se quitaron porque el zip del APK ya comprimía bien las texturas crudas del glb (casi lisas: unos 10 MiB), mientras que las ASTC casi no se comprimen. **Cuidado al medir el tamaño:** la primera build de desarrollo, incremental, tardó 32 s pero dejó 8,2 MB de huecos dentro del APK (el empaquetado incremental de Gradle no compacta el zip al sustituir entradas) y solo bajó 0,1 MB; se repitió con la opción `CleanBuildCache`, y los dos APK finales no tienen huecos.
+
+**Verificación en Play** (Meta XR Simulator, `nivelSuperado` = 5 antes y después):
+
+| Prueba | Resultado |
+|---|---|
+| Nivel 1 y nivel 5 cargan; guantes con `Guante_Cuero`/`Guante_Velcro` (Standard), visibles | OK |
+| `PruebaAtaques` en los dos niveles | OK: `Conectado`, `Esquivado`, `Bloqueado` |
+| *Probar: ganar el combate* en el nivel 5 | OK: `VictoriaPorKO` y `Scene_Results` |
+| Consola | 0 errores; solo los avisos conocidos de OpenXR y OVRPlugin del simulador (`GetBoundaryGeometry` incluido) |

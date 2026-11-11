@@ -265,3 +265,203 @@ Con *Probar: ganar el combate*, los golpes llegan directamente a `RecibirGolpe`,
 - **Los botones:** tras ganar el nivel 5, REPETIR vuelve a jugar contra Tyson. La alternativa era dejar solo MENÚ.
 - **Todas las derrotas pasan por la hoja**, también las del nivel 1, antes de reintentar. RF-18 lo pide "al terminar cada combate".
 - **La música del menú sigue sonando en la hoja**, también tras una derrota.
+
+## Bloque J (preparación sin visor): build, física y latencia (RNF-01, RNF-02, RNF-08)
+
+Sin visor no se puede cerrar el bloque J: los FPS y la latencia del Editor no valen para el Quest. Esta parte deja preparado todo lo demás, para que la sesión con el visor consista en instalar, jugar y sacar los datos siguiendo `docs/Protocolo_Rendimiento.md`. **No hay aquí ninguna cifra de FPS ni de latencia del Quest.** Las del Editor que aparecen sirven para comprobar que la medida funciona y para comparar escenas entre sí.
+
+### Primera build completa para Android
+
+| Dato | APK de desarrollo | APK sin *Development* |
+|---|---|---|
+| Archivo (`Builds/`, ignorada por git) | `Builds/Android/vrboxing_dev.apk` | `Builds/Android/vrboxing_release.apk` |
+| Tamaño | 201,8 MB (192,5 MiB) | 178,9 MB (170,6 MiB) |
+| Tiempo de build | 5 min 42 s la primera vez; 1 min 55 s al regenerarla | 2 min 38 s (incremental) |
+| Errores / avisos | 0 / 1 (el del Pipeline, ver abajo) | 0 / 1 (el mismo) |
+
+Las 7 escenas de Build Settings van en el APK. Descomprimido ocupa 780 MB; el informe de Unity da 564 MB de assets propios, de los que **532 MB son texturas** (94 %): unas 220 texturas de 2 048 px de la arena de MarpaStudio, a 2,4 MB cada una en ASTC 6×6, y las del glb de los guantes (106,7 MB, ver los recortes). El código nativo (`libil2cpp.so`, `libunity.so`, `libOVRPlugin.so`) suma unos 140 MB más.
+
+**Ajustes que importan** (no se cambió ninguno):
+
+| Ajuste | Valor | Comentario |
+|---|---|---|
+| Render pipeline | Built-in | |
+| Scripting backend / arquitectura | IL2CPP (configuración Release) / ARM64 | Stripping *Minimal* |
+| Graphics API | Solo Vulkan (automático desactivado) | |
+| API mínima / objetivo | 32 / 34 | |
+| Espacio de color | Linear | |
+| Render multihilo, GPU skinning, graphics jobs, *Optimized Frame Pacing* | Activados | |
+| OpenXR en Android | `OpenXRLoader`, *Render Mode* `SinglePassInstanced` | En Android/Vulkan, OpenXR lo implementa como **Multiview**. *Latency Optimization*: *Prioritize Rendering* |
+| Funciones de OpenXR | Meta XR, Meta XR Foveation, Subsampled Layout, SpaceWarp, perfiles Touch | La foveación está disponible pero no se fija ningún nivel (el *Project Setup Tool* lo da como opción) |
+| Compresión de texturas | ASTC por defecto | Las texturas que importa Unity usan ASTC (194 en el nivel 1, una con ASTC 6×6 fijado a mano); las 6 del glb de los guantes no (las importa glTFast sin comprimir) |
+| Calidad en Android | *Medium* (nivel 2) | MSAA **desactivado**, sombras solo duras, distancia de sombra 20 m, 1 cascada, **1 luz por píxel**, texturas a resolución completa, sin reflection probes en tiempo real |
+| `OVRManager` | Resolución dinámica activada (Quest 2: 0,7 a 1,3) | Si la GPU no llega, el runtime baja la resolución antes de perder fotogramas: hay que mirar las dos cosas |
+| Cámara del rig | HDR desactivado, plano lejano 1 000 m | |
+| Manifiesto | Paquete `com.utec.vrhola`, nombre "vrhola", versión 0.1 (1), `com.oculus.intent.category.VR`, `focusaware`, `supportedDevices` = `quest2` | |
+
+**Avisos:**
+
+| Aviso | Qué se hizo |
+|---|---|
+| Script perdido en `Assets/Resources/UnityPlayerAccountSettings.asset` | **Corregido.** Era un resto de Unity Player Accounts, cuyo paquete se quitó con los de multijugador. Estaba en `Resources`, así que entraba en el APK. Tenía el `clientId` vacío y ningún código lo usaba: se borró |
+| `Pipeline: No RuntimePipelineConfig asset found ... Pipeline will be disabled in Player builds` | Correcto así: `com.unity.pipeline` es el control del Editor desde la terminal y no debe ir en el juego |
+| En `Editor.log`: `metal-objdump` / "missing Metal Toolchain" | Del entorno del Mac (Xcode sin el componente Metal): Unity intenta compilar shaders de Metal para el Editor. No afecta al APK de Android |
+| En `Editor.log`: avisos de IL2CPP de TextMeshPro ("given its own cpp file") y de `clang` (`-x c++`) | Informativos |
+| *Project Setup Tool* de Meta (Android) | Nada obligatorio ni recomendado pendiente, salvo las dos tareas de la Platform SDK, que no aplican. Opcional: `OVROverlayCanvas` para el texto |
+| Permisos del manifiesto que el juego no usa: `RECORD_AUDIO`, `INTERNET`, `BLUETOOTH`, `FOREGROUND_SERVICE_MEDIA_PROJECTION`, hand tracking, anclas y escena | Los añaden los paquetes de `com.meta.xr.sdk.all` (voz, MR Utility Kit...). Un permiso del manifiesto no muestra ningún diálogo si nadie lo pide en ejecución; **comprobar en el visor** que no sale ninguno al abrir el juego |
+| `supportedDevices` solo dice `quest2` | El Quest 3 abre apps de Quest 2; si se quiere declararlo (RNF-09), es un ajuste del proyecto de Meta. Sin cambiar |
+
+### Física a 72 Hz (RNF-02)
+
+El *Fixed Timestep* pasa de 0,02 s (50 Hz) a **1/72 s** (13,9 ms), exactamente: Unity 6 lo guarda como fracción y queda en 1 960 000 / 141 120 000. Con 72 fps en el Quest 2 hay un paso de física por fotograma, y el impacto se detecta como mucho un fotograma tarde. Antes podía tardar hasta dos (unos 11 ms de media y hasta ~28 ms), porque solo el 69 % de los fotogramas tenía un paso.
+
+**Lo que depende del paso**, revisado:
+
+| Qué | Efecto de 1/72 | Cambio |
+|---|---|---|
+| `Puno`: velocidad de la mano = desplazamiento del paso / `Time.fixedDeltaTime` | Está en m/s, no depende del paso. Con 50 Hz y el render a 72 fps, unos pasos veían un fotograma de desplazamiento y otros dos, y la velocidad oscilaba un ±40 % | Ninguno |
+| `Puno`: suavizado `Lerp(..., 0,5)` en cada paso | Con más pasos por segundo, el filtro reaccionaría más rápido | **Sí:** el factor se ajusta al paso (`1 − (1 − 0,5)^(paso / 0,02)`), así que en segundos es el mismo filtro calibrado a 50 Hz; con 0,02 s da exactamente 0,5 |
+| Umbral de golpe lanzado (1,5 m/s), `velocidadMinima`, `rapidezVibracionMaxima` | En m/s; no dependen del paso | Ninguno |
+| Enfriamiento, invulnerabilidad, rondas, ataques | Usan `Time.time`, no `FixedUpdate` | Ninguno |
+| Rigidbodies | Los `Puno` (cinemáticos desde `Awake`, `ContinuousSpeculative`) y uno cinemático en cada rival con las hitboxes como triggers. En `Main_Scene` hay dos dinámicos (las figuras `.glb` de decoración): se simulan más a menudo, sin otro efecto | Ninguno |
+| `OVRInput.FixedUpdate` | Solo usa `fixedDeltaTime` con la API antigua de Oculus, no con OpenXR | Ninguno |
+| Animators | Ninguno anima en física (*Animate Physics*) | Ninguno |
+| `OVRCameraRig` | Mueve los anchors en `Update`/`onBeforeRender`, no en `FixedUpdate` (*Use Fixed Update For Tracking* desactivado) | Ninguno |
+
+**Verificación en Play.** `PruebaAtaques` y *Probar: ganar el combate* no pasan por la física (llaman a `RecibirAtaque` y `RecibirGolpe` directamente), así que no detectarían un cambio del paso. Para probar el camino real (trigger → `Puno` → `Oponente` → `Haptica`), un arnés en `Application.onBeforeRender` fijó la cabeza a 0,9 m del rival y movió el guante derecho por trayectorias de mínimo jerk contra la hitbox de la cabeza de Glass Joe (rival quieto: `AtaqueOponente`, `DefensaOponente`, `EsquiveOponente` y `LimiteRing` desactivados en Play, y su salud repuesta antes de cada golpe), y después golpes al aire hacia fuera de la cabeza. Mismas trayectorias a 50 y a 72 Hz, con el Editor a ~72 fps:
+
+| Golpe (rapidez pico) | Resultado a 50 Hz | Resultado a 72 Hz | Rapidez medida a 50 Hz (m/s) | Rapidez medida a 72 Hz (m/s) |
+|---|---|---|---|---|
+| A la cabeza, 0,4 m/s (×3) | No cuenta | No cuenta | — | — |
+| A la cabeza, 1 m/s (×3) | Cross a la cabeza | Cross a la cabeza | 1,18 / 1,33 / 1,17 | 1,12 / 0,99 / 1,01 |
+| A la cabeza, 2 m/s (×3) | Ídem | Ídem | 2,29 / 1,60 / 2,24 | 1,96 / 2,40 / 1,97 |
+| A la cabeza, 3 m/s (×3) | Ídem | Ídem | 3,31 / 3,32 / 3,32 | 2,88 / bloqueado / 2,90 |
+| A la cabeza, 5 m/s (×3) | Ídem | Ídem | 4,19 / 5,02 / 4,35 | bloqueado / 4,43 / 4,57 |
+| A la cabeza, 8 m/s (×3) | Ídem | Ídem | 6,06 / 7,46 / bloqueado | 6,66 / 6,63 / bloqueado |
+| Al aire, 1,30 m/s (×3) | 1 de 3 cuenta como lanzado | 0 de 3 | | |
+| Al aire, 1,45 m/s (×3) | 3 de 3 | 0 de 3 | | |
+| Al aire, 1,60 / 1,75 / 2,50 m/s (×3) | 3 de 3 | 3 de 3 | | |
+
+Los golpes conectan, no conectan y se clasifican igual. Los "bloqueado" son el azar de `DefensaOponente.Bloquea`, que decide aunque el componente esté desactivado. Lo que cambia es la medida: a 72 Hz la rapidez oscila menos y el umbral de 1,5 m/s corta limpio. A 50 Hz contaban como lanzados golpes de 1,30 y 1,45 m/s por la oscilación (sobrestimaba hasta un 39 % cuando el paso veía dos fotogramas). La rapidez solo cambia el daño por debajo de 2,5 m/s (`rapidezGolpeCompleto`), y el daño de un mismo golpe ahora varía menos.
+
+En la misma sesión, *Atacar de frente / con la cabeza desplazada / con guardia* de `PruebaAtaques` dieron `Conectado`, `Esquivado` y `Bloqueado`, y *Probar: ganar el combate* terminó en `VictoriaPorKO` y cargó `Scene_Results`.
+
+### Latencia háptica medida en el juego (RNF-02)
+
+| Pieza | Qué hace |
+|---|---|
+| `Puno.OnTriggerEnter` | Lo primero que hace es tomar la marca de tiempo (`Haptica.Ahora()`, `Stopwatch` de alta resolución) y pasarla al primer pulso del patrón. La corrutina de vibración corre hasta su primer `yield` dentro de la misma llamada, así que ese pulso sale antes de volver de `OnTriggerEnter` |
+| `Haptica.Fijar(..., origenImpacto)` | Al volver de `OVRInput.SetControllerVibration` publica los milisegundos transcurridos en el evento nuevo `AlMedirLatencia`. Sin origen (todas las demás vibraciones) no mide nada. `AlVibrar` sigue igual |
+| `Puno.AlEstimarRetrasoDeteccion` | Evento nuevo. Tras vibrar (para no sumarlo a la latencia), estima lo que se perdió por el paso de física: la profundidad con que el guante ya estaba dentro de la hitbox (`Physics.ComputePenetration`) entre la rapidez con que entraba. Se descarta si la rapidez de entrada es menor que `velocidadMinima` o el resultado pasa de 0,1 s (el rival se metió en el guante, o el guante ya estaba dentro) |
+| `RegistroSesion` | Por combate, campos nuevos al final de `DatosCombate`: `pasoFisicaMs`, `muestrasLatencia`, `latenciaHapticaMediaMs`, `latenciaHapticaP95Ms`, `latenciaHapticaMaxMs`, `muestrasRetraso`, `retrasoDeteccionMedioMs`, `retrasoDeteccionP95Ms`, `retrasoDeteccionMaxMs` (p95 por rango más cercano). En `combates.csv`, nueve columnas nuevas al final con esos datos |
+
+**Compatibilidad.** El JSON solo gana campos. En el CSV, si `combates.csv` ya existía con la cabecera vieja, `RegistroSesion` reescribe solo la primera línea con las columnas nuevas al final: las filas viejas quedan intactas (con 24 campos) y `csv.DictReader` o una hoja de cálculo las leen con los campos nuevos vacíos. Se comprobó con el `combates.csv` del Editor (37 filas): las 37 iguales byte a byte y la fila nueva con 33 campos.
+
+**Solo cuenta lo que el código controla.** La latencia completa tiene tres tramos:
+
+1. **Detección**, del contacto según el seguimiento al paso de física que lo ve: de media medio fotograma (~7 ms a 72 Hz) y como mucho uno (~14 ms), más si se pierden fotogramas. Se estima en cada golpe (`retrasoDeteccion*`).
+2. **Código**, de `OnTriggerEnter` a la vuelta de `OVRInput`: resolver el golpe en `Oponente` (con su `Debug.Log`), sonidos, eventos de reacción y registro, y la llamada a la vibración. Se mide en cada golpe (`latenciaHaptica*`).
+3. **Runtime de OpenXR y control**: el envío por Bluetooth y el arranque del motor. **No se puede medir desde el código**; haría falta instrumentación externa (un acelerómetro en el control, sincronizado con el juego).
+
+Para RNF-02 se informará el tramo 1 más el tramo 2 medidos en el Quest, diciendo que falta el tercero. `Tools/tabla_rendimiento.py` suma los p95.
+
+**En el Editor (Mono, no vale como cifra del Quest)**, con el arnés de 15 golpes a 72 Hz: el tramo 2 fue de 0,24 a 0,74 ms, salvo el primer golpe de la sesión (9,5 ms: compilación JIT de Mono y primera reproducción de sonido; con IL2CPP no hay JIT). El tramo 1 dio de 0,2 a 16,6 ms, con media de 8,6 ms: repartido a lo largo de un fotograma, como se esperaba (por encima de 13,9 ms cuando el Editor perdió fotogramas). El combate quedó registrado con `muestrasLatencia` = 15, media de 1,22 ms, p95 y máximo de 9,25 ms (el primer golpe), y retraso medio de 7,8 ms con p95 de 16,7 ms.
+
+### Auditoría de coste por escena
+
+Dos medidas, ninguna del Quest:
+
+- **Inventario estático** (Edit mode, escena sin guardar): renderers activos dentro de un frustum con el campo de visión combinado del Quest 2 (~104° × 93°), con el ojo a 1,65 m sobre el rig y mirando al rival. Triángulos y vértices de esas mallas, y submallas, que son las draw calls sin batching (una por material). Sin sombras ni multiview.
+- **`UnityStats` en Play**, forzando la calidad *Medium* de Android (el Editor usa *Ultra*, la de Standalone), con la cabeza del Meta XR Simulator a 1,70 m en el rig, 3,5 s después de cargar cada escena (antes de la campana). **El simulador renderiza en MultiPass**: cada ojo se dibuja aparte y las sombras se suman. En el Quest, con Multiview, los dos ojos van en una sola draw call. Sirve para comparar escenas, no como cifra absoluta.
+
+| Escena | Triángulos visibles | Vértices visibles | Submallas visibles | Personajes con skinning (vértices) | Draw calls (Editor) | SetPass (Editor) | Triángulos (Editor) | Objetos en sombras (Editor) |
+|---|---|---|---|---|---|---|---|---|
+| `Main_Scene` | 119 940 | 114 844 | 624 | Glass Joe 6 026 | 2 380 | 1 033 | 1 025 191 | 1 322 |
+| Nivel 1 | 125 696 | 116 373 | 584 | Glass Joe 6 026 + réferi 14 316 | 2 167 | 970 | 1 277 904 | 1 184 |
+| Nivel 2 | 127 680 | 117 525 | 584 | Bald Bull 7 178 + réferi | 2 167 | 969 | 1 293 776 | 1 184 |
+| Nivel 3 | 126 467 | 117 631 | 605 | Soda Popinski 7 284 **en 36 piezas** + réferi | 2 293 | 1 011 | 1 284 072 | 1 268 |
+| Nivel 4 | 133 175 | 119 807 | 591 | Mr. Sandman 9 460 + réferi | 2 209 | 983 | 1 337 736 | 1 212 |
+| Nivel 5 | 134 043 | 125 713 | 570 | Iron Mike Tyson 15 366 + réferi | 2 083 | 941 | 1 344 680 | 1 128 |
+| `Scene_Results` | 99 532 | 96 732 | 572 | — | 2 057 | 921 | 848 290 | 1 103 |
+
+**Común a las siete escenas** (la arena de MarpaStudio es la misma):
+
+| Elemento | Estado |
+|---|---|
+| Arena (`Building`) | ~1 250 renderers, ~99 000 triángulos y ~570 submallas visibles; **ninguno con *Batching Static***; todos proyectan sombra |
+| Luces | **25 en tiempo real, todas con sombras suaves**: 21 focos de relleno (intensidad 0,5, alcance 159,5 m), 2 focos fuertes (10, 14,2 m), 1 puntual (2, 15 m) y la direccional (*Mixed*). Con *Medium*: una luz por píxel por objeto (las demás por vértice) y sombras duras. Los ~29 cambios de render target por fotograma en el Editor apuntan a muchos mapas de sombra de focos |
+| Iluminación horneada | GI horneado activado (*Shadowmask*, Progressive CPU) pero **nunca horneado**: 0 lightmaps; 8 light probes. Las siete escenas comparten el `LightingData` de `Main_Scene` |
+| Reflection probe | Una, *Realtime*, *On Awake*, 128 px HDR. En *Medium* las probes en tiempo real están desactivadas: en el Quest no cuesta nada (ni refleja nada) |
+| Materiales (nivel 1) | 56, todos Standard salvo los del glb (glTF); **35 con parallax** (mapa de altura) y oclusión, 37 con mapa normal y de metal |
+| Texturas (nivel 1) | 200, 175 de ellas a 2 048 px: unos **420 MB** en ASTC 6×6 con mipmaps, más las 6 del glb de los guantes **sin comprimir** (RGB24/ARGB32, 2 048 px: 106,7 MB en el APK) |
+| Otros | Niebla activada, skybox procedural, sin *occlusion culling* horneado, plano lejano a 1 000 m, MSAA desactivado en *Medium* |
+| Réferi | 20 000 triángulos, 14 316 vértices, 54 huesos, con sombra: más que cualquier rival |
+
+### Recortes posibles, ordenados por coste y beneficio (no aplicados)
+
+Se deciden con los FPS del Quest: si `porcentajeFotogramasLentos` < 5 % en todos los niveles, no hace falta ninguno. Si no, aplicarlos de uno en uno, desde arriba, y repetir la medida del nivel peor.
+
+| # | Recorte | Beneficio esperado | Coste | Efecto visual |
+|---|---|---|---|---|
+| 1 | Quitar la sombra (*Shadow Type: No Shadows*) a las 24 luces que no son la direccional, o a todas menos una que alumbre el ring | Muy alto en GPU: cada foco con sombra vuelve a dibujar sus objetos en un mapa de sombra (~1 100–1 300 objetos en sombras por fotograma en el Editor) | Muy bajo: un ajuste por luz, en 7 escenas | Se pierden las sombras de la arena; las de los púgiles en la lona se pueden conservar con una luz |
+| 2 | Bajar las texturas en Android: *Mipmap Limit* de la calidad *Medium* a 1 (o *Max Size* 1024 en las de MarpaStudio) | Alto en memoria (~420 → ~105 MB) y en ancho de banda de GPU | Muy bajo: un ajuste de calidad | Arena algo más borrosa de cerca; casi siempre se ve de lejos |
+| 3 | Fijar el *foveated rendering* (nivel alto o dinámico) al iniciar | Medio en GPU: baja la resolución de la periferia | Muy bajo: la función de OpenXR ya está activada | Periferia algo borrosa |
+| 4 | Marcar la arena como *Batching Static* | Alto en CPU: de ~570 draw calls de la arena a unas decenas de lotes (56 materiales) | Bajo; más memoria y APK por la malla combinada | Ninguno |
+| 5 | Texturas de los guantes: materiales Standard con texturas ASTC en vez de las de glTFast | Memoria y APK (~100 MB menos); poco en FPS | Bajo | Ninguno |
+| 6 | Réferi a ~10 000 triángulos (`Tools/reducir_referi.py` ya existe) y sin sombra | Medio-bajo en GPU y skinning | Bajo | Mínimo |
+| 7 | Quitar el parallax de los 35 materiales que lo usan | Medio en GPU (una textura y un cálculo menos por píxel) | Bajo; son materiales de terceros: copiarlos o modificarlos | Menos relieve |
+| 8 | Hornear la iluminación: luces de relleno a *Baked* y lightmaps | Alto: 24 luces gratis en ejecución | Medio: horneado largo, UV2 de MarpaStudio, lightmaps en el APK | Puede cambiar el aspecto: revisar |
+| 9 | Plano lejano de la cámara a ~150 m (7 escenas) | Bajo (algo de culling y precisión de profundidad) | Muy bajo | Ninguno si la arena cabe |
+| 10 | Soda Popinski en una sola malla (36 → 1 `SkinnedMeshRenderer`) | Medio en CPU, solo en el nivel 3 (+35 draw calls y skinning) | Medio (Blender) | Ninguno |
+| 11 | *Occlusion culling* horneado | Bajo-medio (gradas detrás de muros) | Medio | Ninguno |
+| 12 | Shaders móviles en lugar de Standard | Alto en GPU | Alto, y cambio visual grande | Último recurso |
+
+Aparte de RNF-01: con MSAA desactivado los bordes se ven dentados en el visor. Activar 4× MSAA en *Medium* cuesta poco en la GPU del Quest (*tile-based*), pero es una decisión de calidad: no se tocó.
+
+### Herramientas para el día del visor
+
+- **`docs/Protocolo_Rendimiento.md`:** el guion completo. Instalar (`adb install -r` o *Build And Run*), qué jugar en cada nivel y durante cuánto tiempo, `logcat` con `VrApi` como segunda medida de FPS, OVR Metrics Tool (opcional), la sesión de 30 minutos con pausa, Guardián y visor quitado, `adb pull` de `/sdcard/Android/data/com.utec.vrhola/files/Sesiones`, y las tablas vacías para rellenar.
+- **`Tools/tabla_rendimiento.py`** (sin dependencias): lee los `sesion_*.json` (o `combates.csv` si no hay JSON) y escribe en Markdown la tabla de sesiones (duración frente a los 30 minutos) y la de niveles: FPS (fotogramas totales entre tiempo total), fotogramas lentos, latencia (media ponderada por muestras, p95 del peor combate, máximo) y retraso de detección. `--sesion` y `--dispositivo` filtran.
+
+### Criterio de terminado
+
+| Criterio | Resultado |
+|---|---|
+| El APK de desarrollo se genera sin errores, fuera del repositorio, y está documentado | OK: 201,8 MB, 0 errores, en `Builds/` (ignorada por git); también el APK sin *Development* |
+| Tabla de coste por escena y lista ordenada de recortes | OK, arriba |
+| Física a 1/72 s, verificada en Play sin cambios de comportamiento en los golpes | OK: mismos resultados en las mismas trayectorias, con una medida de rapidez más estable |
+| `RegistroSesion` registra la latencia háptica por combate, con JSON y CSV compatibles | OK: 9 campos y columnas nuevos al final; cabecera ampliada sin tocar las filas viejas |
+| Guion de la sesión con visor | OK: `docs/Protocolo_Rendimiento.md` |
+| Sin errores ni warnings propios; compila para Android | OK: consola sin avisos de los scripts del juego (solo los de OpenXR y OVRPlugin del simulador); los dos APK compilan los scripts con IL2CPP |
+
+### Pruebas (Unity 6000.4.7f1, Editor con el Meta XR Simulator)
+
+| Prueba | Resultado |
+|---|---|
+| Arnés de golpes por física a 50 Hz y a 72 Hz | Ver la tabla de la física |
+| `PruebaAtaques` a 72 Hz | OK: `Conectado`, `Esquivado`, `Bloqueado` |
+| *Probar: ganar el combate* a 72 Hz | OK: `VictoriaPorKO`, carga `Scene_Results`, `nivelSuperado` sin cambios (5) |
+| Latencia en un combate real (15 golpes por física, luego *ganar el combate*) | OK: el JSON y la fila del CSV traen las 9 medidas; `pasoFisicaMs` = 13,889 |
+| Muestra a muestra (otros 15 golpes) | OK: ver la latencia; el máximo es siempre el primer golpe |
+| `combates.csv` existente con la cabecera vieja | OK: cabecera ampliada, 37 filas viejas iguales, fila nueva con 33 campos |
+| `Tools/tabla_rendimiento.py` con los JSON del Editor, con solo el CSV y con `docs/ejemplos` (sin latencia) | OK en los tres casos |
+| Build de desarrollo y sin *Development* | OK, 0 errores |
+| Manifiesto del APK (`aapt2 dump`) | OK: paquete, categoría VR, `focusaware`, `quest2` |
+| *Project Setup Tool* de Meta para Android | OK: nada obligatorio ni recomendado pendiente que aplique |
+| Escenas y `nivelSuperado` | Ninguna escena guardada ni modificada; `nivelSuperado` = 5, igual que al empezar |
+
+### Pendiente con visor
+
+- **Toda la medida:** FPS por nivel, latencia en el Quest y la sesión de 30 minutos, siguiendo `docs/Protocolo_Rendimiento.md`. Después, pegar aquí las tablas de `Tools/tabla_rendimiento.py`.
+- Si los FPS no llegan: aplicar los recortes por orden, generar el APK y repetir el nivel peor.
+- Comparar el APK de desarrollo con el que no lo es (los `Debug.Log` de cada golpe escriben en el `logcat` en la build de desarrollo).
+- Comprobar que no sale ningún diálogo de permisos al abrir el juego.
+- Si el visor se usa a 90 Hz, el *Fixed Timestep* debería ser 1/90 s; el juego no pide ninguna frecuencia, así que corre a 72 Hz.
+- RNF-09: si hay un Quest 3, instalar el mismo APK y anotar si funciona igual.
+
+### Decisiones que esperan el visto bueno
+
+- **El *Fixed Timestep* a 1/72 s** (el plan dejaba abierto 1/90) y **el suavizado de `Puno` ajustado al paso**, para que el filtro siga siendo el calibrado a 50 Hz.
+- **Borrar `UnityPlayerAccountSettings.asset`**, el resto de Player Accounts sin script.
+- **Ningún ajuste gráfico se cambió.** Los recortes de la lista esperan a los FPS del visor, y el MSAA (hoy desactivado en Android) es una decisión de calidad aparte.
+- Sin cambiar, pero conviene decidirlo antes de las pruebas con usuarios: el nombre de la app en el visor ("vrhola", con el paquete `com.utec.vrhola`; cambiar el paquete cambia también la carpeta de datos), declarar Quest 3 en `supportedDevices` y los permisos que añade la SDK de Meta.

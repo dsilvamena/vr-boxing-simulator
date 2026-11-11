@@ -80,7 +80,10 @@ public class RegistroSesion : MonoBehaviour
 
     public static RegistroSesion Instancia { get; private set; }
 
-    /// <summary>Combate en curso, o el último si ya terminó; null fuera de las peleas.</summary>
+    /// <summary>
+    /// Combate en curso, o el último si ya terminó; null si aún no se ha jugado ninguno. Se conserva al salir de la pelea
+    /// (ya cerrado) hasta que empieza otro: de aquí lee Scene_Results (PantallaResultados) los datos que muestra.
+    /// </summary>
     public DatosCombate CombateActual => combate;
     public DatosSesion Sesion => sesion;
     public string RutaSesion { get; private set; }

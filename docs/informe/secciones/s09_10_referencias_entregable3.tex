@@ -1,0 +1,124 @@
+% ============================================================
+\section{Referencias Bibliográficas}
+\begin{itemize}[label={},leftmargin=0pt,itemsep=5pt]
+  \item Slater, M., \& Wilbur, S. (1997). A framework for immersive virtual environments (FIVE): Speculations on the role of presence in virtual environments. \emph{Presence: Teleoperators and Virtual Environments}, 6(6), 603--616.
+  \item Bowman, D. A., \& McMahan, R. P. (2007). Virtual reality: How much immersion is enough? \emph{IEEE Computer}, 40(7), 36--43.
+  \item Dix, A., Finlay, J., Abowd, G. D., \& Beale, R. (2004). \emph{Human-Computer Interaction} (3rd ed.). Pearson Prentice Hall.
+  \item Freytag, G. (1863). \emph{Die Technik des Dramas}. Hirzel.
+  \item Meta Platforms. (2024). \emph{Meta XR Core SDK Documentation}. \url{https://developer.oculus.com/documentation/unity/unity-ovr-utilities-overview/}
+  \item Unity Technologies. (2025). \emph{Unity 6 User Manual}. \url{https://docs.unity3d.com/6000.0/Documentation/Manual/}
+  \item Google Ventures. (2013). HEART Framework for measuring UX. \url{https://library.gv.com/how-to-choose-the-right-ux-metrics-for-your-product-5f46359ab5be}
+  \item Sketchfab. (2024). \emph{3D Model Repository --- Licencias Creative Commons}. \url{https://sketchfab.com}
+\end{itemize}
+
+% ============================================================
+\section{Implementación del Entregable 3: Avances de la Semana 12 (50\,\% de Avance Acumulado)}
+\label{sec:e2e3}
+\subsection{Resumen del Hito y Resultado Verificable}
+De acuerdo con el cronograma de trabajo (sección~\ref{sec:crono}), el Entregable~3 corresponde a la semana 12 y representa el 50\,\% de avance acumulado. Su resultado verificable exige combates completos y fluidos contra dos rivales (Glass Joe en el Nivel 1 y Bald Bull en el Nivel 2, con la integración técnica adelantada de Soda Popinski en el Nivel 3), donde la salud y el daño se perciban de manera puramente diegética, sin elementos de interfaz gráfica (HUD) sobre la vista del usuario, y donde los oponentes demuestren una inteligencia artificial reactiva con esquemas propios de ataque, bloqueo y desplazamiento.
+
+A continuación se presenta el detalle técnico de las funcionalidades implementadas en Unity 6000.4.7f1 para Meta Quest (OpenXR / Android), organizadas en la arquitectura del proyecto (carpeta \cs{Assets/Scripts}).
+
+\subsection{IA Reactiva de los Rivales: Bloqueo, Velocidad y Acoso (RF-07, RF-08, RNF-10)}
+Los contrincantes virtuales dejaron de ser objetivos pasivos y pasaron a constituir agentes autónomos reactivos cuyas decisiones dependen de la conducta del jugador en el cuadrilátero:
+\begin{itemize}
+  \item \textbf{Bloqueo dinámico por combinaciones (\cs{DefensaOponente}):} cada rival posee una probabilidad base de bloqueo que se incrementa con cada golpe consecutivo que recibe dentro de una ventana de 1,5 s (\cs{ventanaGolpesSeguidos}). De este modo el oponente ``lee'' las combinaciones reiteradas del jugador y sube su guardia con mayor frecuencia hasta un límite calibrado (\cs{bloqueoMaximo}). Tras bloquear, mantiene la guardia durante \cs{segundosGuardia} (0,6 a 0,8 s) protegiéndose de impactos subsecuentes. Al descender los brazos queda expuesto en una ventana de vulnerabilidad (\cs{aberturaTrasGuardia} = 0,6 s) en la que no puede volver a bloquear, premiando la iniciativa táctica del jugador. Mientras ejecuta una animación de ataque, su capacidad de bloqueo se inhabilita por completo, permitiendo contragolpes certeros.
+  \item \textbf{Guardia visual mediante cinemática inversa (Hand IK):} en lugar de depender de animaciones grabadas rígidas, la postura defensiva se genera mediante cinemática inversa sobre los avatares humanoides. \cs{DefensaOponente} instancia el componente \cs{RelevoIK} sobre el objeto del \emph{Animator} para capturar el callback nativo \cs{OnAnimatorIK}. Al activarse la guardia, las manos del modelo se posicionan suavemente frente al rostro mediante interpolación cúbica (\cs{Mathf.SmoothStep}), con \emph{IK Pass} activo en la capa base de los controladores de animación. En el Entregable~4 esta posición fija se sustituyó por una trayectoria grabada (sección~\ref{sec:grabadora}).
+  \item \textbf{Desplazamiento, acoso y castigo por guardia baja (\cs{AtaqueOponente}):} el rival orienta constantemente su mirada hacia el jugador (\cs{velocidadGiro} = 8 rad/s) y, si el usuario se aleja a una distancia superior a \cs{distanciaCombate} (1,1 a 1,2 m), camina hacia él a \cs{velocidadDesplazamiento} (0,4 a 0,9 m/s), respetando siempre las cuerdas (\cs{LimiteRing.AreaRing}). Si el jugador baja los guantes descuidando su rostro, el temporizador del próximo ataque avanza a ritmo acelerado (\cs{castigoGuardiaBaja}). Tras bloquear un ataque del usuario, programa un contragolpe anticipado (\cs{contraataqueTrasBloqueo}).
+  \item \textbf{Freno y colisión de impacto contra la guardia del jugador:} para evitar que los puñetazos del oponente atraviesen visualmente los guantes del usuario al ser bloqueados, se incorporó una lógica de anticipación geométrica (\cs{anticipoGuardia} = 0,08 s). Si el golpe entrante intersecta el volumen cefálico y el jugador mantiene la guardia alta, la animación del rival se detiene (\cs{animator.speed} = 0), permanece frenada contra las manos durante \cs{pausaGuardia} = 0,08 s y se retira con suavidad a la posición neutral.
+  \item \textbf{Configuración desacoplada y dificultad ascendente (\cs{PerfilOponente}):} cumpliendo RNF-10, todos los parámetros de combate residen en assets \cs{ScriptableObject} (\cs{Assets/_Project/Data/Oponentes/}), lo que permite calibrar la progresión entre los rivales sin alterar el código. La tabla~\ref{tab:perfiles3} muestra los valores del Entregable~3; la tabla~\ref{tab:perfiles4} los actualiza con los cuatro rivales.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Perfiles de los tres primeros rivales en el Entregable 3.}
+\label{tab:perfiles3}
+\tablita{|L|c|c|c|}{\hd{Parámetro}&\hd{Glass Joe (N1)}&\hd{Bald Bull (N2)}&\hd{Soda Popinski (N3)}}{
+Salud máxima (puntos) & 100 & 150 & 200\\ \hline
+Probabilidad de bloqueo (base $\to$ máx.) & 8\,\% $\to$ 30\,\% & 20\,\% $\to$ 55\,\% & 30\,\% $\to$ 65\,\%\\ \hline
+Multiplicador de velocidad de ataque & $\times$0,90 & $\times$1,15 & $\times$1,25\\ \hline
+Velocidad de desplazamiento & 0,4 m/s & 0,7 m/s & 0,9 m/s\\ \hline
+Daño de ataque (jab / uppercut) & 4 / 7 & 8 / 14 & 10 / 18\\ \hline
+Castigo por guardia baja & +30\,\% & +80\,\% & +100\,\%\\ \hline
+Ventana de contragolpe tras bloqueo & 1,0 a 1,6 s & 0,5 a 1,0 s & 0,4 a 0,8 s\\
+}
+\end{table}
+
+\subsection{Sistema Defensivo del Jugador: Bloqueo y Esquive Volumétrico (RF-05, RF-06)}
+El componente \cs{SaludJugador}, situado en el \cs{OVRCameraRig}, evalúa cada golpe entrante del oponente mediante geometría espacial en tiempo real, resolviendo entre tres desenlaces posibles:
+\begin{itemize}
+  \item \textbf{Esquive físico con cabeza y torso (RF-06):} el puñetazo del rival traza una trayectoria rectilínea desde el origen de su puño hasta el alcance configurado (\cs{alcanceAtaque}). El script calcula el punto más cercano de ese segmento al centro de visión del visor (\cs{centerEyeAnchor}). Si el usuario desplaza su cabeza o ladea el torso a una distancia radial mayor a \cs{radioImpacto} = 0,3 m de la línea de ataque, el golpe se resuelve como esquivado, sin pérdida de salud.
+  \item \textbf{Bloqueo con guantes (RF-05):} si el ataque intersecta el volumen cefálico, el sistema comprueba la postura de los brazos: hay guardia activa si ambos controladores están a una distancia máxima de 0,4 m de la cabeza (\cs{distanciaGuardia}) y en el hemisferio frontal respecto a la orientación de los ojos. Al bloquear con éxito, el jugador absorbe únicamente el 25\,\% del daño (\cs{danoTrasBloqueo} = 0,25), con un sonido de choque de cuero y una respuesta háptica en ambos mandos.
+  \item \textbf{Impacto pleno:} si no esquiva ni bloquea, la salud se reduce en la totalidad del daño asignado al ataque, con la vibración de impacto directo y el sonido 3D correspondiente.
+\end{itemize}
+
+\subsection{Salud Diegética y Retroalimentación Sensorial sin HUD (RF-14, RF-15)}
+En cumplimiento de RF-14, la experiencia prescinde de barras de vida, indicadores numéricos o elementos de pantalla flotantes. La condición física se transmite a través de los canales sensoriales del usuario:
+\begin{itemize}
+  \item \textbf{Viñeta perimetral procedural (\cs{FeedbackSalud}):} para evitar el coste del posprocesado en el hardware móvil de Meta Quest, el componente genera en tiempo de ejecución una textura de 128 $\times$ 128 píxeles con un perfil cuadrático suave, transparente en el centro y opaco en los bordes. Montada sobre un Canvas en \emph{World Space} a 0,3 m de los ojos, su opacidad responde a la salud normalizada: a mayor daño, más se estrecha el campo visual periférico. Con menos de 20 puntos de salud se activa un oscurecimiento intermitente suave (\cs{periodoParpadeo} = 1,6 s) que emula la pérdida inminente de consciencia.
+  \item \textbf{Pulso cardíaco adaptativo:} se sintetizó un clip de un solo latido (lub-dub). El ritmo de reproducción se modula entre 60 y 90 BPM según la severidad del daño. El volumen y el ritmo tienen curvas asimétricas: se aceleran de inmediato al recibir castigo y desaceleran pausadamente al reponerse, sin cortes abruptos.
+  \item \textbf{Háptica diferenciada ampliada (RF-15):} se incorporaron perfiles únicos para cada evento táctil (tabla~\ref{tab:haptica3}).
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Patrones de vibración del Entregable 3.}
+\label{tab:haptica3}
+\tablita{|>{\raggedright\arraybackslash}p{4.2cm}|L|L|}{\hd{Evento de combate}&\hd{Patrón en los mandos Touch}&\hd{Sensación}}{
+Jab conectado (jugador) & 1 pulso de 0,7 durante 50 ms. & Seco, rápido y penetrante.\\ \hline
+Cross conectado (jugador) & 1 pulso de 1,0 durante 140 ms. & Contundente, pesado y prolongado.\\ \hline
+Uppercut conectado (jugador) & Pulso 0,5 (50 ms), pausa 40 ms y pulso 1,0 (100 ms). & Doble impulso ascendente.\\ \hline
+Gancho lateral conectado & 1 pulso de 0,35 durante 60 ms. & Moderado y rasante.\\ \hline
+Golpe bloqueado por el rival & Doble pulso de baja frecuencia (25\,\%, amplitudes 0,8 y 0,5). & Toque sordo y apagado de absorción.\\ \hline
+Golpe recibido por el jugador & Pulso de 1,0 durante 250 ms en ambos controles. & Sacudida de impacto directo a la cabeza.\\ \hline
+Ataque rival bloqueado por el jugador & Doble pulso de 0,6 durante 50 ms con pausa de 40 ms. & Resistencia sólida en ambos antebrazos.\\
+}
+\end{table}
+
+\subsection{Paisaje Sonoro Espacial 3D (RF-16)}
+\begin{itemize}
+  \item \textbf{Síntesis de audio procedural:} el script \cs{Tools/sintetizar_audio.py} genera los efectos en WAV mono de 16 bits (22\,050 Hz) mediante filtros Biquad: golpe seco, chasquido de guantes, impacto bloqueado, latido y murmullo de multitud.
+  \item \textbf{Ambiente de multitud envolvente (\cs{AmbienteMultitud}):} cada escena de combate tiene un objeto central que instancia cuatro fuentes de audio 3D en anillo a 6 m del centro y 2,5 m de altura, con el murmullo de las gradas en bucle, atenuación logarítmica y desfases independientes. Cuando el oponente o el jugador cae, se reproduce una ovación desde las dos gradas más cercanas al incidente.
+  \item \textbf{Audio posicional de impactos y bloqueos:} cada golpe emite su sonido desde el punto de contacto exacto (\cs{Collider.ClosestPoint}), de modo que el usuario ubica si el impacto fue en la sien, la mandíbula o el plexo solar.
+\end{itemize}
+
+\subsection{Estructura de Progresión, Niveles y Mecánicas Adelantadas (RF-09, RF-12, RF-13)}
+\begin{itemize}
+  \item \textbf{Integración de los niveles 1, 2 y 3:} \cs{Scene_Ring_Level1} (Glass Joe), \cs{Scene_Ring_Level2} (Bald Bull, escala 1,15) y \cs{Scene_Ring_Level3} (Soda Popinski, con esqueleto de Mixamo y clips de guardia). Los dos personajes adicionales usan un \cs{AnimatorOverrideController} sobre la máquina de estados base de Glass Joe, reutilizando transiciones y lógica de caídas.
+  \item \textbf{Persistencia y desbloqueo secuencial (RF-09):} al vencer a un rival, \cs{ControlCombate} guarda el nivel alcanzado en \cs{PlayerPrefs} (clave \cs{"nivelSuperado"}). El menú de selección inhabilita los botones bloqueados, muestra el rótulo BLOQUEADO y los atenúa.
+  \item \textbf{Cartel de victoria y transición:} al producirse la derrota definitiva del rival, \cs{ControlCombate} espera 1,5 s para dejar ver el derribo, despliega un panel en \emph{World Space} (``¡VICTORIA!'') frente a la cámara y carga el siguiente combate o regresa al menú principal.
+  \item \textbf{Cuenta de 10 s y recuperación por button mashing (adelantado del Entregable~4):} cuando la salud del jugador llega a cero, \cs{RecuperacionJugador} inicia una cuenta de 10 s en la que pulsar A, B, X o Y lo levanta. Las oportunidades son limitadas y decrecientes (\cs{saludPorCaida} = \{40, 30, 20\}); una cuarta caída produce el K.O. directo y la derrota. En el Entregable~4 este mecanismo se completó con el réferi (sección~\ref{sec:referi}).
+\end{itemize}
+
+\subsection{Seguridad en Realidad Virtual y Confinamiento en el Ring (RF-20)}
+\begin{itemize}
+  \item \textbf{Pausa automática por el Guardián (\cs{PausaGuardian}):} monitorea en cada fotograma la geometría del área jugable del visor (\cs{OVRBoundary.GetGeometry}). Si la cabeza cruza el límite seguro (con un margen de 0,1 m), o si la aplicación pierde el foco de entrada por apertura del menú universal o retiro del visor, el combate se pausa de inmediato mostrando ``VUELVE AL ÁREA SEGURA'' y se reanuda al regresar.
+  \item \textbf{Confinamiento en el cuadrilátero (\cs{LimiteRing}):} impide que el jugador traspase las cuerdas restringiendo la posición horizontal del \cs{OVRCameraRig}. Incorpora además un radio de repulsión respecto al rival (\cs{distanciaMinima}), de modo que no pueda interpenetrar su torso ni su cabeza.
+\end{itemize}
+
+\subsection{Resumen de Cumplimiento (Semana 12)}
+\begin{table}[H]
+\centering
+\caption{Cumplimiento del Entregable 3.}
+\tablita{|>{\raggedright\arraybackslash}p{4.2cm}|L|c|}{\hd{Actividad planificada}&\hd{Implementación en Unity / scripts C\#}&\hd{Estado}}{
+IA reactiva Nivel 1 (Glass Joe) y Nivel 2 (Bald Bull) & \cs{AtaqueOponente}, \cs{DefensaOponente}, \cs{RelevoIK} y perfiles \cs{ScriptableObject}: desplazamiento, acoso, bloqueo dinámico y contragolpe. & \ok\\ \hline
+Esquive con cabeza y torso (RF-06) & \cs{SaludJugador}: distancia a la línea del golpe; esquive sin daño a más de 0,3 m. & \ok\\ \hline
+Bloqueo del jugador con reducción de daño (RF-05) & \cs{SaludJugador}: guantes frente a la cara a 0,4 m o menos; absorbe el 75\,\% del daño. & \ok\\ \hline
+Salud diegética con viñeta y pulso cardíaco (RF-14) & \cs{FeedbackSalud}: viñeta procedural, parpadeo crítico y latido de 60 a 90 BPM. Sin HUD. & \ok\\ \hline
+Háptica diferenciada (RF-15) & \cs{Puno} y \cs{SaludJugador}: patrones para jab, cross, uppercut, gancho, bloqueo del rival y daño recibido. & \ok\\ \hline
+Audio espacial 3D de golpes y multitud (RF-16) & \cs{AmbienteMultitud} con 4 gradas y ovación por cercanía a las caídas; efectos WAV sintetizados. & \ok\\ \hline
+Desbloqueo de niveles y progresión (RF-09) & \cs{ControlCombate} y \cs{MainMenu}: \cs{PlayerPrefs}, botones bloqueados y cartel de victoria. & \ok\\ \hline
+Pausa por el Guardián (RF-20) & \cs{PausaGuardian}: pausa al salir del área de juego o perder el foco, con aviso. & \ok\\ \hline
+Cuenta de 10 s y button mashing (RF-12, RF-13) & \cs{RecuperacionJugador}: cuenta y 3 oportunidades con salud decreciente. & \ok (adelanto)\\ \hline
+Resultado verificable del hito (50\,\%) & Combates completos y fluidos contra dos rivales (y el Nivel 3 jugable), con salud diegética sin HUD. & Cumplido\\
+}
+\end{table}
+
+\subsection{Referencias Bibliográficas Adicionales}
+\begin{itemize}[label={},leftmargin=0pt,itemsep=5pt]
+  \item Begault, D. R. (1994). \emph{3-D Sound for Virtual Reality and Multimedia}. Academic Press Professional.
+  \item Marr, D. (1982). \emph{Vision: A computational investigation into the human representation and processing of visual information}. W. H. Freeman.
+  \item Meta Platforms. (2024). \emph{OVRBoundary and Spatial Audio in Meta XR SDK}. Oculus Developer Documentation.
+  \item Unity Technologies. (2024). \emph{Inverse Kinematics in Humanoid Avatars}. Unity 6 User Manual.
+  \item ISO/IEC 23005-6:2021. \emph{Information technology --- Media context and control --- Part 6: Common types and tools}.
+\end{itemize}

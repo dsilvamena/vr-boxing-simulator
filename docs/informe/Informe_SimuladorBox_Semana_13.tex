@@ -1,0 +1,123 @@
+% Informe del Simulador Inmersivo de Boxeo en RV (1P vs. IA)
+% Entregable 4 (semana 13): 70 % de avance acumulado.
+% Compilar con: xelatex (dos pasadas) o latexmk -xelatex
+\documentclass[12pt,letterpaper]{article}
+
+\usepackage{fontspec}
+\setmainfont{texgyretermes}[Extension=.otf,UprightFont=*-regular,BoldFont=*-bold,ItalicFont=*-italic,BoldItalicFont=*-bolditalic]
+\setmonofont{texgyrecursor}[Extension=.otf,UprightFont=*-regular,BoldFont=*-bold,ItalicFont=*-italic,BoldItalicFont=*-bolditalic,Scale=0.88]
+\usepackage[spanish,es-tabla,es-noshorthands]{babel}
+\usepackage[top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{makecell}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{needspace}
+\usepackage{microtype}
+\usepackage{xurl}
+\usepackage[hidelinks,bookmarksnumbered]{hyperref}
+
+% ---- colores (los del cronograma del informe original) ----
+\definecolor{vino}{HTML}{8B0A1E}
+\definecolor{rojo}{HTML}{C8102E}
+\definecolor{dorado}{HTML}{D4A62A}
+\definecolor{crema}{HTML}{F2E4B4}
+\definecolor{gris}{HTML}{E6E6E6}
+
+\graphicspath{{img/}{../capturas/}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\renewcommand{\arraystretch}{1.18}
+\setlist{itemsep=2pt,topsep=3pt}
+\setlist[itemize]{label=\textbullet}
+\emergencystretch=2em
+
+\captionsetup{font=small,labelfont=bf,skip=4pt}
+
+% ---- encabezados de sección ----
+\titleformat{\section}{\Large\bfseries}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.5em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{0.5em}{}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titlespacing*{\subsection}{0pt}{12pt}{4pt}
+\titlespacing*{\subsubsection}{0pt}{8pt}{3pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[C]{\thepage}
+\fancyhead[L]{\small\itshape Simulador inmersivo de boxeo en RV (1P vs.\ IA)}
+\fancyhead[R]{\small\itshape Entregable 4 (semana 13)}
+\renewcommand{\headrulewidth}{0.3pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\thepage}\renewcommand{\headrulewidth}{0pt}}
+
+% ---- atajos ----
+% Nombre de código (identificador, archivo, campo): monoespaciado, no se corta.
+\newcommand{\cs}[1]{\texttt{\detokenize{#1}}}
+% Encabezado de tabla: fondo vino, texto blanco.
+\newcommand{\hd}[1]{\textcolor{white}{\textbf{#1}}}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newcolumntype{C}{>{\centering\arraybackslash}X}
+\newcommand{\cab}{\rowcolor{vino}}
+\newcommand{\ok}{\textbf{Completado}}
+
+% Tabla estándar: \tabla{especificación}{encabezado}{cuerpo}
+\newcommand{\tablita}[3]{%
+  \begingroup\small
+  \begin{tabularx}{\linewidth}{#1}
+    \hline
+    \cab #2 \\
+    \hline
+    #3
+    \hline
+  \end{tabularx}
+  \endgroup}
+
+\begin{document}
+\pagenumbering{gobble}
+
+% ================= PORTADA =================
+\begin{titlepage}
+  \centering
+  \vspace*{0.5cm}
+  \includegraphics[width=0.55\linewidth]{logo_utec.png}\\[1.6cm]
+  {\LARGE\bfseries SIMULADOR INMERSIVO DE BOXEO EN REALIDAD VIRTUAL (1P VS.\ IA)\par}
+  \vspace{0.4cm}
+  {\small\itshape Diseño de Interacción Espacial, Presencia y Evaluación de Usabilidad en Unity para Meta Quest\par}
+  \vspace{1.4cm}
+  {\large\textbf{Docente:} Chambilla, Teofilo\par}
+  \vspace{0.3cm}
+  {\large\textbf{Curso:} Arte y Tecnología\par}
+  \vspace{0.3cm}
+  {\large\textbf{Entregable 4 (semana 13):} avance del 70\,\%\par}
+  \vspace{1cm}
+  \begin{tabular}{|c|}
+    \hline
+    \rowcolor{gris}\textbf{Integrantes}\\ \hline
+    Silva Reyes, Santiago Miguel\\ \hline
+    Roque, Estefano\\ \hline
+    Silva Mena, David Manuel\\ \hline
+  \end{tabular}\\[1.6cm]
+  {\large Lima -- Perú\\ 2026\par}
+\end{titlepage}
+
+\pagenumbering{arabic}
+\setcounter{page}{2}
+\tableofcontents
+\clearpage
+
+\input{secciones/s01_05_introduccion_requisitos_marco}
+\input{secciones/s06_08_desarrollo_plan_cronograma}
+\input{secciones/s09_10_referencias_entregable3}
+\input{secciones/s11_entregable4}
+
+\end{document}

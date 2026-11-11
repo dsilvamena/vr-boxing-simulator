@@ -1,0 +1,314 @@
+% ============================================================
+\section{Implementación del Entregable 4: Avances de la Semana 13 (70\,\% de Avance Acumulado)}
+\label{sec:e4}
+\subsection{Resumen del Hito y Resultado Verificable}
+Según el cronograma (sección~\ref{sec:crono}), el Entregable~4 comprende la IA de los niveles 3 y 4 (Soda Popinski y Mr.\ Sandman), el réferi con cuenta regresiva y \emph{button mashing} tras el KO, las rondas de 3 $\times$ 90 s, el Hand Grab Recorder en los bloqueos y la háptica diferenciada. Su resultado verificable es: \textbf{cuatro rivales jugables y ciclo de KO funcionando}. Se cumplió: el jugador recorre los niveles 1 a 4 en una partida continua, cada combate se organiza en rounds con campana, cualquiera de los dos contendientes puede caer y ser contado por el réferi, y el combate termina por KO o por salud al final del tercer round.
+
+Además se adelantó el registro de métricas por sesión (RF-21, previsto para las semanas 13 y 14), que alimentará las pruebas HEART de la semana 14.
+
+Todo se implementó en Unity 6000.4.7f1 para Meta Quest (OpenXR, Android). El réferi y Mr.\ Sandman usan sus modelos 3D definitivos, riggeados por el equipo; Mr.\ Sandman reutiliza las animaciones de Soda Popinski gracias al avatar humanoide de Unity. El modelo de Iron Mike Tyson también está listo y se integrará con el nivel 5.
+
+\begin{table}[H]
+\centering
+\caption{Bloques de trabajo del Entregable 4.}
+\tablita{|c|L|>{\raggedright\arraybackslash}p{2.6cm}|c|}{\hd{Bloque}&\hd{Contenido}&\hd{Requisitos}&\hd{Sección}}{
+A & Rondas de 3 $\times$ 90 s con campana y ganador por KO o por salud & RF-10, RF-11 & \ref{sec:rondas}\\ \hline
+B y F & Réferi: cuenta de 10 s en voz 3D, button mashing sin HUD y réferi visible & RF-12, RF-13, RF-16 & \ref{sec:referi}\\ \hline
+C & IA de los niveles 3 y 4: combos de Soda, esquive y contraataque de Sandman & RF-07, RF-08, RF-09 & \ref{sec:ia}\\ \hline
+D & Hand Grab Recorder: guardias grabadas con el visor para los bloqueos & RF-07 (presentación) & \ref{sec:grabadora}\\ \hline
+E & Háptica diferenciada completa & RF-15 & \ref{sec:haptica}\\ \hline
+G & Registro de métricas de la sesión (JSON y CSV) & RF-21 & \ref{sec:registro}\\
+}
+\end{table}
+
+\subsection{Rondas de 3 $\times$ 90 Segundos (RF-10, RF-11)}
+\label{sec:rondas}
+El script \cs{ControlRondas}, en un objeto propio de cada escena de pelea, organiza el combate en las fases preparación, round, descanso y final. Una campana espacial 3D en una esquina del ring suena una vez al empezar cada round y tres veces al terminarlo, para distinguir ambos momentos solo de oído.
+
+\begin{table}[H]
+\centering
+\caption{Parámetros de las rondas.}
+\tablita{|L|c|>{\ttfamily\small}l|}{\hd{Parámetro}&\hd{Valor}&\hd{Campo}}{
+Rounds & 3 & rounds\\ \hline
+Duración del round & 90 s & segundosPorRound\\ \hline
+Descanso entre rounds & 20 s & segundosDescanso\\ \hline
+Preparación antes del primer round & 5 s & segundosPreparacion\\ \hline
+Salud que recupera el jugador en cada descanso & 20\,\% de la máxima & fraccionSaludDescanso\\
+}
+\end{table}
+
+\begin{itemize}
+  \item \textbf{Cronómetro:} usa tiempo escalado, así que se detiene con el menú de pausa y con la pausa del Guardián, y no avanza mientras el jugador está en la lona. Un round que llega a cero espera mientras haya una cuenta del réferi en marcha.
+  \item \textbf{Fuera de los rounds no se pelea:} el rival no ataca y los golpes del jugador no cuentan, para que no se le pueda castigar gratis durante el descanso. En cada descanso el rival se levanta, vuelve a su esquina y baja la guardia.
+  \item \textbf{Resultado:} un KO termina el combate al instante. Si se completan los tres rounds, gana quien conserve más salud en porcentaje. \textbf{En caso de empate gana el jugador}, para no alargar un combate que el diseño limita a tres rounds por la fatiga física (sección~7.2).
+  \item \textbf{Duración del descanso:} el diseño no la fijaba. Se eligieron 20 s para no cortar el ritmo de una sesión en RV; se cambia en el componente sin tocar el código.
+\end{itemize}
+
+Al ganar, \cs{ControlCombate} guarda el nivel superado y carga la escena siguiente; al perder, la partida vuelve al menú con el nivel todavía abierto para reintentarlo (RF-13).
+
+\subsection{Réferi, Cuenta Regresiva y Button Mashing (RF-12, RF-13, RF-16)}
+\label{sec:referi}
+El réferi (script \cs{Arbitro}) cuenta en voz alta del 1 al 10 con una voz espacial 3D que sale de su cabeza. Los diez números se sintetizaron con un sintetizador de formantes (\cs{Tools/sintetizar_audio.py}) y se pueden sustituir por grabaciones reales sin tocar el código.
+
+\begin{itemize}
+  \item \textbf{Caída del jugador:} al quedarse sin salud empieza una cuenta de 10 s, y pulsar rápido los botones A, B, X o Y lo levanta. Cada pulsación aclara la visión periférica, calma el latido y vibra más fuerte (de 0,25 a 1,0); al levantarse hay dos vibraciones fuertes. Si la cuenta termina, el jugador pierde por K.O. y vuelve al menú con el nivel disponible (RF-13). No hay panel con números ni barras: se mantiene el principio de no usar HUD.
+  \item \textbf{Caída del rival:} el réferi cuenta y el rival se levanta al terminar la cuenta (\cs{cuentaKnockdown} = 10 en los tres rivales de ese momento). La animación de caída se sostiene en el piso hasta entonces. Llegar a 10 con el rival no es K.O.: su derrota la deciden las tres caídas por umbrales de salud, y la \textbf{caída final no se cuenta} porque termina el combate. Mientras el rival se incorpora, durante 1,3 s, los golpes no cuentan.
+  \item \textbf{Ritmo y pausa:} cada número suena al empezar su segundo, así que el 10 suena en $t = 9$ s y la cuenta acaba en $t = 10$ s. Como un \cs{AudioSource} ignora \cs{Time.timeScale}, el réferi pausa y reanuda la voz a mano al pausar el juego.
+\end{itemize}
+
+\textbf{Réferi visible.} El script \cs{CuerpoArbitro} da cuerpo al réferi (figuras~\ref{fig:referi} y~\ref{fig:cuentas}). Se mueve por el ring, gira y marca la cuenta con el brazo, como en el boceto del estado de knockout (figura~\ref{fig:boceto-ko}). Se desliza, porque el modelo no trae animación de caminar. Nunca se acerca a menos de 0,6 m de un boxeador y se queda dentro de las cuerdas.
+
+\begin{table}[H]
+\centering
+\caption{Posición y orientación del réferi según la fase.}
+\tablita{|>{\raggedright\arraybackslash}p{3.2cm}|L|>{\raggedright\arraybackslash}p{3.6cm}|}{\hd{Momento}&\hd{Dónde se pone}&\hd{Hacia dónde mira}}{
+Round & A 2 m de la línea entre el jugador y el rival, medio agachado en postura de vigilar, en la periferia de la vista & Al centro de la pelea\\ \hline
+Cuenta del rival & Junto al rival, del lado del jugador (0,7 m hacia el jugador y 0,7 m a un lado) & Al rival, al que señala con el brazo\\ \hline
+Cuenta del jugador & Delante del jugador (1,05 m) y a un lado (0,4 m) para no superponerse al rival, del lado que lo deja más dentro del ring & Al jugador\\ \hline
+Preparación, descanso y final & Su sitio inicial, en un costado & Al centro del ring\\
+}
+\end{table}
+
+En la cuenta tiene el brazo arriba; con cada número lo baja de golpe en 0,12 s y lo vuelve a subir en 0,45 s, sincronizado con la voz. Sobre su cabeza, y solo en la cuenta del jugador, aparece el cartel ``¡ARRIBA! PULSA A B X Y'', que indica cómo levantarse. Está anclado al réferi dentro del mundo y no a la cámara, de modo que no es un HUD.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{02_nivel1_glass_joe.png}
+    \caption{Nivel 1: el réferi vigila a la izquierda de la pelea.}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{06_referi.png}
+    \caption{Primer plano del réferi en postura de vigilar.}
+  \end{subfigure}
+  \caption{El réferi durante el round.}
+  \label{fig:referi}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{07_cuenta_del_jugador.png}
+    \caption{Cuenta del jugador: réferi delante, brazo en alto y cartel de los botones.}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{08_cuenta_del_rival.png}
+    \caption{Cuenta del rival: el réferi marca la cuenta junto a Mr.\ Sandman en la lona.}
+  \end{subfigure}
+  \caption{Las dos cuentas del réferi, desde los ojos del jugador.}
+  \label{fig:cuentas}
+\end{figure}
+
+\textbf{Modelo del réferi.} El modelo 3D (camisa azul, pantalón oscuro y pajarita) tiene un esqueleto humanoide y dos poses: de pie en T y agachado vigilando. Su malla original tenía 378\,936 triángulos, unas 50 veces más que la de los rivales (6\,652 la de Glass Joe y 8\,636 la de Bald Bull), demasiado para el Meta Quest 2. En un \emph{SkinnedMeshRenderer} el coste es por vértice en cada fotograma, así que el \emph{Mesh LOD} de Unity 6 no servía: comparte el buffer de vértices. El script \cs{Tools/reducir_referi.py} aplica en Blender una decimación antes del modificador de armadura, que conserva los pesos de los huesos, el UV y el material, y deja la malla en 20\,000 triángulos. A partir de la pose en T se generó una pose de pie relajada que respira, y un \emph{blend tree} lleva al réferi suavemente de una postura a otra según la fase del combate. El gesto de la cuenta se aplica sobre el brazo derecho del esqueleto después de la animación, así que sirve para cualquier modelo humanoide. La herramienta \emph{Tools > Boxeo > Montar réferi} lo monta en las cuatro escenas de combate.
+
+\subsection{IA de los Niveles 3 y 4 (RF-07, RF-08)}
+\label{sec:ia}
+Soda Popinski lanza combinaciones de ganchos y Mr.\ Sandman esquiva y contraataca. Los valores de cada rival viven en su asset \cs{PerfilOponente} (RNF-10).
+
+\subsubsection{Combos de ataque}
+\cs{AtaqueOponente} lanza en cada ataque la secuencia \cs{combo} del perfil; con la secuencia vacía sigue el ciclo anterior (jabs y un uppercut periódico), así que Glass Joe y Bald Bull no cambian.
+\begin{itemize}
+  \item \textbf{Encadenado:} el siguiente golpe arranca \cs{segundosEntreGolpesCombo} (0,12 s) después del impacto del anterior, sin volver a la guardia. Cada golpe vuelve a apuntar a la cabeza del jugador, así que moverse esquiva un golpe, no todo el combo.
+  \item \textbf{Qué lo corta:} un golpe conectado al rival, una caída, el jugador en el piso, la pausa del round o desactivar el componente. Cortar borra el resto del combo y el impacto pendiente, sin dejar impactos fantasma.
+  \item \textbf{Qué no lo corta:} un golpe que el jugador bloquea, porque el rival sigue presionando sobre la guardia.
+  \item \textbf{Entre dos golpes} el rival no bloquea ni esquiva, de modo que contragolpear a mitad del combo siempre entra.
+\end{itemize}
+
+\textbf{Soda Popinski (nivel 3).} Su combo es izquierda, derecha, izquierda, con la velocidad de ataque en $\times$1,3. Los clips de gancho hacían avanzar al personaje 1,33 y 0,71 m, lo que lo metería en el jugador; se quitó el desplazamiento en la importación y el cuerpo se queda en su sitio. Se midió el momento de impacto de cada clip a 30 fotogramas por segundo (tabla~\ref{tab:impactos}).
+
+\begin{table}[H]
+\centering
+\caption{Tiempos de impacto medidos en los clips de ataque.}
+\label{tab:impactos}
+\tablita{|L|c|c|c|c|}{\hd{Clip (a escala 1)}&\hd{Impacto en el clip}&\hd{Altura del puño}&\hd{Soda $\times$1,3}&\hd{Sandman $\times$1,4}}{
+Gancho izquierdo & 0,50 s & 1,93 m (cabeza 2,04 m) & 0,38 s & 0,36 s\\ \hline
+Gancho derecho & 0,80 s & 1,62 m (cabeza 1,84 m) & 0,62 s & no lo usa\\ \hline
+Barrido de \cs{Ataque_Fuerte}, primer golpe & 0,30 s & 1,34 m (cabeza 1,82 m) & no lo usa & 0,21 s\\
+}
+\end{table}
+
+\textbf{Mr.\ Sandman (nivel 4).} Su combo es gancho, barrido, gancho, con velocidad de ataque $\times$1,4 y la espera entre ataques más corta (2,8 a 4 s). Además esquiva con el componente \cs{EsquiveOponente}:
+\begin{itemize}
+  \item \textbf{Decisión al contacto,} antes que el bloqueo: solo al entrar el guante en una zona de golpe se sabe que hay un golpe de verdad, con su tipo y su zona, así que un amago no lo hace saltar. La probabilidad es del 45\,\% con 1,0 s de enfriamiento.
+  \item \textbf{Orden con el bloqueo:} con la guardia arriba, bloquea y no esquiva; en la abertura tras bajar la guardia no hace ninguna de las dos cosas, y es la ventana del jugador; si no, tira el esquive y, si falla, tira el bloqueo.
+  \item \textbf{Movimiento:} se aparta 0,35 m hacia el lado contrario del guante o, en el 30\,\% de los casos, hacia atrás, sin salir del ring, y vuelve a su sitio. No esquiva mientras ataca, cae o se incorpora. Un golpe esquivado no quita salud, no suena, no vibra con fuerza (ver sección~\ref{sec:haptica}) y no cuenta como golpe seguido para \cs{DefensaOponente}.
+  \item \textbf{Contraataque:} tras esquivar, su siguiente ataque llega entre 0,25 y 0,5 s después, igual que tras un bloqueo.
+\end{itemize}
+
+\textbf{Modelo definitivo de Mr.\ Sandman.} El equipo riggeó el modelo de Sketchfab en Blender: esqueleto humanoide de 21 huesos con nombres propios, en pose T y con 1,88 m. No es un rig de Mixamo y no trae animaciones. \cs{Tools/exportar_sandman.py} abre el archivo de Blender sin interfaz, une las 22 piezas en una sola malla (en el Quest cada \emph{SkinnedMeshRenderer} se calcula aparte), guarda las texturas y exporta el FBX de 14\,131 triángulos, entre los rivales y el réferi. En Unity usa las animaciones de Soda retargeteadas por el avatar humanoide, así que los tiempos de impacto medidos siguen valiendo.
+
+Como el retarget humanoide coloca el cuerpo por su centro de masa y no sabe cuánto calzado hay bajo el tobillo, con las animaciones de Soda las botas de Sandman (22 cm bajo el tobillo) quedaban hundidas 23 cm en la lona. El componente \cs{ApoyoEnSuelo} corre después de la animación, mide la posición de las suelas (calculada en el Editor y guardada, para que la malla no necesite lectura en el Quest) y sube la cadera lo que se hayan hundido. Nunca la baja, por lo que no afecta al rival tendido en la lona. La figura~\ref{fig:sandman} muestra el resultado.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.7\linewidth]{05_nivel4_mr_sandman.png}
+  \caption{Mr.\ Sandman con su modelo definitivo, con las botas sobre la lona.}
+  \label{fig:sandman}
+\end{figure}
+
+\subsubsection{Parámetros de los cuatro rivales y dificultad ascendente}
+\begin{table}[H]
+\centering
+\caption{Perfiles de los cuatro rivales (actualiza la tabla~\ref{tab:perfiles3}).}
+\label{tab:perfiles4}
+\small
+\begin{tabularx}{\linewidth}{|>{\raggedright\arraybackslash}p{3.1cm}|C|C|C|C|}
+\hline
+\cab\hd{Parámetro}&\hd{Glass Joe}&\hd{Bald Bull}&\hd{Soda Popinski}&\hd{Mr.\ Sandman}\\ \hline
+Salud & 100 & 150 & 200 & 175\\ \hline
+Bloqueo (base $\to$ máx.) & 8\,\% $\to$ 30\,\% & 20\,\% $\to$ 55\,\% & 30\,\% $\to$ 65\,\% & 25\,\% $\to$ 55\,\%\\ \hline
+Esquive & no & no & no & 45\,\%, 1,0 s de enfriamiento, 0,35 m\\ \hline
+Velocidad de ataque & $\times$0,9 & $\times$1,15 & $\times$1,3 & $\times$1,4\\ \hline
+Desplazamiento & 0,4 m/s & 0,7 m/s & 0,9 m/s & 1,1 m/s\\ \hline
+Patrón & jab $\times$3, uppercut & jab $\times$2, uppercut & izquierda, derecha, izquierda & gancho, barrido, gancho\\ \hline
+Pausa entre golpes del combo & --- & --- & 0,12 s & 0,12 s\\ \hline
+Espera entre ataques & 4 a 6 s & 3,5 a 5 s & 3,2 a 4,6 s & 2,8 a 4 s\\ \hline
+Daño por golpe & 4 / 7 & 8 / 14 & 9 & 8 / 12\\ \hline
+Castigo por guardia baja & +30\,\% & +80\,\% & +100\,\% & +100\,\%\\ \hline
+\end{tabularx}
+\end{table}
+
+Mr.\ Sandman tiene menos salud que Soda, como pide la salud intermedia del diseño. Lo compensan el esquive y un ritmo más alto, y cada uno de sus golpes quita menos. Para comprobar que la dificultad sube del nivel 1 al 4 (RF-08) se usaron dos medidas (tabla~\ref{tab:dificultad}): un modelo de 20\,000 peleas simuladas que copia la lógica de golpe, bloqueo y esquive, y una pelea en Play por rival con un jugador programado (ráfagas de 5 golpes y guardia siempre arriba, a velocidad $\times$2). Son estimaciones para comparar rivales, no una medida del balance real.
+
+\begin{table}[H]
+\centering
+\caption{Dificultad relativa de los cuatro rivales.}
+\label{tab:dificultad}
+\small
+\begin{tabularx}{\linewidth}{|>{\raggedright\arraybackslash}p{4.4cm}|C|C|C|C|}
+\hline
+\cab\hd{Medida}&\hd{Glass Joe}&\hd{Bald Bull}&\hd{Soda Popinski}&\hd{Mr.\ Sandman}\\ \hline
+Daño por segundo si todo conecta, guardia arriba & 0,95 & 2,35 & 5,24 & 6,65\\ \hline
+Golpes para ganarle, 1 golpe cada 0,5 s (modelo) & 19 & 36 & 51 & 52\\ \hline
+Golpes para ganarle, 1 golpe cada 1,5 s (modelo) & 18 & 31 & 46 & 62\\ \hline
+Pelea simulada: segundos de juego & 30 & 64 & 83 & 95\\ \hline
+Pelea simulada: salud final del jugador & 99 & 85 & 39 & 7\\ \hline
+\end{tabularx}
+\end{table}
+
+\subsection{Hand Grab Recorder en los Bloqueos}
+\label{sec:grabadora}
+Para que los bloqueos de los rivales no sean un movimiento rígido en línea recta, se implementó un grabador de guardias:
+\begin{itemize}
+  \item \textbf{Grabación (\cs{GrabadoraGuardia}):} con el visor puesto y las manos abajo, el jugador pulsa a la vez los dos sticks. Tras una cuenta atrás háptica de tres tics, el script registra durante 2 s, a 60 muestras por segundo, la posición y la rotación de ambas manos respecto a la cabeza, y conserva solo el tramo en que se sube la guardia. El resultado se guarda como JSON y como asset \cs{GrabacionGuardia}. La herramienta \emph{Tools > Boxeo > Importar guardias grabadas} convierte en assets los JSON sacados del Quest.
+  \item \textbf{Reproducción:} cuando un rival bloquea, \cs{DefensaOponente} lleva sus guantes por esa trayectoria mediante cinemática inversa de manos, hacia delante al subir la guardia y al revés al bajarla. La guardia usada por cada rival es el campo \cs{guardiaGrabada} de su perfil (RNF-10).
+\end{itemize}
+
+Decisiones de diseño:
+\begin{itemize}
+  \item \textbf{Marco de la cabeza sin inclinación:} las manos se guardan respecto a la cabeza con la vertical del mundo, que es el mismo marco con el que el rival, que siempre mira al jugador, coloca los guantes. Inclinar la cabeza al grabar no tuerce la guardia.
+  \item \textbf{Solo la subida:} el recorte empieza cuando una mano supera 0,25 m/s y termina cuando, pasado el pico, las dos bajan de 0,15 m/s durante 4 muestras.
+  \item \textbf{Parte de la pose animada:} el jugador graba con las manos en el pecho, pero los rivales ya tienen las manos arriba en reposo, así que reproducirla tal cual hundía los guantes bajo la pose animada. La trayectoria arranca en la pose animada y esa diferencia se borra a lo largo de la subida: se conserva la forma del movimiento y no hay saltos.
+  \item \textbf{Escala por altura:} la trayectoria se escala con la altura de la cabeza del rival sobre la de quien grabó, no con la escala del objeto. Con la guardia fija anterior, los guantes de Soda Popinski (modelo grande a escala 0,8) atravesaban su cara; la trayectoria escalada lo corrige (figura~\ref{fig:guardias}).
+  \item \textbf{Velocidad:} se mantienen 0,06 s para subir y 0,3 s para bajar. Un bloqueo se decide al contacto y la guardia tiene que estar arriba al instante, así que la subida grabada se comprime; el movimiento grabado se aprecia sobre todo al bajar.
+\end{itemize}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.40\linewidth}
+    \includegraphics[width=\linewidth]{09_guardia_fija.png}
+    \caption{Guardia fija anterior.}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.40\linewidth}
+    \includegraphics[width=\linewidth]{10_guardia_grabada.png}
+    \caption{Trayectoria grabada y escalada.}
+  \end{subfigure}
+  \caption{Guardia de Soda Popinski: los guantes ya no atraviesan la cara.}
+  \label{fig:guardias}
+\end{figure}
+
+\subsection{Háptica Diferenciada Completa (RF-15)}
+\label{sec:haptica}
+Hasta el Entregable~3 había un patrón por tipo de golpe conectado, el golpe bloqueado por el rival, el golpe recibido y el ataque bloqueado por el jugador (tabla~\ref{tab:haptica3}). En este entregable se completó el repertorio para que el jugador distinga cada evento sin mirar (tabla~\ref{tab:haptica4}).
+
+\begin{table}[H]
+\centering
+\caption{Patrones hápticos añadidos en el Entregable 4.}
+\label{tab:haptica4}
+\tablita{|>{\raggedright\arraybackslash}p{4cm}|L|L|}{\hd{Evento}&\hd{Patrón}&\hd{Sensación}}{
+El rival esquiva el golpe & 1 pulso de 0,15 durante 30 ms & Roce leve: el puño no tocó nada sólido\\ \hline
+El golpe derriba al rival & 3 pulsos de 1,0 (80, 80 y 220 ms), con 40 ms entre ellos & Recompensa clara, distinta de cualquier golpe\\ \hline
+Cada número de la cuenta del jugador & Pulso de 30 ms en ambos controles, de 0,2 (con el 1) a 0,6 (con el 10) & Marca el paso del tiempo e invita a pulsar\\ \hline
+Pulsación de A, B, X o Y en la cuenta & Pulso de 50 ms, de 0,25 a 1,0 & El avance hacia levantarse\\ \hline
+Levantarse & 2 pulsos fuertes & Ya no hace falta pulsar\\
+}
+\end{table}
+
+\begin{itemize}
+  \item \textbf{Esquivado:} sin ninguna señal, el jugador no distinguiría un esquive de un fallo del seguimiento. El roce es casi imperceptible y no se confunde con ningún impacto.
+  \item \textbf{Derribo:} es el momento de más recompensa del combate. Su patrón es más largo que cualquier golpe y se reconoce sin mirar.
+  \item \textbf{Tic de la cuenta:} sin panel, nada invitaba a pulsar. El tic va al ritmo de la voz, se nota aunque el jugador no mire al réferi y sube de fuerza con la urgencia.
+  \item \textbf{El esquive del jugador no vibra:} apartar la cabeza ya lo siente el cuerpo, y vibrar daría a entender que hubo contacto.
+  \item \textbf{Un único punto de salida (\cs{Haptica}):} toda la vibración del combate pasa por una clase estática que llama a \cs{OVRInput.SetControllerVibration} y avisa con un evento. Así se pudo verificar cada patrón registrando sus llamadas con marca de tiempo, y el registro de sesión cuenta las vibraciones.
+\end{itemize}
+
+Sobre RNF-02 (respuesta háptica en menos de 15 ms): la vibración se pide en la misma llamada en que se detecta el golpe, sin esperar ningún fotograma. La física corre a 50 Hz, así que la detección puede llegar hasta 20 ms después del contacto real; la optimización del paso de la física a la tasa de refresco del visor y la medición de la latencia forman parte del Entregable~5, según el cronograma.
+
+\subsection{Registro de Métricas por Sesión (RF-21)}
+\label{sec:registro}
+El script \cs{RegistroSesion} se crea solo al iniciar la aplicación, sobrevive a los cambios de escena y registra cada combate escuchando eventos que ya existían, sin intervenir en la lógica del juego (tabla~\ref{tab:registro}).
+
+\begin{table}[H]
+\centering
+\caption{Datos registrados por combate.}
+\label{tab:registro}
+\tablita{|>{\raggedright\arraybackslash}p{4.2cm}|L|}{\hd{Grupo}&\hd{Datos}}{
+Combate & Nivel, rival, hora, si es un reintento, resultado (victoria o derrota por KO o por salud, o abandonado), round alcanzado y segundos de combate sin pausas\\ \hline
+Golpes del jugador & Lanzados, conectados (por tipo), bloqueados y esquivados por el rival, precisión y efectividad\\ \hline
+Defensa del jugador & Ataques recibidos, conectados, bloqueados y esquivados, y porcentaje de bloqueo\\ \hline
+Caídas & Derribos al rival, caídas del jugador y cuentas superadas\\ \hline
+Rendimiento y otros & Salud final de ambos, número de vibraciones, FPS medios y porcentaje de fotogramas por debajo de 72 FPS durante los rounds (RNF-01)\\ \hline
+Por sesión & Duración, dispositivo, versión, combates, reintentos y victorias\\
+}
+\end{table}
+
+Los datos se guardan en el dispositivo: un JSON por sesión, reescrito al terminar cada combate, al salir de una escena y al pausar o cerrar la aplicación, y un CSV (\cs{combates.csv}) con una fila por combate de todas las sesiones, listo para una hoja de cálculo. En el Quest se sacan con \cs{adb pull}.
+
+\begin{itemize}
+  \item \textbf{Precisión} = golpes conectados / lanzados. Un golpe se cuenta como lanzado cuando la mano se aleja de la cabeza a más de 1,5 m/s o cuando llega a tocar al rival. Aparte se da la \textbf{efectividad} (conectados / golpes que llegaron al rival), que no depende de ese umbral.
+  \item \textbf{Reintento:} un combate de un nivel que ya se jugó en la misma sesión. \textbf{Abandonado:} se sale de la escena antes del final.
+  \item \textbf{FPS solo durante los rounds,} porque RNF-01 habla de ``durante el combate''.
+  \item \textbf{Formato local} en lugar de Unity Analytics: el archivo no necesita cuenta ni red y basta para las pruebas de la semana 14. Cubre los indicadores HEART de \emph{Engagement} (duración, combates reintentados) y \emph{Task Success} (precisión, golpes bloqueados, cuentas superadas) de la sección~3.6.
+\end{itemize}
+
+\subsection{Verificación y Validación}
+\label{sec:verif}
+\textbf{Pruebas en el Editor.} Se realizaron en Play en Unity 6000.4.7f1, con menús contextuales de prueba en cada componente y llamadas directas a los componentes. Sin visor la cabeza queda a la altura del piso, así que para probar los ataques del rival se colocaron la cabeza y las manos a mano. La tabla~\ref{tab:pruebas} resume lo comprobado.
+
+\begin{table}[H]
+\centering
+\caption{Pruebas realizadas.}
+\label{tab:pruebas}
+\tablita{|>{\raggedright\arraybackslash}p{3.4cm}|L|}{\hd{Área}&\hd{Resultado}}{
+Rondas & Combate completo en tiempo real: 90, 20, 90, 20 y 90 s con campana. El cronómetro se detiene al pausar y con el jugador caído. Victoria por salud (70\,\% contra 67\,\%), derrota (20\,\% contra 60\,\%) y empate a favor del jugador (50\,\% contra 50\,\%).\\ \hline
+Progresión & Partida del nivel 1 al 4 hasta volver al menú: el nivel superado sube en cada victoria y se carga la escena siguiente. Perder por salud o por K.O. vuelve al menú sin cambiarlo. El nivel 4 aparece bloqueado hasta ganar el 3.\\ \hline
+Cuenta del réferi & Del 1 al 10 en 10,00 s (rival) y 10,01 s (jugador). El round que llega a cero no se cierra a mitad de cuenta. La pausa detiene la cuenta y la voz, y se reanuda desde el mismo punto.\\ \hline
+Combos de Soda y Sandman & Combo completo con tres impactos; un golpe, una caída, la pausa o el fin del round lo cortan sin impactos fantasma; con la guardia arriba, tres bloqueos; sacando la cabeza, tres esquives sin daño.\\ \hline
+Esquive de Sandman & Se aparta 0,350 m y vuelve con desvío 0; no sale del ring; no esquiva atacando, caído ni incorporándose; el enfriamiento se respeta (nunca dos esquives a menos de 1,01 s).\\ \hline
+Háptica & Con golpes reales de \cs{Puno} contra las zonas de golpe y registrando \cs{Haptica}: esquive (0,15 durante 46 ms), conectado (0,70 durante 65 ms), bloqueado, derribo (tres pulsos de 1,0) y un tic por segundo en la cuenta.\\ \hline
+Guardia grabada & Grabación simulada con la cabeza girada 30° y inclinada 10°: 31 muestras recortadas; el JSON se importa como asset con las mismas muestras; los guantes ya no bajan de la pose animada.\\ \hline
+Registro de sesión & Combates ganados, abandonados, reintentados y perdidos quedan en el JSON y en el CSV con los valores esperados (por ejemplo, 3 derribos por victoria).\\ \hline
+Modelo de Sandman & Con \cs{ApoyoEnSuelo}, el vértice más bajo queda a 0,000 m de la lona en la guardia y en el combo (corrección de 0,23 a 0,37 m).\\ \hline
+Compilación & Sin errores ni warnings propios en el Editor ni al compilar los scripts para Android.\\
+}
+\end{table}
+
+\textbf{Validación con el visor.} Con el visor Meta Quest se validaron los aspectos que no se pueden comprobar en el Editor: la campana y las voces del réferi ubicadas en 3D, la sensación de cada patrón háptico, la grabación de la guardia con los dos sticks y su reproducción en los rivales, el \emph{button mashing} con los botones reales, el comportamiento de los combos y del esquive y su balance, la pausa del Guardián durante un round y la escritura del registro de sesión en el dispositivo. Las mediciones de FPS y de latencia háptica (RNF-01 y RNF-02) son parte del Entregable~5, con las pruebas HEART.
+
+\subsection{Resumen de Cumplimiento (Semana 13)}
+\begin{table}[H]
+\centering
+\caption{Cumplimiento del Entregable 4.}
+\tablita{|>{\raggedright\arraybackslash}p{3.8cm}|L|c|}{\hd{Actividad planificada}&\hd{Implementación en Unity / scripts C\#}&\hd{Estado}}{
+IA de los niveles 3 y 4 & \cs{AtaqueOponente} (combos), \cs{EsquiveOponente}, perfiles de Soda Popinski y Mr.\ Sandman, modelo de Mr.\ Sandman con \cs{ApoyoEnSuelo} & \ok\\ \hline
+Réferi con cuenta regresiva y button mashing & \cs{Arbitro}, \cs{CuerpoArbitro}, \cs{RecuperacionJugador}, voz 3D sintetizada y modelo 3D del réferi & \ok\\ \hline
+Rondas de 3 $\times$ 90 s & \cs{ControlRondas} y campana 3D & \ok\\ \hline
+Hand Grab Recorder en los bloqueos & \cs{GrabadoraGuardia}, \cs{GrabacionGuardia} y \cs{DefensaOponente} & \ok\\ \hline
+Háptica diferenciada & \cs{Puno}, \cs{SaludJugador}, \cs{FeedbackSalud} y \cs{Haptica} & \ok\\ \hline
+Registro de métricas de sesión (adelantado) & \cs{RegistroSesion} & \ok\\ \hline
+Resultado verificable & Cuatro rivales jugables y ciclo de KO funcionando & Cumplido\\
+}
+\end{table}
+
+\subsection{Alcance del Entregable 5}
+Quedan para la semana 14: la IA de Iron Mike Tyson y el nivel 5 (el modelo riggeado ya está en el proyecto), la escena de resultados con el cinturón de campeón y las estadísticas (RF-18 y RF-19, que leerán los datos que ya guarda el registro de sesión), la optimización a 72--90 FPS y la latencia háptica menor a 15 ms (RNF-01 y RNF-02), y las pruebas de usabilidad HEART (RNF-03 y RNF-05).

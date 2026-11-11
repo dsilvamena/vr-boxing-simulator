@@ -1,0 +1,210 @@
+% ============================================================
+\section{Introducción}
+Nuestro proyecto consiste en un simulador inmersivo de boxeo en Realidad Virtual enfocado en la modalidad de un jugador contra la inteligencia artificial, desarrollado en el motor Unity para visores Meta Quest. El sistema aborda de manera directa el problema de la monotonía y la ausencia de retroalimentación técnica inmediata al realizar rutinas de ejercicio cardiovascular o entrenamiento de combate en el hogar. La experiencia sitúa al usuario dentro de un cuadrilátero tridimensional a escala real donde debe enfrentar a una serie progresiva de cinco oponentes virtuales organizados en niveles de dificultad ascendente, permitiendo perfeccionar tiempos de reacción, coordinación visomotora y esquives activos en un entorno seguro e inmersivo.
+
+Este documento reúne el diseño del proyecto y el registro de lo implementado en cada entregable. La sección~\ref{sec:e4} detalla el Entregable~4 (semana 13), que lleva el proyecto al 70\,\% de avance acumulado: cuatro rivales jugables, rondas de tres rounds de 90 segundos, réferi con cuenta regresiva y ciclo de KO, guardias grabadas para los bloqueos, háptica diferenciada completa y registro de métricas por sesión.
+
+% ============================================================
+\section{Antecedentes}
+El entrenamiento cardiovascular y las disciplinas de combate practicadas en el hogar enfrentan una limitación estructural difícil de resolver con las herramientas convencionales: la ausencia de un interlocutor real que corrija, reactive y exija. Sin supervisión profesional, las rutinas se vuelven repetitivas y pierden progresión técnica; sin variabilidad, el usuario las abandona. Esta dinámica no es anecdótica: los estudios sobre la interacción humano-computador documentan sistemáticamente las altas tasas de deserción en aplicaciones de fitness basadas en pantallas bidimensionales, atribuidas a la monotonía perceptual y a la incapacidad del medio para ofrecer retroalimentación biomecánica o técnica en tiempo real. La consecuencia no es solo la pérdida de motivación: la falta de orientación sobre la distancia, el ritmo y la postura de combate introduce riesgos reales de lesiones menores que ningún video en bucle puede prevenir.
+
+La Realidad Virtual no es simplemente una pantalla más grande o más cercana, es un cambio de paradigma en la relación entre el cuerpo del usuario y el entorno digital. Al posibilitar entornos inmersivos respaldados por seguimiento de seis grados de libertad, elimina la mediación abstracta de los controles convencionales y convierte el movimiento físico real en la interfaz principal. Tomando como punto de partida los principios de diseño de interfaces inmersivas y locomoción espacial trabajados durante el curso, nuestro proyecto aprovecha la plataforma Meta Quest para transformar cualquier habitación en un gimnasio de entrenamiento reactivo y adaptativo. La integración de física tridimensional en tiempo real, retroalimentación háptica diferenciada en los mandos e interfaces completamente diegéticas durante el combate, sin menús flotantes ni interrupciones visuales, permite que la propuesta trascienda el terreno del entretenimiento de arcade para operar como una herramienta genuina de acondicionamiento físico y gestión del estrés, fundamentada en principios sólidos de usabilidad y presencia espacial.
+
+% ============================================================
+\section{Requisitos de Diseño y Persona}
+\subsection{Requisitos Funcionales}
+Los requisitos se derivaron de un análisis de necesidades centrado en el usuario objetivo: jóvenes adultos que buscan ejercicio intensivo e inmersivo sin acceso frecuente a un gimnasio. Cada requisito está redactado como un enunciado único y verificable, con un identificador, y agrupado por categoría. Las justificaciones de diseño se desarrollan en las secciones~\ref{sec:marco} a~\ref{sec:plan}.
+
+\textbf{Interacción y control}\par\nopagebreak
+\tablita{|c|L|}{\hd{ID}&\hd{Requisito}}{
+RF-01 & El sistema deberá renderizar la vista en primera persona y los guantes virtuales a partir del seguimiento 6DoF del visor y los controladores Meta Quest.\\ \hline
+RF-02 & El sistema deberá detectar la colisión entre cada guante del jugador y el oponente, y registrarla como golpe conectado.\\ \hline
+RF-03 & El sistema deberá clasificar cada golpe conectado como jab, cross o uppercut según la trayectoria y la velocidad del guante en el instante del impacto.\\ \hline
+RF-04 & El sistema deberá reducir la salud del oponente en proporción al tipo de golpe y a la velocidad del impacto.\\ \hline
+RF-05 & El sistema deberá detectar un bloqueo cuando ambos guantes del jugador estén en posición de guardia frente al rostro al recibir un ataque, y deberá reducir el daño recibido.\\ \hline
+RF-06 & El sistema deberá detectar un esquive cuando la cabeza del jugador se encuentre fuera de la zona de impacto del ataque rival en el instante en que este se ejecuta, y deberá anular el daño de ese ataque.\\
+}
+
+\textbf{Oponentes y progresión}\par\nopagebreak
+\tablita{|c|L|}{\hd{ID}&\hd{Requisito}}{
+RF-07 & El sistema deberá incluir cinco oponentes controlados por IA (Glass Joe, Bald Bull, Soda Popinski, Mr.\ Sandman e Iron Mike Tyson), cada uno con patrón de ataque, velocidad y probabilidad de bloqueo o esquive propios.\\ \hline
+RF-08 & El sistema deberá aumentar la dificultad de forma ascendente del Nivel 1 al Nivel 5.\\ \hline
+RF-09 & El sistema deberá habilitar el siguiente nivel únicamente cuando el jugador derrote al oponente del nivel actual.\\
+}
+
+\textbf{Estructura del combate}\par\nopagebreak
+\tablita{|c|L|}{\hd{ID}&\hd{Requisito}}{
+RF-10 & El sistema deberá organizar cada combate en 3 rounds de 90 segundos, con señal sonora de campana al inicio y al final de cada round.\\ \hline
+RF-11 & El sistema deberá declarar ganador por KO cuando la salud de uno de los contendientes llegue a cero, o por mayor salud restante al terminar el tercer round.\\ \hline
+RF-12 & El sistema deberá iniciar una cuenta regresiva del réferi de 10 segundos cuando la salud del jugador llegue a cero, y deberá permitirle levantarse si presiona repetidamente un botón del controlador dentro de ese tiempo.\\ \hline
+RF-13 & El sistema deberá declarar derrota si el jugador no supera la cuenta del réferi, y deberá permitirle reintentar el mismo nivel.\\
+}
+
+\textbf{Retroalimentación}\par\nopagebreak
+\tablita{|c|L|}{\hd{ID}&\hd{Requisito}}{
+RF-14 & El sistema deberá comunicar la salud del jugador mediante oscurecimiento progresivo de la visión periférica y un sonido de latido cardíaco cuya frecuencia aumente a medida que la salud disminuye, sin mostrar HUD durante el combate.\\ \hline
+RF-15 & El sistema deberá emitir vibración háptica con patrones distintos para golpe conectado, golpe bloqueado y golpe recibido.\\ \hline
+RF-16 & El sistema deberá reproducir audio espacial 3D para los golpes, la multitud y la voz del réferi, posicionado según la fuente en el ring.\\
+}
+
+\textbf{Menús, resultados y seguridad}\par\nopagebreak
+\tablita{|c|L|}{\hd{ID}&\hd{Requisito}}{
+RF-17 & El sistema deberá ofrecer un menú principal diegético con las opciones Jugar, Opciones y Salir, seleccionables mediante un puntero láser que sale del control del jugador.\\ \hline
+RF-18 & El sistema deberá mostrar, al terminar cada combate, la precisión de golpes, los golpes bloqueados y el tiempo total.\\ \hline
+RF-19 & El sistema deberá mostrar el cinturón de campeón al derrotar al oponente del Nivel 5.\\ \hline
+RF-20 & El sistema deberá pausar el combate cuando se active el sistema Guardián de Meta Quest y reanudarlo cuando el jugador regrese al área segura.\\ \hline
+RF-21 & El sistema deberá registrar por sesión la duración, los combates reintentados, la precisión de golpes y los golpes bloqueados, para su análisis posterior.\\
+}
+
+\subsection{Requisitos No Funcionales}
+\textbf{Rendimiento y usabilidad}\par\nopagebreak
+\tablita{|c|L|}{\hd{ID}&\hd{Requisito}}{
+RNF-01 & El sistema deberá mantener un mínimo de 72 FPS en Meta Quest 2 durante el combate, sin caídas por debajo de 72 FPS en más del 5\,\% de los fotogramas de una sesión.\\ \hline
+RNF-02 & El sistema deberá iniciar la respuesta háptica en un máximo de 15 ms después de detectada la colisión.\\ \hline
+RNF-03 & Al menos el 80\,\% de los usuarios novatos deberán adoptar la postura de guardia y ejecutar un golpe válido en un máximo de 2 minutos de juego libre, sin instrucciones externas.\\ \hline
+RNF-04 & El sistema no deberá emplear teletransporte ni locomoción por joystick; el desplazamiento será exclusivamente físico a escala 1:1.\\ \hline
+RNF-05 & Los usuarios deberán calificar la ausencia de cinetosis con un promedio mínimo de 4 sobre 5 en un cuestionario Likert posterior a la prueba.\\
+}
+
+\textbf{Seguridad, fiabilidad, compatibilidad y mantenibilidad}\par\nopagebreak
+\tablita{|c|L|}{\hd{ID}&\hd{Requisito}}{
+RNF-06 & El sistema deberá operar dentro de un área despejada mínima de 1,5 $\times$ 1,5 m y respetar los límites definidos por el sistema Guardián.\\ \hline
+RNF-07 & El sistema deberá registrar al menos el 95\,\% de los impactos reales de los guantes sobre el oponente, incluso en golpes de alta velocidad.\\ \hline
+RNF-08 & El sistema deberá soportar 30 minutos de sesión continua sin cierres inesperados ni pérdida de seguimiento atribuible a la aplicación.\\ \hline
+RNF-09 & El sistema deberá ejecutarse de forma autónoma (standalone) en Meta Quest 2 y Meta Quest 3, sin requerir una PC conectada.\\ \hline
+RNF-10 & Los parámetros de cada oponente (velocidad, tipo de ataque, probabilidad de bloqueo y esquive) deberán estar definidos como datos configurables, de modo que se puedan ajustar sin modificar el código del sistema de combate.\\
+}
+
+\subsection{Especificación de Persona}
+\tablita{|>{\bfseries}p{4.2cm}|L|}{\hd{Atributo}&\hd{Descripción}}{
+Nombre & Santiago Miguel Silva Reyes\\ \hline
+Edad & 20 años\\ \hline
+Ocupación & Estudiante de Ingeniería\\ \hline
+Motivación principal & Mantenerse activo y canalizar el estrés académico sin salir de su habitación\\ \hline
+Disponibilidad & Limitada (no puede acudir regularmente a un gimnasio convencional)\\ \hline
+Intereses & Tecnología, videojuegos interactivos, deportes de contacto\\ \hline
+Frustración actual & Monotonía de rutinas en video y falta de sensación de reto físico real en pantallas planas\\ \hline
+Dispositivo & Meta Quest 2\\ \hline
+Expectativa & Experiencia inmersiva de alta intensidad física con control intuitivo y sin menús complejos\\
+}
+
+\subsection{Narrativa y Objetivo de la Experiencia}
+La narrativa sitúa al usuario en el papel de un peleador novato que ingresa al cuadrilátero de un gimnasio underground. Con la meta de obtener el cinturón de campeón regional, el protagonista debe medirse consecutivamente contra los cinco peleadores más destacados de la liga local, cada uno presentando una técnica de combate distintiva.
+
+El objetivo fundamental es transmitir la adrenalina, tensión y presencia espacial propias de un combate de boxeo real, garantizando un esquema de control completamente orgánico libre de menús flotantes que interrumpan el flujo de la actividad física durante el combate.
+
+\subsection{Arco Narrativo}
+\label{sec:arco}
+El arco sigue la pirámide de Freytag (exposición, acción ascendente, clímax, acción descendente y desenlace), con el detonante señalado como un punto propio entre la exposición y la acción ascendente. La tabla~\ref{tab:arco} relaciona cada etapa con lo que ocurre en la experiencia y con el nivel del juego en que sucede.
+
+\begin{table}[H]
+\centering
+\caption{Arco narrativo de la experiencia según la pirámide de Freytag.}
+\label{tab:arco}
+\tablita{|>{\bfseries}p{3.2cm}|L|p{2.6cm}|}{\hd{Etapa}&\hd{En la experiencia}&\hd{Nivel}}{
+Exposición & El jugador entra a la arena del gimnasio underground (el menú principal está dentro del ring), ve a los rivales y aprende el control con los guantes: agacharse esquiva, cubrir la cara bloquea y extender el brazo golpea. & Menú principal\\ \hline
+Detonante (incidente incitador) & Suena la campana del primer round contra Glass Joe, oponente introductorio de velocidad moderada y patrones simples: empieza el camino al cinturón regional. & Nivel 1\\ \hline
+Acción ascendente & Cada rival sube la presión y cada victoria desbloquea al siguiente: Bald Bull con ataques directos de fuerza, Soda Popinski con combinaciones rápidas de ganchos y Mr.\ Sandman con técnica de alta velocidad y esquive activo. Las caídas y la cuenta del réferi son los puntos de tensión. & Niveles 2, 3 y 4\\ \hline
+Clímax & Enfrentamiento definitivo contra Iron Mike Tyson, el campeón invicto: máxima intensidad, el menor descuido resulta en KO. & Nivel 5\\ \hline
+Acción descendente & La caída final de Tyson, la cuenta del réferi que ya no se supera y la ovación de la multitud. & Nivel 5\\ \hline
+Desenlace & Se despliega el cinturón de campeón y la hoja de resumen estadístico del desempeño (precisión de golpes, golpes bloqueados, tiempo total). & Resultados\\
+}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[b]{0.38\linewidth}
+    \centering\includegraphics[height=6.2cm]{glass_joe.png}
+    \caption{Glass Joe, Nivel 1 (detonante).}
+  \end{subfigure}\hfill
+  \begin{subfigure}[b]{0.38\linewidth}
+    \centering\includegraphics[height=6.2cm]{iron_mike_tyson.png}
+    \caption{Iron Mike Tyson, Nivel 5 (clímax).}
+  \end{subfigure}
+  \caption{Los rivales que abren y cierran el arco narrativo.}
+  \label{fig:rivales-arco}
+\end{figure}
+
+\subsection{Métrica HEART}
+Para evaluar la usabilidad y adopción de la experiencia se adoptó el framework HEART, marco aprendido durante el curso y reconocido en la industria del diseño centrado en el usuario. Las pruebas con usuarios están programadas en la semana 14 del cronograma (sección~\ref{sec:crono}). Desde el Entregable~4 el juego guarda por sí mismo los datos de \emph{Engagement} y \emph{Task Success} (sección~\ref{sec:registro}).
+
+\tablita{|>{\bfseries}p{2.4cm}|L|L|}{\hd{Dimensión HEART}&\hd{Indicador de medición}&\hd{Instrumento}}{
+Happiness & Satisfacción inmersiva percibida y ausencia de cinetosis & Cuestionario post-prueba (escala Likert 1--5)\\ \hline
+Engagement & Duración media de sesión y número de combates reintentados & Registro de sesión del juego (JSON y CSV, sección~\ref{sec:registro})\\ \hline
+Adoption & Tiempo para comprender la postura de guardia sin tutorial & Observación directa (cronómetro)\\ \hline
+Retention & Número de sesiones en segunda y tercera semana & Registro de uso por usuario\\ \hline
+Task Success & \% de golpes bloqueados con éxito, precisión de impacto, superación de la cuenta del réferi & Métricas registradas por el sistema (\cs{RegistroSesion})\\
+}
+
+% ============================================================
+\section{Marco de Diseño}
+\label{sec:marco}
+\subsection{Fundamentos del Framework de Interacción}
+El framework de interacción y diseño visual se fundamenta en dos principios centrales estudiados en el curso: la interacción corporizada (\emph{embodied interaction}) y la manipulación directa tridimensional. En lugar de proyectar interfaces abstractas bidimensionales en el campo de visión del usuario, la arquitectura de diseño integra toda la información crítica de forma diegética en el entorno virtual.
+
+Tal como expone el concepto de conformidad sensorial trabajado en clase, el diseño busca minimizar la brecha entre la acción física del usuario y la respuesta del sistema virtual. Al mapear directamente la posición de las manos a los guantes virtuales a través del seguimiento 6DoF, se eliminan los intermediarios de entrada abstractos: agacharse equivale a esquivar, cubrir la cara equivale a bloquear y extender el brazo equivale a golpear. No existe capa de traducción simbólica.
+
+\subsection{Principios de Diseño Aplicados}
+\begin{itemize}
+  \item \textbf{Reducción de carga cognitiva:} toda la información de estado (salud, cuenta del réferi) se comunica mediante señales visuales y auditivas diegéticas integradas en el entorno. No se utilizan HUD flotantes ni menús bidimensionales durante el combate.
+  \item \textbf{Retroalimentación multimodal cerrada:} el bucle de retroalimentación sensorial combina el oscurecimiento periférico de la pantalla, la respuesta sonora del pulso cardíaco y la vibración háptica diferenciada de los mandos para comunicar el estado del jugador sin desviar su atención del oponente.
+  \item \textbf{Presencia e inmersión:} la perspectiva visual en primera persona a escala 1:1, el sonido espacial tridimensional y la respuesta háptica coordinada construyen un nivel de presencia elevado, consistente con los modelos de presencia de Slater y Wilbur revisados en el curso.
+  \item \textbf{Seguridad física:} la locomoción estrictamente física con respeto al sistema Guardián aplica el principio de diseño responsable en entornos de RV de espacio completo.
+  \item \textbf{Curva de aprendizaje mínima:} el control se aprende mediante la acción directa. La ausencia de tutoriales extensos responde al principio de \emph{affordance} natural: el usuario sabe que debe golpear porque ve guantes en sus manos.
+\end{itemize}
+
+\subsection{Implementación Técnica del Framework}
+La arquitectura de interacción se implementa sobre el Meta XR SDK (paquete \cs{com.meta.xr.sdk.all}) con OpenXR como sistema de entrada. Estos son los componentes que sostienen la interacción.
+
+\textbf{OVR Camera Rig.} Provee el sistema de cámara principal anclado a la cabeza del usuario con seguimiento 6DoF en tiempo real. Sincroniza la perspectiva visual en primera persona con los movimientos físicos de cabeza y torso, siendo el componente central de la presencia espacial. Cada movimiento de la cabeza del jugador se traduce inmediatamente en la orientación de la cámara virtual dentro del ring.
+
+\textbf{Guantes sobre los anclajes de las manos.} Los guantes virtuales son hijos de los anclajes de mano del \cs{OVRCameraRig}, de modo que la posición y la rotación de los mandos Meta Quest se reflejan 1:1 en los guantes y, incluso en movimientos rápidos de puño, no hay separación entre la mano virtual y la física. La detección de los golpes la realizan los colliders de los guantes y del oponente (RF-02 y RF-03), no un componente de agarre.
+
+\textbf{Interacción con los menús.} El menú diegético usa el sistema de interfaz de Meta Core (\cs{OVRInputModule} y \cs{OVRRaycaster}) con un puntero láser que sale del control derecho y se acciona con el gatillo.
+
+\textbf{Hand Grab Recorder propio.} El informe planteó registrar y reproducir secuencias de movimiento de mano reales para la animación procedural de los bloqueos de la IA, superando las limitaciones de las animaciones esqueléticas estáticas. Se implementó como un grabador propio (\cs{GrabadoraGuardia}, sección~\ref{sec:grabadora}): graba con el visor puesto los movimientos de ambas manos respecto a la cabeza, y \cs{DefensaOponente} los reproduce mediante cinemática inversa en los rivales.
+
+\subsection{Bocetos de Interfaz y Flujo de Experiencia}
+Se elaboraron dos bocetos en primera persona que muestran las dos situaciones centrales de la experiencia: el combate y el estado de knockout. Ambos ilustran la ausencia total de elementos de HUD superpuestos durante el combate; toda la información se transmite mediante el entorno, el sonido y la vibración.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\linewidth]{boceto_combate.png}
+  \caption{Boceto de la escena de combate (\cs{Scene_Ring_Level1}, 1P vs.\ IA, primera persona, sin HUD).}
+  \label{fig:boceto-combate}
+\end{figure}
+
+\tablita{|c|>{\bfseries}p{3.4cm}|L|}{\hd{N.º}&\hd{Elemento}&\hd{Descripción}}{
+1 & Esquive activo & Mueve cabeza y torso para evadir los golpes.\\ \hline
+2 & Oponente IA & Glass Joe, nivel 1, controlado por la IA. Cada rival tiene un patrón único.\\ \hline
+3 & Tus guantes & Siguen tus manos en 1:1 (seguimiento 6DoF).\\ \hline
+4 & Salud & Bordes oscuros: a menos salud, más se oscurece la vista.\\ \hline
+5 & Pulso cardíaco & Se escucha y refuerza el estado de salud y resistencia.\\ \hline
+6 & Réferi & Cuenta ante un KO.\\ \hline
+7 & Vibración & Los mandos vibran distinto: golpe conectado o bloqueo.\\
+}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\linewidth]{boceto_knockout.png}
+  \caption{Boceto del estado de knockout (cuenta del réferi, 1P vs.\ IA, sin HUD).}
+  \label{fig:boceto-ko}
+\end{figure}
+
+\tablita{|c|>{\bfseries}p{3.4cm}|L|}{\hd{N.º}&\hd{Elemento}&\hd{Descripción}}{
+1 & Salud crítica & La vista casi se cierra: los bordes quedan muy oscuros.\\ \hline
+2 & Pulso cardíaco & Se escucha acelerado mientras estás en la lona.\\ \hline
+3 & Réferi & Hace la cuenta regresiva tras el KO.\\ \hline
+4 & Button mashing & Pulsa rápido los botones del mando para levantarte.\\
+}
+
+Superar la cuenta del réferi permite continuar el combate. En ambos bocetos la locomoción es 1:1 y respeta el sistema Guardián de Meta Quest, sin barras ni menús flotantes durante el combate. Estos bocetos serán la referencia del Entregable~6, donde se comparará lo diseñado en este hito con lo efectivamente implementado. Las capturas de las escenas ya implementadas están en la sección~\ref{sec:estructura} y en la sección~\ref{sec:e4}.
+
+% ============================================================
+\section{Prototipo Digital}
+\subsection{Descripción General del Prototipo}
+El prototipo digital se desarrolla en el motor de videojuegos Unity 6 (versión 6000.4.7f1, migrado desde Unity 2022 LTS) utilizando C\# como lenguaje principal para la gestión de estados del combate y la inteligencia artificial reactiva. El destino de compilación es Android (Meta Quest) y la interacción inmersiva usa OpenXR con el Meta XR SDK, que garantiza la integración del seguimiento de seis grados de libertad.
+
+El entorno visual usa el pipeline de renderizado integrado (\emph{Built-in}) con materiales Standard y un escenario de gimnasio de boxeo (arena de MarpaStudio), con el objetivo de sostener un mínimo de 72 FPS (RNF-01) en el hardware objetivo.
+
+El desarrollo es incremental: cada entregable del cronograma (sección~\ref{sec:crono}) añade capacidades verificables, desde un proyecto compilando en Meta Quest con el ring a escala 1:1 (15\,\%), pasando por los primeros golpes con háptica contra Glass Joe (30\,\%), combates completos contra dos rivales con salud diegética (50\,\%) y cuatro rivales con ciclo de KO (70\,\%, este entregable), hasta la versión final con los cinco niveles y las pruebas de usabilidad (100\,\%).

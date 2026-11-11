@@ -1,0 +1,270 @@
+% ============================================================
+\section{Iniciando el Desarrollo: Escenas y Assets en Unity}
+\subsection{Estructura del Proyecto en Unity}
+\label{sec:estructura}
+El proyecto está organizado en Unity 6000.4.7f1 con cinco escenas incluidas en los \emph{Build Settings}; las dos restantes del diseño original se incorporan en el Entregable~5.
+
+\begin{itemize}
+  \item \cs{Main_Scene}: menú diegético tridimensional dentro de la misma arena del ring, con música de fondo en bucle (botón Jugar con selección de nivel, y Opciones de volumen y háptica). Los boxeadores que se ven en ella son decoración.
+  \item \cs{Scene_Ring_Level1}: cuadrilátero con el oponente Glass Joe.
+  \item \cs{Scene_Ring_Level2}: cuadrilátero con Bald Bull.
+  \item \cs{Scene_Ring_Level3}: cuadrilátero con Soda Popinski.
+  \item \cs{Scene_Ring_Level4}: cuadrilátero con Mr.\ Sandman.
+  \item \cs{Scene_Ring_Level5}: cuadrilátero con Iron Mike Tyson (Entregable~5).
+  \item \cs{Scene_Results}: escena de resultados y despliegue del cinturón de campeón (Entregable~5).
+\end{itemize}
+
+La figura~\ref{fig:escenas} muestra las escenas implementadas, capturadas desde los ojos del jugador.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{01_menu_principal.png}
+    \caption{Menú principal diegético dentro de la arena.}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{02_nivel1_glass_joe.png}
+    \caption{Nivel 1: Glass Joe.}
+  \end{subfigure}\\[6pt]
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{03_nivel2_bald_bull.png}
+    \caption{Nivel 2: Bald Bull.}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{04_nivel3_soda_popinski.png}
+    \caption{Nivel 3: Soda Popinski.}
+  \end{subfigure}\\[6pt]
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{05_nivel4_mr_sandman.png}
+    \caption{Nivel 4: Mr.\ Sandman.}
+  \end{subfigure}
+  \caption{Escenas implementadas del proyecto (capturas en Play, desde los ojos del jugador).}
+  \label{fig:escenas}
+\end{figure}
+
+\subsection{Tabla de Assets}
+\tablita{|>{\raggedright\arraybackslash}p{2.4cm}|>{\raggedright\arraybackslash}p{4.6cm}|>{\raggedright\arraybackslash}p{2.6cm}|L|}{\hd{Elemento del juego}&\hd{Asset / Modelo 3D}&\hd{Origen}&\hd{Función en la experiencia}}{
+Escenario principal & Boxing Arena Game Level / Boxing Ring Gym & Sketchfab y MarpaStudio & Cuadrilátero 3D con iluminación focalizada y cuerdas delimitadoras\\ \hline
+Oponente Nivel 1 & Glass Joe 3D Model (rigged) & Sketchfab, rig de Mixamo & Rival introductorio de baja velocidad y patrones simples\\ \hline
+Oponente Nivel 2 & Bald Bull 3D Model (rigged) & Sketchfab, rig de Mixamo & Rival de fuerza intermedia enfocado en ataques directos\\ \hline
+Oponente Nivel 3 & Soda Popinski 3D Model (rigged) & Sketchfab, rig de Mixamo & Rival ágil con combinaciones rápidas de ganchos\\ \hline
+Oponente Nivel 4 & Mr.\ Sandman 3D Model & Sketchfab, riggeado por el equipo en Blender & Rival técnico de alta velocidad y esquive activo\\ \hline
+Oponente Nivel 5 & Iron Mike Tyson 3D Model & Sketchfab, riggeado por el equipo & Rival final de máxima velocidad, agresividad y precisión (listo para el Entregable~5)\\ \hline
+Réferi & Boxing Referee 3D Model (rigged) & Sketchfab & Árbitro que realiza la cuenta regresiva ante un KO\\ \hline
+Guantes del jugador & Boxing Gloves (low poly) & Sketchfab & Representación visual de las manos del jugador\\ \hline
+Cinturón de campeón & Championship Belt 3D Model & Sketchfab & Objeto de victoria al finalizar el Nivel 5 (Entregable~5)\\
+}
+
+\subsection{Configuración de los Componentes OVR en Unity}
+\textbf{OVR Camera Rig.} El prefab \cs{OVRCameraRig} (Meta XR SDK) está configurado con \emph{Tracking Origin Mode} en \emph{Floor Level} para que la posición de los guantes virtuales corresponda a la posición real de las manos del jugador respecto al suelo. El componente \cs{OVRManager} tiene habilitado el soporte de controladores para Meta Quest 2 y Meta Quest 3.
+
+\textbf{Guantes.} Cada guante virtual es hijo del anclaje de la mano correspondiente del \cs{OVRCameraRig}, bajo un objeto \cs{Puno} que lleva el \emph{Rigidbody} cinemático y el collider. Esto sigue la posición y rotación del control 1:1 y el guante no se suelta durante el combate. El guante no interviene en la detección de impactos más allá de su collider: el contacto se resuelve con scripts de colisión sobre los guantes y el oponente.
+
+\textbf{Hand Grab Recorder.} Se utiliza en dos contextos: durante el desarrollo, para capturar y validar patrones de movimiento de guardia, y en la animación de bloqueos de los oponentes, donde las secuencias de mano grabadas se reproducen proceduralmente para dotar a los rivales de transiciones de bloqueo más naturales que las de las animaciones esqueléticas estáticas. Se implementó en el Entregable~4 (sección~\ref{sec:grabadora}).
+
+\subsection{Implementación del Entregable 2 (Semana 11)}
+El Entregable~2 corresponde al 30\,\% de avance acumulado y quedó completado. Su resultado verificable es que el jugador golpea a Glass Joe y siente la vibración en el control, y que los paneles de juego y de opciones se abren desde el menú principal. A continuación se detalla cómo se implementó cada actividad en Unity, con los scripts en C\# que la resuelven (carpeta \cs{Assets/Scripts}).
+
+\subsubsection*{Menú principal: panel de juego y panel de opciones}
+El menú principal es un \emph{Canvas} en \emph{World Space} ubicado dentro de la arena (escena \cs{Main_Scene}), con música de fondo en bucle. El jugador apunta con un láser que sale del control derecho y selecciona con el gatillo. La interacción usa \cs{OVRInputModule} y \cs{OVRRaycaster} de Meta XR Core SDK, y el script \cs{LaserCursor} dibuja el rayo y un punto en el lugar donde apunta. El script \cs{MainMenu} gestiona los paneles:
+\begin{itemize}
+  \item \textbf{Panel de juego:} el botón JUGAR abre la selección de nivel, cuyos botones cargan cada combate. El nivel 1 está habilitado al inicio de la progresión y cada nivel siguiente se abre al derrotar al anterior (RF-09).
+  \item \textbf{Panel de opciones:} el botón OPCIONES cambia al panel de opciones, con los controles de volumen y de háptica, y ATRÁS regresa al panel principal. Los ajustes se guardan con \cs{PlayerPrefs}: \cs{"volumen"} se aplica a \cs{AudioListener.volume} al iniciar y \cs{"haptica"} escala la intensidad de todas las vibraciones de los guantes.
+  \item \textbf{Salir:} el botón SALIR cierra la aplicación.
+\end{itemize}
+Dentro del ring, el script \cs{PauseMenu} abre el mismo Canvas como menú de pausa con el botón Menú del control izquierdo. Detiene el combate (\cs{Time.timeScale = 0}) y ofrece REANUDAR y VOLVER AL MENÚ PRINCIPAL.
+
+\subsubsection*{Guantes del jugador}
+Los guantes provienen del modelo \cs{Boxing gloves.glb}, importado con glTFast. Una herramienta de editor propia (\emph{Tools > Boxeo > Poner guantes en las manos}, script \cs{GuantesBuilder}) separa el modelo en dos mallas, \cs{Guante_Izquierdo} y \cs{Guante_Derecho}, y coloca cada una en la mano correspondiente del \cs{OVRCameraRig}. Están giradas para que el pulgar quede hacia arriba al sostener el control, como en la guardia real.
+
+\subsubsection*{Detección de colisiones y clasificación de jab, cross y uppercut}
+Cada guante lleva el script \cs{Puno}, con un \emph{Rigidbody} cinemático y un collider con detección continua, para que los golpes rápidos no atraviesen al oponente (RNF-07). La velocidad de la mano se mide respecto al espacio de tracking del jugador, así que lo que cuenta es el movimiento real del brazo. Un contacto se registra como golpe conectado (RF-02) solo si la mano avanza hacia el oponente a 0,5 m/s o más. Después de cada golpe, ese puño espera 0,25 s antes de poder conectar otro, para que un mismo impacto no se cuente dos veces.
+
+El oponente tiene dos zonas de impacto (script \cs{ZonaGolpe}): Cabeza y Torso. Son colliders de tipo \emph{trigger} emparentados a los huesos de la cabeza y de la columna, así que acompañan cada animación. La herramienta \emph{Tools > Boxeo > Configurar oponente seleccionado} las crea a partir de los vértices del modelo asociados a esos huesos.
+
+En el instante del impacto, \cs{Golpe.Clasificar} determina el tipo de golpe (RF-03) a partir de la dirección de la mano respecto a hacia dónde mira el jugador, con guardia ortodoxa (diestra):
+
+\begin{table}[H]
+\centering
+\caption{Clasificación de los golpes del jugador.}
+\tablita{|>{\bfseries}p{2.6cm}|L|p{3.4cm}|}{\hd{Tipo de golpe}&\hd{Condición de detección}&\hd{Mano}}{
+Uppercut & La mano sube con menos de 50° respecto a la vertical. & Cualquiera\\ \hline
+Jab & Golpe recto: desviación lateral menor a 40° respecto al frente. & Izquierda (adelantada)\\ \hline
+Cross & Golpe recto: desviación lateral menor a 40° respecto al frente. & Derecha (atrasada)\\ \hline
+Gancho (lateral) & Cualquier otra trayectoria, de lado. & Cualquiera\\
+}
+\end{table}
+
+Cada golpe se registra en la consola de Unity con su tipo, mano, zona, velocidad y el conteo acumulado, lo que permite validar la detección durante las pruebas.
+
+\subsubsection*{Glass Joe en el ring}
+Glass Joe es un modelo con esqueleto humanoide de Mixamo (1,70 m) ubicado en el centro del ring en la escena \cs{Scene_Ring_Level1}. Su \emph{Animator Controller} reúne la guardia (\cs{Idle}), las reacciones a los golpes, las caídas y sus propios ataques. El script \cs{Oponente} lleva su salud y lo hace caer al cruzar umbrales: con tres caídas por derrota, las dos primeras son knockdowns y la tercera es la derrota. Mientras está en la lona no recibe golpes. El script \cs{ReaccionAnimada} elige la animación según el golpe y la zona:
+
+\begin{table}[H]
+\centering
+\caption{Reacciones animadas de Glass Joe.}
+\tablita{|L|L|}{\hd{Golpe recibido}&\hd{Reacción de Glass Joe}}{
+Jab, cross o gancho a la cabeza & \cs{Jab} (la cabeza va hacia atrás)\\ \hline
+Uppercut a la cabeza & \cs{Uppercut_Face}\\ \hline
+Cualquier golpe al torso & \cs{Uppercut_Stomach} (se dobla)\\ \hline
+Salud en un umbral (1.ª y 2.ª caída) & \cs{Knockdown} y regreso a la guardia\\ \hline
+Salud en cero (3.ª caída) & \cs{Defeat} (queda derrotado)\\
+}
+\end{table}
+
+Además, el script \cs{AtaqueOponente} hace que Glass Joe gire hacia el jugador y lance un ataque cada 4 a 6 s desde la guardia: jabs y, cada cuatro ataques, un uppercut. Si el jugador lo presiona, cada golpe recibido reinicia la espera y corta el ataque en curso. Los valores del personaje (salud, caídas, tiempos de ataque, sonidos) están en un asset \cs{PerfilOponente} (\cs{Assets/_Project/Data/Oponentes/GlassJoe.asset}) y se ajustan sin modificar el código, en línea con RNF-10.
+
+\subsubsection*{Háptica básica}
+Al conectar un golpe, el control de esa mano vibra. Cada tipo de golpe tiene su propio patrón, de modo que el jugador distingue lo que conectó sin mirar (base de RF-15):
+
+\begin{table}[H]
+\centering
+\caption{Vibración por tipo de golpe conectado.}
+\tablita{|>{\bfseries}p{2.2cm}|L|p{3.6cm}|}{\hd{Golpe}&\hd{Patrón de vibración}&\hd{Sensación}}{
+Jab & Un pulso de amplitud 0,7 durante 50 ms. & Seco y corto\\ \hline
+Cross & Un pulso de amplitud 1,0 durante 140 ms. & Largo y fuerte\\ \hline
+Uppercut & Pulso de 0,5 (50 ms), pausa de 40 ms y pulso de 1,0 (100 ms). & Doble, ascendente\\ \hline
+Gancho & Un pulso de amplitud 0,35 durante 60 ms. & Suave\\
+}
+\end{table}
+
+La intensidad crece con la rapidez del puño, desde un mínimo de 40\,\% hasta el máximo a 2,5 m/s, y se multiplica por el ajuste de háptica del panel de opciones. La vibración se detiene aunque el juego se pause justo después del golpe.
+
+\subsubsection*{Verificación y resumen de cumplimiento}
+La escena se probó en el editor con Meta XR Simulator y en el visor Meta Quest mediante una compilación para Android (OpenXR). Se verificó el recorrido completo del resultado esperado: desde el menú principal se abren el panel de opciones y el panel de juego; al pulsar JUGAR se entra al ring frente a Glass Joe; cada jab, cross y uppercut que conecta produce la reacción animada del oponente y una vibración propia en el control.
+
+\begin{table}[H]
+\centering
+\caption{Cumplimiento del Entregable 2.}
+\tablita{|L|L|c|}{\hd{Actividad planificada}&\hd{Implementación}&\hd{Estado}}{
+Panel de juego (selección de nivel) & Botón JUGAR del menú principal (\cs{MainMenu}). & \ok\\ \hline
+Panel de opciones & Panel de opciones con volumen y háptica guardados en \cs{PlayerPrefs}; botón ATRÁS. & \ok\\ \hline
+Guantes en las manos & \cs{Guante_Izquierdo} y \cs{Guante_Derecho} adheridos a cada mano del \cs{OVRCameraRig} (\cs{GuantesBuilder}, \cs{Puno}). & \ok\\ \hline
+Detección de colisiones para jab, cross y uppercut & \cs{Puno}, \cs{ZonaGolpe} (cabeza y torso) y \cs{Golpe.Clasificar}. & \ok\\ \hline
+Glass Joe en el ring & Modelo animado con reacciones, knockdowns, derrota y ataques (\cs{Oponente}, \cs{ReaccionAnimada}, \cs{AtaqueOponente}). & \ok\\ \hline
+Háptica básica & Vibración por tipo de golpe, escalada por rapidez y por el ajuste de opciones (\cs{Puno}). & \ok\\ \hline
+Resultado verificable & El jugador golpea a Glass Joe y siente la vibración; ambos paneles abren desde el menú. & Cumplido\\
+}
+\end{table}
+
+% ============================================================
+\section{Plan de Diseño}
+\label{sec:plan}
+\subsection{¿Qué pueden lograr los usuarios?}
+La aplicación permite ejecutar un entrenamiento técnico reactivo en tiempo real sin salir del hogar. Específicamente, el jugador puede:
+\begin{itemize}
+  \item Combatir aplicando estrategias de golpeo directo (jab), cruzado (cross), uppercut y ganchos, con retroalimentación háptica diferenciada.
+  \item Esquivar activamente los ataques del rival desplazando el torso y la cabeza en el espacio físico.
+  \item Enfrentar cinco estilos de boxeo inspirados en luchadores icónicos, cada uno con un patrón de combate único.
+  \item Superar niveles de dificultad con velocidad e intensidad incremental.
+  \item Luchar por levantarse de la lona ante la cuenta del réferi mediante interacción física de \emph{button mashing}.
+  \item Culminar la progresión obteniendo el cinturón de campeonato regional y consultando sus estadísticas de combate.
+\end{itemize}
+
+\subsection{Límites Técnicos y de la Experiencia}
+\begin{itemize}
+  \item \textbf{Fatiga física rápida:} el constante esquive y golpeo en sesiones prolongadas genera fatiga muscular en brazos y core. El diseño limita cada combate a 3 rounds de 90 segundos para gestionar la intensidad.
+  \item \textbf{Espacio físico requerido:} se requiere un área despejada mínima de 1,5 $\times$ 1,5 metros respaldada por el sistema Guardián de Meta Quest.
+  \item \textbf{Ausencia de seguimiento de extremidades inferiores:} la evasión está restringida al movimiento de torso y cabeza; no se detecta el movimiento de piernas ni el \emph{footwork}.
+  \item \textbf{Dependencia del hardware:} la precisión del sistema depende directamente de la tasa de refresco del visor y del correcto seguimiento de los controladores en condiciones de iluminación adecuadas.
+\end{itemize}
+
+\subsection{Profundidad de la Presencia}
+El proyecto alcanza un nivel de inmersión elevado (presencia de lugar y plausibilidad, según el modelo de Slater) al sincronizar la perspectiva visual en primera persona a escala 1:1 con la propagación del sonido espacial en tres dimensiones y la respuesta háptica coordinada en los controladores. La combinación de estos tres canales sensoriales (visual, auditivo y táctil) construye el bucle de retroalimentación cerrado que caracteriza las experiencias de RV de alta presencia documentadas en la literatura del curso.
+
+% ============================================================
+\section{Cronograma de Trabajo}
+\label{sec:crono}
+El proyecto se ejecuta entre las semanas 10 y 15 mediante seis entregables. Los porcentajes indican el avance acumulado del proyecto en cada entregable.
+
+\subsection{Entregables y avance acumulado}
+\begin{table}[H]
+\centering
+\caption{Entregables del proyecto.}
+\label{tab:entregables}
+\tablita{|>{\raggedright\arraybackslash}p{1.9cm}|c|c|L|>{\raggedright\arraybackslash}p{3.3cm}|}{\hd{Entregable}&\hd{Semana}&\hd{Avance}&\hd{Actividades principales}&\hd{Resultado verificable}}{
+Entregable 1 & 10 & 15\,\% & Proyecto en Unity con Meta XR Core SDK. OVR Camera Rig en Floor Level y compilación de prueba en Meta Quest. Menú principal con los botones Jugar y Opciones. Ring a escala 1:1. & Proyecto compilando en el visor, menú navegable y ring a escala 1:1.\\ \hline
+Entregable 2 & 11 & 30\,\% & Panel de juego (selección de nivel) y panel de opciones. Guantes en las manos. Detección de colisiones para jab, cross y uppercut. Glass Joe en el ring y háptica básica. & El jugador golpea a Glass Joe y siente la vibración; ambos paneles abren desde el menú.\\ \hline
+Entregable 3 & 12 & 50\,\% & IA reactiva de los niveles 1 y 2 (Glass Joe y Bald Bull) con ataque, bloqueo y velocidad. Esquive con cabeza y torso. Salud diegética con viñeta y pulso cardíaco. & Combates completos contra dos rivales, con la salud percibida sin HUD.\\ \hline
+\rowcolor{crema}\textbf{Entregable 4} & \textbf{13} & \textbf{70\,\%} & IA de los niveles 3 y 4 (Soda Popinski y Mr.\ Sandman). Réferi con cuenta regresiva y button mashing tras el KO. Rondas de 3 $\times$ 90 s. Hand Grab Recorder en los bloqueos y háptica diferenciada. & \textbf{Cuatro rivales jugables y ciclo de KO funcionando.}\\ \hline
+Entregable 5 & 14 & 100\,\% & IA del nivel 5 (Iron Mike Tyson). Escena de resultados con cinturón y estadísticas. Optimización a 72--90 FPS y háptica menor a 15 ms. Pruebas HEART y corrección de errores. & Versión final con los 5 niveles y resultados de las pruebas de usabilidad.\\ \hline
+Entregable 6 & 15 & Presentación & Informe final actualizado, demo en vivo del prototipo y comparación entre el boceto del Hito 1 y lo implementado. Video de respaldo de la demo. & Presentación y demo final del proyecto.\\
+}
+\end{table}
+
+\textbf{Estado del avance:} a la semana 13 están completados los Entregables 1 a 4, con un avance acumulado del 70\,\%. El detalle de lo implementado está en las secciones~\ref{sec:e2e3} y~\ref{sec:e4}.
+
+\subsection{Diagrama de Gantt}
+Semanas 10 a 15. Entregables al 15\,\%, 30\,\%, 50\,\%, 70\,\% y 100\,\%. Desarrollo en rojo; pruebas y documentación en dorado. La columna RF / RNF indica los requisitos que se implementan en cada actividad.
+
+\newcommand{\R}{\cellcolor{rojo}}
+\newcommand{\G}{\cellcolor{dorado}}
+\newcommand{\sem}[3]{\parbox[c][1.15cm][c]{1.05cm}{\centering\tiny\textbf{\textcolor{white}{#1}}\\ \textcolor{white}{#2}\\ \textbf{\textcolor{dorado}{#3}}}}
+\begin{table}[H]
+\centering
+\caption{Diagrama de Gantt del proyecto.}
+\small
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{|>{\raggedright\arraybackslash}p{4.9cm}|>{\centering\arraybackslash}p{1.9cm}|*{6}{>{\centering\arraybackslash}p{1.1cm}|}}
+\hline
+\rowcolor{vino}\hd{Actividad}&\hd{RF / RNF}&\sem{Sem.\ 10}{Entreg.\ 1}{15\,\%}&\sem{Sem.\ 11}{Entreg.\ 2}{30\,\%}&\sem{Sem.\ 12}{Entreg.\ 3}{50\,\%}&\sem{Sem.\ 13}{Entreg.\ 4}{70\,\%}&\sem{Sem.\ 14}{Entreg.\ 5}{100\,\%}&\sem{Sem.\ 15}{Entreg.\ 6}{Present.}\\ \hline
+Unity, Meta XR SDK y OVR Camera Rig & RF-01 & \R & & & & & \\ \hline
+Menú principal y paneles de juego y opciones & RF-17, RF-09 & \R & \R & & & & \\ \hline
+Ring y assets del escenario & --- & \R & \R & & & & \\ \hline
+Guantes y colisiones (jab, cross, uppercut) & RF-02, RF-03 & & \R & \R & & & \\ \hline
+Háptica diferenciada & RF-15 & & \R & \R & \R & & \\ \hline
+IA niveles 1 y 2: Glass Joe y Bald Bull & RF-04, RF-05, RF-07, RF-08 & & \R & \R & & & \\ \hline
+Esquive con cabeza y torso & RF-06 & & & \R & & & \\ \hline
+Salud diegética: viñeta y pulso cardíaco & RF-14 & & & \R & \R & & \\ \hline
+Hand Grab Recorder para bloqueos de la IA & --- & & & \R & \R & & \\ \hline
+IA niveles 3 y 4: Soda Popinski y Mr.\ Sandman & RF-07, RF-08 & & & & \R & & \\ \hline
+Réferi, cuenta de KO, button mashing y rondas & RF-10 a RF-13 & & & & \R & & \\ \hline
+IA nivel 5: Iron Mike Tyson & RF-07, RF-08 & & & & & \R & \\ \hline
+Escena de resultados, cinturón y estadísticas & RF-18, RF-19 & & & & & \R & \\ \hline
+Optimización (72--90 FPS, háptica menor a 15 ms) & RNF-01, RNF-02 & & & & \R & \R & \\ \hline
+Pruebas de usabilidad HEART y correcciones & RNF-03, RNF-05 & & & & & \G & \\ \hline
+Informe final, comparación del boceto y demo & --- & & & & & \G & \G \\ \hline
+Audio espacial 3D (*) & RF-16 & & & \R & \R & & \\ \hline
+Pausa por sistema Guardián (*) & RF-20 & \R & \R & & & & \\ \hline
+Registro de métricas de sesión (*) & RF-21 & & & & \R & \R & \\ \hline
+\rowcolor{crema}\textbf{AVANCE ACUMULADO} & & \textbf{15\,\%} & \textbf{30\,\%} & \textbf{50\,\%} & \textbf{70\,\%} & \textbf{100\,\%} & \textbf{Present.}\\ \hline
+\end{tabular}
+\end{table}
+{\small (*) Actividades agregadas al cronograma original para dar cabecera a requisitos funcionales que no tenían una actividad asociada (RF-16, RF-20 y RF-21).}
+
+\subsection{Trazabilidad de requisitos funcionales}
+La siguiente tabla indica en qué semana y en qué entregable se implementa cada requisito funcional de la sección~3.1 y su estado al cierre de la semana 13. Como el cronograma se organiza por semanas, la semana es la unidad mínima de planificación.
+
+\begin{table}[H]
+\centering
+\caption{Trazabilidad de requisitos funcionales y estado al 70\,\%.}
+\label{tab:traza}
+\small
+\begin{tabularx}{\linewidth}{|c|L|c|c|>{\raggedright\arraybackslash}p{2.5cm}|}
+\hline
+\cab\hd{ID}&\hd{Requisito (resumen)}&\hd{Semana(s)}&\hd{Entregable}&\hd{Estado}\\ \hline
+RF-01 & Vista en primera persona y guantes con seguimiento 6DoF & 10 & 1 & Completado\\ \hline
+RF-02 & Detección de colisión guante--oponente (golpe conectado) & 11 & 2 & Completado\\ \hline
+RF-03 & Clasificación del golpe: jab, cross o uppercut & 11 & 2 & Completado\\ \hline
+RF-04 & Reducción de la salud del oponente según golpe y velocidad & 12 & 3 & Completado\\ \hline
+RF-05 & Detección de bloqueo con guardia y reducción de daño & 12 & 3 & Completado\\ \hline
+RF-06 & Detección de esquive con cabeza y torso & 12 & 3 & Completado\\ \hline
+RF-07 & Cinco oponentes IA con patrones propios & 12 a 14 & 3, 4 y 5 & Niveles 1 a 4 completados; nivel 5 en el Entregable 5\\ \hline
+RF-08 & Dificultad ascendente del Nivel 1 al 5 & 12 a 14 & 3, 4 y 5 & Niveles 1 a 4 completados\\ \hline
+RF-09 & Desbloqueo del siguiente nivel al derrotar al rival & 11 y 12 & 2 y 3 & Completado (4 niveles)\\ \hline
+RF-10 & 3 rounds de 90 s con campana & 13 & 4 & Completado\\ \hline
+RF-11 & Ganador por KO o por mayor salud al tercer round & 13 & 4 & Completado\\ \hline
+RF-12 & Cuenta del réferi de 10 s y button mashing & 13 & 4 & Completado\\ \hline
+RF-13 & Derrota si no supera la cuenta; reintento del nivel & 13 & 4 & Completado\\ \hline
+RF-14 & Salud diegética: viñeta periférica y latido, sin HUD & 12 y 13 & 3 y 4 & Completado\\ \hline
+RF-15 & Vibración háptica diferenciada & 11 a 13 & 2, 3 y 4 & Completado (incluye esquive, derribo y cuenta)\\ \hline
+RF-16 & Audio espacial 3D (golpes, multitud, réferi) (*) & 12 y 13 & 3 y 4 & Completado\\ \hline
+RF-17 & Menú principal diegético: Jugar, Opciones y Salir & 10 y 11 & 1 y 2 & Completado\\ \hline
+RF-18 & Resultados por combate: precisión, bloqueos y tiempo & 14 & 5 & Datos ya registrados; pantalla en el Entregable 5\\ \hline
+RF-19 & Cinturón de campeón al derrotar al Nivel 5 & 14 & 5 & Entregable 5\\ \hline
+RF-20 & Pausa del combate por el sistema Guardián (*) & 10 y 11 & 1 y 2 & Completado\\ \hline
+RF-21 & Registro de métricas por sesión (*) & 13 y 14 & 4 y 5 & Completado\\ \hline
+\end{tabularx}
+\end{table}
+{\small (*) Requisitos cuya actividad fue agregada al cronograma (sección 8.2). Los requisitos no funcionales de rendimiento y latencia háptica (RNF-01 y RNF-02) se validan en la semana 14, junto con las pruebas HEART.}

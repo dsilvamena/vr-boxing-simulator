@@ -58,6 +58,12 @@ public class DatosCombate
     public float retrasoDeteccionMedioMs;    // estimado: del contacto del guante a que lo detecta el paso de física
     public float retrasoDeteccionP95Ms;
     public float retrasoDeteccionMaxMs;
+
+    [Header("Adopción (RNF-03)")]
+    // Desde la primera campana del combate, en tiempo de juego sin pausas (el mismo reloj que segundosCombate, con los
+    // descansos). -1 si no ocurrió en este combate.
+    public float segundosHastaGuardia = -1f;         // primera vez que mantiene la guardia (SaludJugador.EnGuardia) 0,5 s seguidos; cuenta desde que la sube
+    public float segundosHastaGolpeConectado = -1f;  // primer golpe que conecta al rival (ni bloqueado ni esquivado)
 }
 
 [Serializable]
@@ -73,11 +79,16 @@ public class DatosSesion
     public int reintentos;
     public int victorias;
     public List<DatosCombate> combatesJugados = new List<DatosCombate>();
+    // RNF-03 por sesión: lo mismo que en cada combate, pero en tiempo de combate acumulado desde la primera campana de la
+    // sesión (suma el de los combates anteriores, desde su campana hasta su final). -1 si no ocurrió en toda la sesión.
+    public float segundosHastaGuardia = -1f;
+    public float segundosHastaGolpeConectado = -1f;
 }
 
 /// <summary>
 /// Registro de la sesión (RF-21): duración, combates jugados y reintentados, precisión de golpes y golpes bloqueados, para
-/// analizarlos después (métricas HEART de engagement y task success). Se crea solo al arrancar el juego y sobrevive a los
+/// analizarlos después (métricas HEART de engagement y task success, y el tiempo hasta la primera guardia y el primer golpe
+/// conectado para la adopción, RNF-03). Se crea solo al arrancar el juego y sobrevive a los
 /// cambios de escena, así que no hay que ponerlo en ninguna escena. En cada escena con Oponente sigue el combate por los
 /// eventos de los componentes, sin cambiar su lógica.
 /// Escribe en Application.persistentDataPath/Sesiones: un JSON por sesión (sesion_aaaaMMdd_HHmmss.json, se reescribe al
@@ -90,6 +101,7 @@ public class RegistroSesion : MonoBehaviour
 {
     private const float FpsObjetivo = 72f; // RNF-01: Meta Quest 2
     private const string Carpeta = "Sesiones";
+    private const float SegundosGuardiaSostenida = 0.5f; // RNF-03: menos que esto es pasar las manos por delante, no adoptar la guardia
 
     public static RegistroSesion Instancia { get; private set; }
 
@@ -116,6 +128,8 @@ public class RegistroSesion : MonoBehaviour
     private readonly List<double> latencias = new List<double>(); // ms
     private readonly List<double> retrasos = new List<double>();  // ms
     private bool cabeceraRevisada;
+    private float inicioGuardia = -1f;      // Time.time en que el jugador subió la guardia que se está midiendo
+    private double tiempoCombatesPrevios;   // segundos de combate (desde su campana) de los combates ya cerrados de la sesión
 
     private Oponente oponente;
     private SaludJugador jugador;
@@ -194,7 +208,9 @@ public class RegistroSesion : MonoBehaviour
 
     private void Update()
     {
-        if (combate == null || combateCerrado || rondas == null || rondas.Estado != EstadoRondas.Round) return;
+        if (combate == null || combateCerrado) return;
+        VigilarGuardia();
+        if (rondas == null || rondas.Estado != EstadoRondas.Round) return;
         // Solo cuenta el rendimiento durante los rounds, que es lo que pide RNF-01 ("durante el combate")
         float dt = Time.unscaledDeltaTime;
         combate.fotogramas++;
@@ -225,6 +241,7 @@ public class RegistroSesion : MonoBehaviour
         inicioCombate = rondas == null ? Time.time : -1f;
         fotogramasLentos = 0;
         sumaDelta = 0;
+        inicioGuardia = -1f;
         latencias.Clear();
         retrasos.Clear();
         sesion.combatesJugados.Add(combate);
@@ -296,6 +313,12 @@ public class RegistroSesion : MonoBehaviour
     {
         if (!Registrando) return;
         combate.golpesConectados++;
+        if (combate.segundosHastaGolpeConectado < 0f && inicioCombate >= 0f)
+        {
+            float t = Time.time - inicioCombate;
+            combate.segundosHastaGolpeConectado = Redondear(t);
+            if (sesion.segundosHastaGolpeConectado < 0f) sesion.segundosHastaGolpeConectado = Redondear((float)(tiempoCombatesPrevios + t));
+        }
         switch (golpe.tipo)
         {
             case TipoGolpe.Jab: combate.jabs++; break;
@@ -378,6 +401,23 @@ public class RegistroSesion : MonoBehaviour
         if (Registrando) retrasos.Add(segundos * 1000.0);
     }
 
+    // RNF-03: la guardia cuenta cuando las dos manos están donde bloquean (SaludJugador.EnGuardia) durante
+    // SegundosGuardiaSostenida seguidos, desde la primera campana; se guarda el momento en que la subió. Solo lee la pose.
+    private void VigilarGuardia()
+    {
+        if (combate.segundosHastaGuardia >= 0f || jugador == null || inicioCombate < 0f || Time.timeScale == 0f) return;
+        if (!jugador.EnGuardia)
+        {
+            inicioGuardia = -1f;
+            return;
+        }
+        if (inicioGuardia < 0f) inicioGuardia = Time.time;
+        if (Time.time - inicioGuardia < SegundosGuardiaSostenida) return;
+        float t = inicioGuardia - inicioCombate;
+        combate.segundosHastaGuardia = Redondear(t);
+        if (sesion.segundosHastaGuardia < 0f) sesion.segundosHastaGuardia = Redondear((float)(tiempoCombatesPrevios + t));
+    }
+
     private void AlTerminarCombateRondas(ResultadoCombate resultado) => CerrarCombate(resultado.ToString());
 
     private void CerrarCombate(string resultado)
@@ -387,6 +427,7 @@ public class RegistroSesion : MonoBehaviour
         if (resultado != null) combate.resultado = resultado;
         if (rondas != null && combate.roundAlcanzado == 0) combate.roundAlcanzado = rondas.RoundActual;
         combate.segundosCombate = inicioCombate >= 0f ? Mathf.Round((Time.time - inicioCombate) * 10f) / 10f : 0f;
+        if (inicioCombate >= 0f) tiempoCombatesPrevios += Time.time - inicioCombate;
         // Si se sale de la escena los componentes ya no existen y quedan los conteos por eventos
         if (oponente != null) combate.derribosAlRival = Mathf.Max(combate.derribosAlRival, oponente.Caidas);
         if (recuperacion != null) combate.caidasJugador = Mathf.Max(combate.caidasJugador, recuperacion.Derribos);
@@ -469,6 +510,8 @@ public class RegistroSesion : MonoBehaviour
         // Entrega 5, bloque J: siempre al final, para no romper los CSV anteriores
         "pasoFisicaMs", "muestrasLatencia", "latenciaMediaMs", "latenciaP95Ms", "latenciaMaxMs", "muestrasRetraso",
         "retrasoDeteccionMedioMs", "retrasoDeteccionP95Ms", "retrasoDeteccionMaxMs",
+        // Entrega 5, bloque K (RNF-03)
+        "segundosHastaGuardia", "segundosHastaGolpeConectado",
     };
 
     private void AgregarCsv(DatosCombate c)
@@ -486,6 +529,7 @@ public class RegistroSesion : MonoBehaviour
             c.pasoFisicaMs.ToString(inv), c.muestrasLatencia.ToString(inv), c.latenciaHapticaMediaMs.ToString(inv),
             c.latenciaHapticaP95Ms.ToString(inv), c.latenciaHapticaMaxMs.ToString(inv), c.muestrasRetraso.ToString(inv),
             c.retrasoDeteccionMedioMs.ToString(inv), c.retrasoDeteccionP95Ms.ToString(inv), c.retrasoDeteccionMaxMs.ToString(inv),
+            c.segundosHastaGuardia.ToString(inv), c.segundosHastaGolpeConectado.ToString(inv),
         };
         try
         {

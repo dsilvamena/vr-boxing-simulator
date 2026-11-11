@@ -4,6 +4,7 @@ El FBX riggeado del equipo (Source~/export/mike_rigged_1.78m_v1.fbx: esqueleto c
 y un material con la textura embebida) tiene ~31 000 triángulos, el doble que Mr. Sandman (14 131). Con un
 SkinnedMeshRenderer el coste es por vértice en cada frame, así que se reduce aquí y no con el Mesh LOD de Unity.
 
+- Corrige los pesos de los vértices del hombro que el rig ataba al antebrazo (ver el paso 2).
 - Aplica un Decimate (colapso) antes del modificador Armature: reduce la malla en reposo y conserva pesos, UV y material.
 - Renombra el material a MikeTyson y guarda su textura (embebida en el FBX) en Textures/MikeTyson_BaseColor.jpg.
 - Exporta MikeTyson.fbx en metros, sin huesos hoja, solo con los huesos que deforman y sin la textura dentro.
@@ -50,7 +51,48 @@ for mat in malla.data.materials:
             img.filepath = ruta
             img.name = "MikeTyson_BaseColor"
 
-# 2. Reducir antes del Armature, para trabajar sobre la malla en reposo
+# 2. Corregir pesos: en el rig original, ~130 vértices de lo alto de cada hombro (junto al cuello) llevan hasta un 94 %
+# de peso en el antebrazo, y al doblar el codo para la guardia salían estirados como una cuchilla. Un antebrazo no debe
+# mover nada a más de DISTANCIA_MAXIMA de su hueso: ese peso pasa al hueso más cercano (aquí, el hombro).
+# Las manos no se tocan: sin dedos, su hueso mide 17 cm y el guante llega a 18 cm de él.
+DISTANCIA_MAXIMA = 0.15
+HUESOS_A_LIMPIAR = ("LeftForeArm", "RightForeArm")
+
+
+def segmento(hueso):
+    """Del hueso a su primer hijo (o a su cola), en coordenadas del mundo y en reposo."""
+    inicio = armadura.matrix_world @ hueso.head_local
+    fin = armadura.matrix_world @ (hueso.children[0].head_local if hueso.children else hueso.tail_local)
+    return inicio, fin
+
+
+def distancia(punto, inicio, fin):
+    eje = fin - inicio
+    f = 0.0 if eje.length_squared == 0 else max(0.0, min(1.0, (punto - inicio).dot(eje) / eje.length_squared))
+    return (punto - (inicio + eje * f)).length
+
+
+segmentos = {b.name: segmento(b) for b in armadura.data.bones if b.use_deform}
+grupos = {g.name: g for g in malla.vertex_groups}
+corregidos = 0
+for v in malla.data.vertices:
+    punto = malla.matrix_world @ v.co
+    for nombre in [n for n in grupos if n.split(":")[-1] in HUESOS_A_LIMPIAR]:
+        grupo = grupos[nombre]
+        try:
+            peso = grupo.weight(v.index)
+        except RuntimeError:
+            continue  # el vértice no está en el grupo
+        if peso <= 0 or distancia(punto, *segmentos[nombre]) <= DISTANCIA_MAXIMA:
+            continue
+        cercano = min((n for n in segmentos if n != nombre and n in grupos),
+                      key=lambda n: distancia(punto, *segmentos[n]))
+        grupo.remove([v.index])
+        grupos[cercano].add([v.index], peso, "ADD")
+        corregidos += 1
+print(f"Pesos corregidos en {corregidos} vértices")
+
+# 3. Reducir antes del Armature, para trabajar sobre la malla en reposo
 triangulos = sum(len(p.vertices) - 2 for p in malla.data.polygons)
 reducir = malla.modifiers.new("Reducir", "DECIMATE")
 reducir.decimate_type = "COLLAPSE"
@@ -61,7 +103,7 @@ while malla.modifiers[0].name != reducir.name:
     bpy.ops.object.modifier_move_up(modifier=reducir.name)
 bpy.ops.object.modifier_apply(modifier=reducir.name)
 
-# 3. Exportar con los mismos ejes que Mr. Sandman (de frente hacia +Z en Unity)
+# 4. Exportar con los mismos ejes que Mr. Sandman (de frente hacia +Z en Unity)
 ruta_fbx = os.path.join(carpeta, "MikeTyson.fbx")
 bpy.ops.export_scene.fbx(
     filepath=ruta_fbx,

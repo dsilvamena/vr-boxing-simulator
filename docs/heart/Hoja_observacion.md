@@ -12,6 +12,7 @@ Al terminar el día, cada hoja se pasa a una fila de `docs/heart/observacion_pla
 | Fecha (`fecha`) | |
 | Id de la sesión (`sesion`): el `sesion_<id>.json` más nuevo tras abrir el juego (paso 3 del protocolo) | |
 | Guía / anotador | |
+| Consentimiento verbal leído y aceptado (sin firma ni nombre) | sí / no |
 | Hora de inicio y de fin | |
 | Experiencia previa con RV (`experienciaRV`): ninguna / 1-3 veces / más | |
 | ¿Ha jugado algún juego de boxeo o fitness en RV? | |

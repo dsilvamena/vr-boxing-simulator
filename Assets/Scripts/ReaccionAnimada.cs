@@ -27,6 +27,20 @@ public class ReaccionAnimada : MonoBehaviour
 
     private Oponente oponente;
 
+    /// <summary>La animación de caída ya lo dejó tendido (Knockdown pasado de momentoPiso, o Defeat avanzado). El réferi
+    /// espera a esto para empezar a contar.</summary>
+    public bool EnElPiso
+    {
+        get
+        {
+            if (animator == null || !oponente.Caido) return false;
+            AnimatorStateInfo estado = animator.GetCurrentAnimatorStateInfo(0);
+            if (animator.IsInTransition(0)) return false;
+            if (estado.shortNameHash == Knockdown) return estado.normalizedTime >= momentoPiso - 0.02f;
+            return estado.shortNameHash == Defeat && estado.normalizedTime >= 0.6f;
+        }
+    }
+
     private void Awake()
     {
         oponente = GetComponent<Oponente>();

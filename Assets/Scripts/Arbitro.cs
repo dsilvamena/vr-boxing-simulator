@@ -7,6 +7,8 @@ using UnityEngine;
 /// Jugador: la cuenta, el tiempo y el button mashing siguen siendo de RecuperacionJugador; aquí solo se pone la voz.
 /// Rival: mientras hay réferi, el rival no se levanta con su temporizador (Oponente.LevantaArbitro), sino cuando llega
 /// al número cuentaKnockdown de su perfil. El round que llega a cero espera a esa cuenta (ControlRondas.CuentaEnMarcha).
+/// La cuenta del rival no empieza al caer, sino cuando la animación lo deja tendido (ReaccionAnimada.EnElPiso) y tras
+/// pausaAntesDeContar: así el réferi no cuenta a alguien que todavía se está cayendo.
 /// Si alguien más lo levanta (el descanso, una prueba), la cuenta se cancela y la voz se calla.
 /// La cuenta usa tiempo escalado y la voz se pausa a mano, porque un AudioSource no se detiene con timeScale = 0.
 /// Sin este componente en la escena, el rival se levanta con segundosKnockdown, como antes.
@@ -35,6 +37,10 @@ public class Arbitro : MonoBehaviour
     [Header("Cuenta del rival")]
     [Tooltip("Segundos entre números. La del jugador va al ritmo de segundosParaLevantarse de RecuperacionJugador")]
     [SerializeField, Min(0.1f)] private float segundosPorNumero = 1f;
+    [Tooltip("Pausa entre que el rival queda tendido y el primer número (el réferi llega y levanta el brazo)")]
+    [SerializeField, Min(0f)] private float pausaAntesDeContar = 0.5f;
+    [Tooltip("Sin ReaccionAnimada (rivales sin esqueleto), o si la animación no llega al piso: espera máxima antes de contar")]
+    [SerializeField, Min(0f)] private float esperaMaximaCaida = 2.5f;
 
     [SerializeField] private bool registrar = true;
 
@@ -51,6 +57,9 @@ public class Arbitro : MonoBehaviour
     private int ultimoNumeroRival;
     private bool vozPausada;
     private bool combateTerminado;
+    private bool esperandoPiso;      // el rival cayó pero aún no está tendido: la cuenta no ha empezado
+    private float esperaCaida;
+    private ReaccionAnimada reaccionRival;
 
     private void Awake()
     {
@@ -59,6 +68,7 @@ public class Arbitro : MonoBehaviour
         if (recuperacion == null) recuperacion = FindAnyObjectByType<RecuperacionJugador>();
         if (rondas == null) rondas = FindAnyObjectByType<ControlRondas>();
         if (voz == null) voz = GetComponentInChildren<AudioSource>();
+        if (oponente != null) reaccionRival = oponente.GetComponent<ReaccionAnimada>();
         if (oponente == null)
         {
             Debug.LogWarning($"{name}: Arbitro no encontró un Oponente en la escena.", this);
@@ -102,7 +112,18 @@ public class Arbitro : MonoBehaviour
         PausarVoz(Time.timeScale == 0f);
         if (Time.timeScale == 0f) return;
 
-        if (ContandoRival)
+        if (ContandoRival && esperandoPiso)
+        {
+            // No se cuenta a un rival que todavía está cayendo: primero tiene que quedar tendido
+            esperaCaida += Time.deltaTime;
+            bool enElPiso = reaccionRival != null ? reaccionRival.EnElPiso : esperaCaida >= 1f;
+            if (enElPiso || esperaCaida >= esperaMaximaCaida)
+            {
+                esperandoPiso = false;
+                segundosRival = -pausaAntesDeContar;
+            }
+        }
+        else if (ContandoRival)
         {
             segundosRival += Time.deltaTime;
             if (segundosRival >= duracionRival) TerminarCuentaRival();
@@ -121,7 +142,7 @@ public class Arbitro : MonoBehaviour
     private int NumeroEnCurso()
     {
         if (ContandoJugador) return NumeroJugador();
-        if (ContandoRival) return Mathf.Min(ultimoNumeroRival, Mathf.FloorToInt(segundosRival / segundosPorNumero) + 1);
+        if (ContandoRival) return esperandoPiso || segundosRival < 0f ? 0 : Mathf.Min(ultimoNumeroRival, Mathf.FloorToInt(segundosRival / segundosPorNumero) + 1);
         return 0;
     }
 
@@ -139,6 +160,8 @@ public class Arbitro : MonoBehaviour
         ultimoNumeroRival = Mathf.Clamp(oponente.Perfil.cuentaKnockdown, 1, NumerosPorCuenta);
         duracionRival = ultimoNumeroRival * segundosPorNumero;
         segundosRival = 0f;
+        esperandoPiso = true;
+        esperaCaida = 0f;
         ContandoRival = true;
         Callar();
         if (registrar) Debug.Log($"Réferi: cuenta a {oponente.Nombre} hasta {ultimoNumeroRival} ({duracionRival:F0} s)", this);

@@ -81,8 +81,9 @@ public class DebugSalud : MonoBehaviour
 
     private void Update()
     {
-        // Botón Y del mando izquierdo
-        if (OVRInput.GetDown(OVRInput.Button.Four, OVRInput.Controller.LTouch))
+        // Botón Y del mando izquierdo. Con el mando LTouch, Button.Four no corresponde a ningún botón (Y es Button.Two):
+        // por eso el panel no se podía mostrar. RawButton.Y es el botón físico, con cualquier máscara de control
+        if (OVRInput.GetDown(OVRInput.RawButton.Y))
             panel.SetActive(!panel.activeSelf);
     }
 

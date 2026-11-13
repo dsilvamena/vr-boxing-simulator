@@ -7,8 +7,11 @@ using UnityEngine;
 /// - En la cuenta del jugador se pone delante de él, a un lado del rival (como en el boceto del estado de knockout),
 ///   lo mira y muestra el cartel con los botones que hay que pulsar.
 /// - Fuera de los rounds (preparación, descanso, final) vuelve a su sitio inicial.
-/// Cada número que dice el Arbitro baja el brazo de golpe y lo vuelve a subir, como un réferi de verdad.
-/// No hay animación de caminar: se desliza, igual que el rival al volver a su sitio en el descanso.
+/// Cada número que dice el Arbitro baja el brazo de golpe y lo vuelve a subir, como un réferi de verdad: el brazo va
+/// con un muelle amortiguado, el antebrazo con retraso y el torso cabecea un poco. En la cuenta del rival el brazo
+/// sube cuando empieza la cuenta, con el rival ya tendido.
+/// Se desplaza acelerando y frenando; los pasos los da PasosProcedurales, en el objeto del Animator (no hay clip de
+/// caminar).
 /// El modelo (hijo Modelo, Referee.fbx) es Humanoid: con un Animator humanoide y brazoCuenta vacío, el gesto se hace
 /// girando el brazo derecho del esqueleto después de la animación, así que vale para cualquier rig humanoide. Con
 /// brazoCuenta asignado se gira ese transform en su eje X local (modelos sin esqueleto). El Animator recibe, si los tiene,
@@ -64,14 +67,16 @@ public class CuerpoArbitro : MonoBehaviour
     [SerializeField, Min(0.1f)] private float velocidadPelea = 0.8f;
     [Tooltip("Rapidez del giro")]
     [SerializeField, Min(0.1f)] private float velocidadGiro = 6f;
+    [Tooltip("Segundos aproximados para arrancar y frenar al desplazarse")]
+    [SerializeField, Min(0.01f)] private float tiempoAceleracion = 0.35f;
 
     [Header("Gesto de la cuenta")]
     [Tooltip("Ángulo del hombro con el brazo arriba, esperando el número (negativo = hacia delante y arriba)")]
     [SerializeField] private float anguloArriba = -150f;
     [Tooltip("Ángulo del hombro al marcar el número, con el brazo hacia delante")]
     [SerializeField] private float anguloAbajo = -75f;
-    [Tooltip("Segundos que tarda en bajar el brazo al decir el número")]
-    [SerializeField, Min(0.01f)] private float segundosBajar = 0.12f;
+    [Tooltip("Segundos que el brazo se queda abajo tras decir el número antes de volver a subir")]
+    [SerializeField, Min(0.01f)] private float segundosAbajo = 0.2f;
     [Tooltip("Segundos que tarda en volver a subirlo")]
     [SerializeField, Min(0.01f)] private float segundosSubir = 0.45f;
 
@@ -94,7 +99,12 @@ public class CuerpoArbitro : MonoBehaviour
     private float lado = 1f;          // lado elegido al empezar cada modo, para no saltar de uno a otro
     private bool siguiendoPelea;
     private float desdeNumero = 999f;  // segundos desde el último número; grande = sin gesto pendiente
-    private float anguloBrazo;
+    private float anguloBrazo;        // hombro: 0 = colgando, negativo = hacia delante y arriba
+    private float velocidadBrazo;
+    private float anguloAntebrazo;    // el antebrazo sigue al brazo con retraso (latigazo) y nunca se hiperextiende
+    private float velocidadAntebrazo;
+    private Vector3 velocidadMovimiento;
+    private Transform pecho, cabezaHueso;
     private Vector3 escalaCartel;
 
     // Esqueleto humanoide: el gesto se aplica sobre la pose animada, con un peso que sube al empezar la cuenta
@@ -134,6 +144,8 @@ public class CuerpoArbitro : MonoBehaviour
                 codo = animador.GetBoneTransform(HumanBodyBones.RightLowerArm);
                 mano = animador.GetBoneTransform(HumanBodyBones.RightHand);
                 if (codo == null || mano == null) hombro = null;
+                pecho = animador.GetBoneTransform(HumanBodyBones.UpperChest) ?? animador.GetBoneTransform(HumanBodyBones.Chest);
+                cabezaHueso = animador.GetBoneTransform(HumanBodyBones.Head);
             }
         }
         posicionInicial = transform.position;
@@ -170,8 +182,11 @@ public class CuerpoArbitro : MonoBehaviour
             if (distancia > zonaMuertaPelea) siguiendoPelea = true;
             else if (distancia < 0.05f) siguiendoPelea = false;
         }
+        // Arranca y frena como una persona (sin velocidad constante de golpe); los pies los pone PasosProcedurales
         if (modo != Modo.Pelea || siguiendoPelea)
-            transform.position = Vector3.MoveTowards(transform.position, destino, rapidez * Time.deltaTime);
+            transform.position = Vector3.SmoothDamp(transform.position, destino, ref velocidadMovimiento, tiempoAceleracion, rapidez);
+        else
+            velocidadMovimiento = Vector3.zero;
 
         Girar();
         Gesticular();
@@ -283,22 +298,29 @@ public class CuerpoArbitro : MonoBehaviour
         if (tieneContar) animador.SetTrigger(Contar);
     }
 
-    // Con cuenta: brazo arriba, y en cada número baja de golpe y vuelve a subir. Sin cuenta: brazo abajo
+    // Con cuenta: brazo arriba, y en cada número baja de golpe y vuelve a subir. Sin cuenta: brazo abajo.
+    // El brazo no sigue una curva fija sino un muelle amortiguado: baja rápido, se pasa un poco y se asienta; sube más
+    // despacio. El antebrazo sigue al brazo con su propio muelle, así que en la bajada se queda atrás y llega con un
+    // pequeño latigazo, y arriba queda el codo algo doblado, como un brazo de verdad.
     private void Gesticular()
     {
-        desdeNumero += Time.deltaTime;
+        float dt = Time.deltaTime;
+        desdeNumero += dt;
         bool contando = modo == Modo.CuentaJugador || modo == Modo.CuentaRival;
-        float objetivo;
-        if (!contando) objetivo = 0f;
-        else if (desdeNumero < segundosBajar) objetivo = Mathf.Lerp(anguloArriba, anguloAbajo, desdeNumero / segundosBajar);
-        else objetivo = Mathf.Lerp(anguloAbajo, anguloArriba, Mathf.SmoothStep(0f, 1f, (desdeNumero - segundosBajar) / segundosSubir));
+        // En la cuenta del rival el brazo sube cuando empieza la cuenta (el rival ya tendido), no mientras cae
+        bool brazoActivo = contando && (modo == Modo.CuentaJugador || arbitro.NumeroActual > 0);
+        bool bajando = brazoActivo && desdeNumero < segundosAbajo;
+        float objetivo = !brazoActivo ? 0f : bajando ? anguloAbajo : anguloArriba;
+        float frecuencia = bajando ? 4.5f : brazoActivo ? Mathf.Max(0.8f, 0.9f / segundosSubir) : 1.6f;
+        Muelle(ref anguloBrazo, ref velocidadBrazo, objetivo, frecuencia, bajando ? 0.6f : 0.9f, dt);
 
-        // Al empezar o terminar la cuenta el brazo sube o baja suave; dentro de la cuenta sigue el gesto tal cual
-        bool enGesto = contando && desdeNumero < segundosBajar + segundosSubir;
-        anguloBrazo = enGesto ? objetivo : Mathf.MoveTowards(anguloBrazo, objetivo, 400f * Time.deltaTime);
+        float abajo01 = Mathf.Clamp01(Mathf.InverseLerp(anguloArriba, anguloAbajo, anguloBrazo));
+        float flexion = brazoActivo ? Mathf.Lerp(25f, 6f, abajo01) : 10f;
+        Muelle(ref anguloAntebrazo, ref velocidadAntebrazo, anguloBrazo - flexion, 6f, 0.45f, dt);
+
         if (brazoCuenta != null) brazoCuenta.localRotation = Quaternion.Euler(anguloBrazo, 0f, 0f);
-        // El esqueleto no tiene una pose de reposo con el brazo recto: el gesto entra y sale por peso
-        pesoBrazo = Mathf.MoveTowards(pesoBrazo, contando ? 1f : 0f, 3f * Time.deltaTime);
+        // El esqueleto no tiene una pose de reposo con el brazo recto: el gesto entra y sale por peso, con suavidad
+        pesoBrazo = Mathf.MoveTowards(pesoBrazo, brazoActivo ? 1f : 0f, 2.5f * dt);
 
         if (tieneAgachado)
         {
@@ -315,15 +337,39 @@ public class CuerpoArbitro : MonoBehaviour
         }
     }
 
+    private static void Muelle(ref float x, ref float v, float objetivo, float frecuencia, float amortiguacion, float dt)
+    {
+        if (dt <= 0f) return;
+        float w = 2f * Mathf.PI * frecuencia;
+        // Dos subpasos: estable aunque baje la tasa de fotogramas
+        for (int i = 0; i < 2; i++)
+        {
+            float h = dt * 0.5f;
+            v += (w * w * (objetivo - x) - 2f * amortiguacion * w * v) * h;
+            x += v * h;
+        }
+    }
+
     // Después del Animator: el brazo derecho apunta en la dirección del gesto (el mismo ángulo que el hombro de un modelo
-    // sin esqueleto, medido desde el brazo colgando y girando hacia delante), recto del hombro a la mano
+    // sin esqueleto, medido desde el brazo colgando y girando hacia delante) y el antebrazo en la suya. El torso y la
+    // cabeza acompañan cada número con un pequeño cabeceo
     private void LateUpdate()
     {
         // También en la pausa: el Animator sigue escribiendo la pose aunque no avance
         if (hombro == null || pesoBrazo <= 0.001f) return;
-        Vector3 direccion = transform.rotation * (Quaternion.Euler(anguloBrazo, 0f, 0f) * Vector3.down);
-        Apuntar(hombro, codo.position, direccion, pesoBrazo);
-        Apuntar(codo, mano.position, direccion, pesoBrazo);
+        float peso = Mathf.SmoothStep(0f, 1f, pesoBrazo);
+        float abajo01 = Mathf.Clamp01(Mathf.InverseLerp(anguloArriba, anguloAbajo, anguloBrazo));
+        Vector3 derecha = transform.right;
+        if (pecho != null) pecho.rotation = Quaternion.AngleAxis(5f * abajo01 * peso, derecha) * pecho.rotation;
+        if (cabezaHueso != null) cabezaHueso.rotation = Quaternion.AngleAxis(7f * abajo01 * peso, derecha) * cabezaHueso.rotation;
+
+        // El codo solo se dobla hacia delante: el antebrazo nunca pasa al brazo (sin hiperextensión)
+        float antebrazo = Mathf.Min(anguloAntebrazo, anguloBrazo);
+        antebrazo = Mathf.Max(antebrazo, anguloBrazo - 70f);
+        Vector3 direccionBrazo = transform.rotation * (Quaternion.Euler(anguloBrazo, 0f, 0f) * Vector3.down);
+        Vector3 direccionAntebrazo = transform.rotation * (Quaternion.Euler(antebrazo, 0f, 0f) * Vector3.down);
+        Apuntar(hombro, codo.position, direccionBrazo, peso);
+        Apuntar(codo, mano.position, direccionAntebrazo, peso);
     }
 
     private static void Apuntar(Transform hueso, Vector3 hijo, Vector3 direccion, float peso)

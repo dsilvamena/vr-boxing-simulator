@@ -21,7 +21,7 @@ Duración estimada: **1 h 30 min** (15 min de preparación, 35 min de niveles, 3
   - `vrboxing_dev_sinmsaa.apk` (193,6 MB): el mismo APK de desarrollo con el MSAA de *Medium* a 0. Solo para la comparación de "Si no se cumple", sin tener que recompilar.
   - `vrboxing_release.apk` (172,8 MB): el mismo juego sin *Development* (MSAA 4×). Solo para la comparación del paso 5.
 
-  Los tres se generaron el 2026-11-13 desde el mismo código (commit `b5f824d` de `entrega5/sin-visor`: los cambios del visto bueno, los tiempos de adopción de RNF-03 en `RegistroSesion` y las correcciones del bloque L: zona segura, sin joystick, pasos de los personajes y réferi), con `CleanBuildCache`. Entre los dos de desarrollo solo cambia un byte de los ajustes de calidad (el MSAA). Si se regeneran para medir su tamaño, usar `CleanBuildCache`: una build incremental puede dejar huecos de varios MB dentro del APK.
+  Los tres se generaron el 2026-11-13 desde el mismo código (commit `733bb15` de `entrega5/sin-visor`: los cambios del visto bueno, los tiempos de adopción de RNF-03 en `RegistroSesion` y las correcciones del bloque L: zona segura, sin joystick, pasos de los personajes, réferi, barra de vida con Y y menú de pausa por delante del rival), con `CleanBuildCache`. Entre los dos de desarrollo solo cambia un byte de los ajustes de calidad (el MSAA). Si se regeneran para medir su tamaño, usar `CleanBuildCache`: una build incremental puede dejar huecos de varios MB dentro del APK.
 - `adb`: viene con Unity. Para no escribir la ruta entera:
 
   ```bash

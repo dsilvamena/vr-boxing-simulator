@@ -18,6 +18,13 @@ Todo lo que no necesita visor ni usuarios está hecho, y los problemas que viste
 
 Otras cosas que no se ven naturales y **no** corregí (las anoto para el bloque L): los pies de Soda en los ganchos (durante los ataques mandan los clips), y el esquive de los rivales sigue siendo un desplazamiento sin animación propia (ahora con pasos).
 
+## Segunda tanda (2026-11-13): video y barra de vida
+
+- **Video de demostración:** `Builds/Video/demo_simulador_boxeo.mp4` (7 min 11 s, 1280 × 720, 30 fps, con el audio del juego y subtítulos dibujados; los subtítulos también van en `demo_simulador_boxeo.srt`). Es una partida completa desde los ojos del jugador: menú y opciones; nivel 1 con bloqueo, esquive, los cuatro tipos de golpe, dos cuentas del réferi y K.O.; nivel 2 con la barra de vida, golpes recibidos, derrota por K.O. y reintento ganado; nivel 3 con combo bloqueado, pausa, aviso del Guardián y victoria por salud; nivel 4 con esquives del rival, fin de round, descanso, round 2 y *button mashing*; nivel 5 con el combo de Tyson, K.O. y el cinturón. Lo juega y lo graba `DirectorVideo` (solo Editor); para regenerarlo, `docs/Video_Demo.md`. **Ojo:** el jugador es simulado y los combates están acortados (antes de cada golpe se baja la salud del rival hasta cerca de su siguiente caída); está grabado en el Editor, no en el Quest. Está fuera del repositorio (`Builds/`).
+- **La barra de vida no aparecía:** el botón Y se leía mal desde que se rediseñó el panel (`Button.Four` con el mando izquierdo no es ningún botón). Ahora sale con Y. Sigue oculta al empezar, porque RF-14 pide combate sin HUD; si la quieres visible desde el inicio, es el campo `visibleAlInicio` de `DebugSalud` en el rig de cada pelea.
+- **Fallo encontrado al grabar:** el menú de pausa y el aviso "VUELVE AL ÁREA SEGURA" quedaban detrás del rival (se ponían a 1,5 m y el rival está a 1 m). Ahora se acercan, se encogen en proporción y se dibujan encima de todo.
+- APK regenerados con todo (commit `733bb15`).
+
 ## Lo que pedía la tarea original
 
 1. **Pruebas HEART (bloque K):** el juego guarda el tiempo hasta la primera guardia y el primer golpe conectado (RNF-03); `docs/Protocolo_HEART.md` (guion completo), cuestionario, hoja de observación y plantillas en `docs/heart/`, y `Tools/tabla_heart.py`, que lo junta todo por participante y dice si se cumplen RNF-03 y RNF-05.
@@ -41,7 +48,7 @@ Otras cosas que no se ven naturales y **no** corregí (las anoto para el bloque 
 | `vrboxing_dev_sinmsaa.apk` | 193,6 MB | Comparar FPS sin MSAA |
 | `vrboxing_release.apk` | 172,8 MB | Comparar con la build sin *Development* |
 
-Los tres son del commit `b5f824d` (con todas las correcciones), paquete `com.utec.vrhola`, nombre "Simulador de Boxeo RV", solo Quest 2. **Los APK que tenías antes no traen las correcciones de la zona segura ni de las animaciones: instala estos.**
+Los tres son del commit `733bb15` (con todas las correcciones, también la barra de vida y el menú de pausa), paquete `com.utec.vrhola`, nombre "Simulador de Boxeo RV", solo Quest 2. **Los APK que tenías antes no traen las correcciones de la zona segura ni de las animaciones: instala estos.**
 
 ## Decisiones que tomé (revísalas)
 
@@ -99,6 +106,9 @@ c25ec89 Añadir capturas de la viñeta con poca salud y en la cuenta del jugador
 9082389 Preparar el informe de la semana 14 con la sección del entregable 5
 aa8fda9 Documentar en Entrega5 los bloques K, L y M y lo nuevo del bloque J
 2a9a320 Actualizar CLAUDE.md con lo de la entrega 5 sin visor y las correcciones del visor
+9067c92 Añadir el resumen del trabajo sin visor de la entrega 5
+6565242 Arreglar el botón Y que muestra la barra de vida de prueba
+065a059 Poner el menú de pausa por delante del rival y del réferi
+225122e Añadir DirectorVideo para grabar el video de demostración
+733bb15 Documentar la barra de vida, el menú de pausa y el video de demostración
 ```
-
-(más el commit de este resumen)

@@ -532,13 +532,13 @@ El APK baja mucho menos que los 101 MiB de datos que se quitaron porque el zip d
 
 **APK sin MSAA.** `Builds/Android/vrboxing_dev_sinmsaa.apk` es el APK de desarrollo con `antiAliasing` = 0 en la calidad *Medium*, para comparar en el visor sin recompilar (`docs/Protocolo_Rendimiento.md`, "Si no se cumple"). Se genera poniendo 0 en *Medium* solo para la build y devolviéndolo a 4 (`git diff ProjectSettings/` queda vacío). Entre los dos APK de desarrollo solo cambia un byte de `globalgamemanagers` (4 → 0). `aapt2`: paquete `com.utec.vrhola`, etiqueta "Simulador de Boxeo RV", `quest2`, depurable. No sustituye a `vrboxing_dev.apk`.
 
-Los tres APK se regeneraron el 2026-11-13 desde el mismo código (commit `b5f824d`, con las correcciones del bloque L), con `CleanBuildCache`:
+Los tres APK se regeneraron el 2026-11-13 desde el mismo código (commit `733bb15`, con todas las correcciones del bloque L, incluidas la barra de vida y el menú de pausa), con `CleanBuildCache`:
 
 | APK | Tamaño | Build |
 |---|---|---|
-| `vrboxing_dev.apk` (MSAA 4×) | 193 592 797 B (193,6 MB) | 2 min 12 s, 0 errores, 1 aviso (el del Pipeline) |
-| `vrboxing_dev_sinmsaa.apk` | 193 592 805 B (193,6 MB) | 2 min 44 s, ídem |
-| `vrboxing_release.apk` (MSAA 4×, sin *Development*) | 172 752 190 B (172,8 MB) | 2 min 20 s, ídem |
+| `vrboxing_dev.apk` (MSAA 4×) | 193 591 281 B (193,6 MB) | 2 min 11 s, 0 errores, 1 aviso (el del Pipeline) |
+| `vrboxing_dev_sinmsaa.apk` | 193 591 281 B (193,6 MB) | 2 min 49 s, ídem |
+| `vrboxing_release.apk` (MSAA 4×, sin *Development*) | 172 752 542 B (172,8 MB) | 2 min 29 s, ídem |
 
 **Herramientas de recortes (Tools > Boxeo > Rendimiento).** `Assets/Editor/RecortesRendimiento.cs` aplica y deshace con un clic los tres primeros recortes de la lista; ninguno está aplicado.
 

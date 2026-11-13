@@ -51,7 +51,7 @@ Guía y anotador no hablan entre ellos de lo que hace el participante mientras j
 ## Material
 
 - Meta Quest 2 cargado y conectado al cargador entre participantes; controles con pilas nuevas y correas de muñeca.
-- **El APK de desarrollo generado desde la rama `entrega5/sin-visor`** (`Builds/Android/vrboxing_dev.apk`, 2026-11-11), que ya guarda los tiempos de adopción. El APK anterior no los tiene: con él, el script usa solo el cronómetro. El de desarrollo deja editar los PlayerPrefs con `run-as`.
+- **El APK de desarrollo generado desde la rama `entrega5/sin-visor`** (`Builds/Android/vrboxing_dev.apk`, 2026-11-13), que ya guarda los tiempos de adopción y trae la pausa del Guardián corregida y sin locomoción por joystick. El APK anterior no los tiene: con él, el script usa solo el cronómetro. El de desarrollo deja editar los PlayerPrefs con `run-as`.
 - Cable USB-C de datos y el Mac con `adb` (ver `docs/Protocolo_Rendimiento.md`, "Material").
 - **Transmisión** de lo que ve el participante: app Meta Horizon en un teléfono (*Transmitir*) o la web de transmisión de Meta en un portátil. Solo para mirar: **no se graba**.
 - Un cronómetro con vueltas (el del teléfono del anotador).

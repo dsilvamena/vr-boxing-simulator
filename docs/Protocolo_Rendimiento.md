@@ -19,9 +19,9 @@ Duración estimada: **1 h 30 min** (15 min de preparación, 35 min de niveles, 3
 - El Mac con el repositorio en la rama `entrega5/sin-visor` y los APK de `Builds/Android/`:
   - `vrboxing_dev.apk` (193,6 MB): *Development Build*, MSAA 4×. Es el que se usa en todo el protocolo (deja depurar con `adb` y sacar el `logcat` completo).
   - `vrboxing_dev_sinmsaa.apk` (193,6 MB): el mismo APK de desarrollo con el MSAA de *Medium* a 0. Solo para la comparación de "Si no se cumple", sin tener que recompilar.
-  - `vrboxing_release.apk` (172,7 MB): el mismo juego sin *Development* (MSAA 4×). Solo para la comparación del paso 5.
+  - `vrboxing_release.apk` (172,8 MB): el mismo juego sin *Development* (MSAA 4×). Solo para la comparación del paso 5.
 
-  Los tres se generaron el 2026-11-11 desde el mismo código (commit `4009aed` de `entrega5/sin-visor`: los cambios del visto bueno más los tiempos de adopción de RNF-03 en `RegistroSesion`), con `CleanBuildCache`. Entre los dos de desarrollo solo cambia un byte de los ajustes de calidad (el MSAA). Si se regeneran para medir su tamaño, usar `CleanBuildCache`: una build incremental puede dejar huecos de varios MB dentro del APK.
+  Los tres se generaron el 2026-11-13 desde el mismo código (commit `b5f824d` de `entrega5/sin-visor`: los cambios del visto bueno, los tiempos de adopción de RNF-03 en `RegistroSesion` y las correcciones del bloque L: zona segura, sin joystick, pasos de los personajes y réferi), con `CleanBuildCache`. Entre los dos de desarrollo solo cambia un byte de los ajustes de calidad (el MSAA). Si se regeneran para medir su tamaño, usar `CleanBuildCache`: una build incremental puede dejar huecos de varios MB dentro del APK.
 - `adb`: viene con Unity. Para no escribir la ruta entera:
 
   ```bash
@@ -158,6 +158,9 @@ Una sola ejecución del juego, sin cerrarlo, de al menos 30 minutos de reloj:
 3. Durante la sesión, una vez cada cosa, y anotar la hora:
    - Pausar con el botón *Menú* del control izquierdo, esperar 20 s y reanudar.
    - Salir del área del Guardián: debe salir "VUELVE AL ÁREA SEGURA" y la pausa; volver y comprobar que el juego sigue.
+   - **Zona segura corregida (bloque L)**: empezar un combate a 0,5 m del centro del área y moverse por ella sin salir: **no** debe salir el aviso. Recentrar (mantener pulsado el botón Meta) y repetir. Redibujar el Guardián desde el menú del Quest y volver: el aviso debe salir solo al salir del área nueva. Si saliera estando dentro, pulsar REANUDAR: el juego deja de usar la geometría y debe seguir (anotarlo: es un fallo que hay que mirar en el `logcat`, que dice "se deja de usar la geometría del Guardián").
+   - Comprobar que los sticks **no** mueven ni giran al jugador (RNF-04).
+   - Mirar a los personajes: el rival y el réferi dan pasos al desplazarse (no se deslizan), el réferi marca la cuenta con un gesto suelto y empieza a contar cuando el rival ya está tendido.
    - Quitarse el visor 15 s y volver a ponérselo: el juego debe pausarse y seguir.
    - Volver al menú principal desde la pausa y entrar a otro nivel.
 4. Al pasar los 30 minutos, terminar el combate en curso, volver al menú y anotar la hora, la batería y la temperatura.

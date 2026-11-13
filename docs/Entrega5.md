@@ -527,3 +527,144 @@ El APK baja mucho menos que los 101 MiB de datos que se quitaron porque el zip d
 | `PruebaAtaques` en los dos niveles | OK: `Conectado`, `Esquivado`, `Bloqueado` |
 | *Probar: ganar el combate* en el nivel 5 | OK: `VictoriaPorKO` y `Scene_Results` |
 | Consola | 0 errores; solo los avisos conocidos de OpenXR y OVRPlugin del simulador (`GetBoundaryGeometry` incluido) |
+
+### Lo que se añadió después, sin visor (rama `entrega5/sin-visor`)
+
+**APK sin MSAA.** `Builds/Android/vrboxing_dev_sinmsaa.apk` es el APK de desarrollo con `antiAliasing` = 0 en la calidad *Medium*, para comparar en el visor sin recompilar (`docs/Protocolo_Rendimiento.md`, "Si no se cumple"). Se genera poniendo 0 en *Medium* solo para la build y devolviéndolo a 4 (`git diff ProjectSettings/` queda vacío). Entre los dos APK de desarrollo solo cambia un byte de `globalgamemanagers` (4 → 0). `aapt2`: paquete `com.utec.vrhola`, etiqueta "Simulador de Boxeo RV", `quest2`, depurable. No sustituye a `vrboxing_dev.apk`.
+
+Los tres APK se regeneraron el 2026-11-13 desde el mismo código (commit `b5f824d`, con las correcciones del bloque L), con `CleanBuildCache`:
+
+| APK | Tamaño | Build |
+|---|---|---|
+| `vrboxing_dev.apk` (MSAA 4×) | 193 592 797 B (193,6 MB) | 2 min 12 s, 0 errores, 1 aviso (el del Pipeline) |
+| `vrboxing_dev_sinmsaa.apk` | 193 592 805 B (193,6 MB) | 2 min 44 s, ídem |
+| `vrboxing_release.apk` (MSAA 4×, sin *Development*) | 172 752 190 B (172,8 MB) | 2 min 20 s, ídem |
+
+**Herramientas de recortes (Tools > Boxeo > Rendimiento).** `Assets/Editor/RecortesRendimiento.cs` aplica y deshace con un clic los tres primeros recortes de la lista; ninguno está aplicado.
+
+| Menú | Qué cambia | Comprobado |
+|---|---|---|
+| *Recorte 1: quitar sombras (salvo la direccional)* | `Shadow Type` = *No Shadows* en las luces no direccionales de las 7 escenas: 231 luces (33 por escena, 24 activas) | Aplicar: solo cambian 33 líneas `m_Type: 2 → 0` por escena. Deshacer: `git diff` vacío |
+| *Recorte 2: Mipmap Limit 1 en Medium* | `globalTextureMipmapLimit` 0 → 1 en *Medium* | Aplicar: una línea de `QualitySettings.asset`. Deshacer: `git diff` vacío |
+| *Recorte 3: foveación fija al iniciar* | Añade `FoveacionFija` (nivel *High*, fijo) al objeto de `OVRManager` de las 7 escenas | Aplicar: el componente como *added component* del prefab del rig. Deshacer: `git diff` vacío. En el Editor el componente dice "este dispositivo no admite foveación; no se cambia nada" |
+| *Deshacer recorte 1 / 2 / 3*, *Ver recortes aplicados* | Devuelve cada ajuste a su valor anterior exacto; escribe en la consola qué hay aplicado y el MSAA | |
+
+Lo aplicado se apunta en `ProjectSettings/RecortesRendimiento.json` (GlobalObjectId de cada luz con su sombra anterior, el mipmap anterior, las escenas con foveación); el archivo se borra cuando no queda nada aplicado. Si un recorte se queda, se hace commit de las escenas o ajustes y de ese archivo juntos. `FoveacionFija` no está en ninguna escena: es el "componente inerte" del recorte 3 (usa `OVRManager.foveatedRenderingLevel`, con la función Meta XR Foveation de OpenXR que ya estaba activada).
+
+**Verificación sin visor de RNF-04, RNF-06 y RNF-07** (Play con el Meta XR Simulator y arnés en `onBeforeRender`):
+
+| Requisito | Prueba | Resultado |
+|---|---|---|
+| RNF-04 (sin teletransporte ni joystick) | Componentes de las 7 escenas | Ningún teletransporte ni `CharacterController`. **`DebugLocomotion` estaba activo en las cinco peleas y en el APK** (joystick para moverse y girar): desde el bloque L solo funciona en el Editor |
+| RNF-06 (1,5 × 1,5 m y Guardián) | Área simulada de 1,5 × 1,5 m centrada en el origen del tracking; cabeza quieta en el centro | El rival se acerca a 1,15 m y ataca (4 ataques, todos bloqueados), sin pausa: se juega sin moverse. A 0,6 m del centro sigue; a 0,7 m (5 cm del borde, margen 0,1 m) pausa con "VUELVE AL ÁREA SEGURA"; al volver a 0,3 m se reanuda; lo mismo a −0,7 m |
+| RNF-07 (≥ 95 % de impactos) | 91 golpes por física del guante derecho contra la hitbox de la cabeza de Glass Joe (radio 0,169 m; guante ~0,07 m), con trayectoria de mínimo jerk, 7 rapideces pico (1 a 12 m/s) y desvío al azar respecto al centro; 70 pasan por dentro de la hitbox y 21 la rozan | **68 de 70 detectados (97,1 %)**: 10/10 de 1 a 8 m/s, 9/10 a 10 y a 12 m/s (los dos fallos, a 0,148 y 0,137 m del centro, cerca del borde). Los 21 roces también se detectaron (conectado o bloqueado). El Editor iba a 44–72 fps. La causa de los dos fallos no se confirmó (lo más probable: el filtro de dirección de `Puno` con pasos grandes) |
+
+## Bloque K (preparación sin visor): pruebas HEART (RNF-03, RNF-05, RF-21)
+
+Todo lo necesario para la sesión con usuarios, sin usuarios. El guion está en `docs/Protocolo_HEART.md`.
+
+### Medidas de adopción (RNF-03) en `RegistroSesion`
+
+| Campo | Dónde | Definición |
+|---|---|---|
+| `segundosHastaGuardia` | Cada combate (JSON y CSV) | Segundos de juego desde la primera campana de ese combate hasta que el jugador sube las dos manos a la posición de bloqueo (`SaludJugador.EnGuardia`: a menos de 0,4 m de los ojos y por delante) y las mantiene **0,5 s seguidos**; el valor es el momento en que las subió. 0 si ya estaba en guardia al sonar la campana; −1 si no ocurrió |
+| `segundosHastaGolpeConectado` | Cada combate | Segundos desde la primera campana hasta el primer golpe que **conecta** (`Oponente.AlRecibirGolpe`; ni bloqueado ni esquivado); −1 si no ocurrió |
+| Los mismos dos campos | La sesión (`DatosSesion`) | Igual, pero en tiempo de combate acumulado desde la primera campana de la sesión: se suman los segundos (desde su campana hasta su final) de los combates anteriores al primero en que ocurrió. Es el valor que usa RNF-03, porque una persona puede abandonar o perder y volver a empezar |
+
+El reloj es el de `segundosCombate`: tiempo escalado (las pausas no cuentan, los descansos sí). Solo se escucha lo que ya existía: `EnGuardia` se lee en `Update` hasta que ocurre. En `combates.csv` son dos columnas nuevas al final; un CSV viejo amplía su cabecera sin tocar sus filas.
+
+**Pruebas (Play, nivel 1, arnés):** manos abajo hasta 3 s tras la campana, en guardia después y un golpe por física a los 5 s → `segundosHastaGuardia` = 3,031 y `segundosHastaGolpeConectado` = 5,216 en el combate y en la sesión; el combate terminó con *ganar el combate*. El CSV del Editor tenía la cabecera de 33 columnas: quedó con 35, las dos filas viejas iguales (`diff`), y la nueva con 35 campos. Segunda sesión: un combate sin guardia abandonado a los 13,95 s y un reintento con guardia a los 2,055 s y golpe a los 4,232 s → sesión 16,004 y 18,18 s (= 13,949 + combate), combates −1/−1 y 2,055/4,232.
+
+### Instrumentos
+
+| Archivo | Qué es |
+|---|---|
+| `docs/Protocolo_HEART.md` | Guion: participantes (5 a 8 novatos), roles, consentimiento verbal, qué se dice y qué no, cronómetro de respaldo, partes A (nivel 1 libre), B (seguir), C (nivel 4: combos y esquive), `adb pull`, tablas para rellenar y qué hacer si no se cumple |
+| `docs/heart/Cuestionario_post_prueba.md` | Likert 1–5: Happiness (H1–H4), cinetosis en positivo (C1–C3, RNF-05), Retention (R1–R2) y tres preguntas abiertas |
+| `docs/heart/Hoja_observacion.md` | Una por participante: perfil, cronómetro, cuenta del réferi, roce del esquive, combos, continuación voluntaria, incidencias |
+| `docs/heart/observacion_plantilla.csv`, `cuestionario_plantilla.csv` | Plantillas para pasar las hojas (coma o punto y coma) |
+| `Tools/tabla_heart.py` | Sin dependencias. Cruza por participante los `sesion_*.json` (o `combates.csv`), la hoja y el cuestionario, y escribe en Markdown la tabla por participante, la tabla HEART, el veredicto de RNF-03 y RNF-05 y el resumen de observaciones. Avisa si falta una sesión o si registro y cronómetro difieren más de 10 s |
+
+**Decisiones:**
+
+- **Golpe válido = conectado.** Un golpe que el rival bloquea no cuenta para RNF-03, aunque esté bien lanzado; el cronómetro ("toca al rival") lo deja ver si pasa a menudo.
+- **Medida por sesión además de por combate**, por lo dicho arriba.
+- **Novato:** 3 usos de RV o menos y nunca un juego de boxeo o fitness en RV. Los no novatos juegan, pero no cuentan para RNF-03.
+- **Retention adaptada:** las sesiones en segunda y tercera semana no se pueden medir en la semana 14. Se mide la intención (R1 "Me gustaría volver a jugar" ≥ 4, y R2) y la continuación voluntaria (se le ofrece parar y se anota si sigue). Se presenta como intención en el informe.
+- **El menú sí se explica** (es RF-17, no RNF-03): "apuntas con el láser y eliges con el gatillo; JUGAR y NIVEL 1".
+- **Sin nombres:** códigos P01, P02... y consentimiento verbal marcado en la hoja; `datos_heart/` (y `datos_visor/`) están en `.gitignore`.
+
+**Pruebas de `tabla_heart.py`:** con datos sintéticos de 6 participantes generados en el scratchpad (JSON con campos de sesión; uno sin los campos, como un APK viejo; un no novato; uno que no cumple; separador `;` y coma decimal; un cuestionario sin hoja), con solo `combates.csv` (reconstruye el valor de sesión sumando combates) y con `docs/ejemplos` (sin campos de adopción: usa el cronómetro). Los cálculos coinciden con los esperados (p. ej. 60 s del combate abandonado + 25 s = 85 s). Con la plantilla vacía sale con "No hay participantes".
+
+### Pendiente con visor y usuarios
+
+- La sesión con usuarios siguiendo `docs/Protocolo_HEART.md`, después de la de rendimiento y con el APK de desarrollo regenerado (trae los campos de adopción).
+- Pegar en este documento y en el informe la salida de `Tools/tabla_heart.py` y la lista priorizada de problemas.
+
+## Bloque L (correcciones tras probar en el visor)
+
+El usuario probó el juego en el Quest y encontró problemas de la zona segura y de naturalidad de los personajes. Se corrigieron sin visor; **hay que validarlos en el visor**.
+
+### Pausa del Guardián que avisaba estando dentro (RF-20)
+
+**Síntoma:** al moverse un poco salía "VUELVE AL ÁREA SEGURA" estando en el área, no se quitaba ni moviéndose con el joystick y tampoco al redibujar el Guardián.
+
+**Causa:** el rig usa el origen *Floor Level* (con OpenXR, `LOCAL_FLOOR`: el origen es donde estaba el visor al arrancar o al recentrar), pero con OpenXR el `PlayArea` de `OVRBoundary.GetGeometry` es el rectángulo del espacio *Stage*, centrado en el centro del área dibujada. Si el jugador no empezaba justo en el centro, o recentraba, el rectángulo quedaba desplazado o girado respecto a la cabeza. Además el área se leía solo al empezar la escena, y si la pausa saltaba en falso no había salida (al cerrarla volvía a abrirse). El joystick no podía ayudar: mueve el rig, no la cabeza dentro del espacio de tracking.
+
+**Corrección (`PausaGuardian`):**
+
+- Si los puntos vienen centrados en el origen (la forma de la geometría en *Stage*), se pasan al espacio de tracking con `OVRPlugin.GetTrackingTransformRelativePose(Stage)`, la misma conversión que usa la SDK de Meta (`stageToLocalPose`). Si ya vinieran en tracking, no se tocan.
+- El área se vuelve a leer al recuperar el foco (al volver del menú del Quest tras redibujar el Guardián), al recentrar (`OVRDisplay.RecenteredPose`) y cada 2 s.
+- Hace falta estar fuera 0,25 s seguidos para pausar, y para reanudar volver 5 cm más adentro (sin parpadeo en el borde).
+- **Válvula de seguridad:** si el jugador pulsa REANUDAR mientras el juego cree que está fuera, se deja de usar la geometría hasta cerrar la app (aviso en la consola). El Guardián del propio Quest sigue avisando, y la pausa por foco y por quitarse el visor sigue activa.
+- En el Editor ya no se pide la geometría al simulador (era la causa del aviso `GetBoundaryGeometry` y de pausas en falso en las pruebas); se usa `simularAreaEnEditor` o los menús de prueba.
+
+**Prueba (Editor):** con un área "equivocada" lejos del jugador, pausa con el aviso a los 0,25 s; al llamar a `PauseMenu.Hide` (lo que hace REANUDAR) el juego sigue y la geometría queda descartada. La prueba de RNF-06 de arriba (área de 1,5 × 1,5 m) se hizo con la versión anterior; la lógica de "dentro/fuera" no cambió.
+
+### Locomoción con joystick (RNF-04)
+
+`DebugLocomotion` (mover con el stick izquierdo y girar con el derecho) estaba activo en las cinco peleas y en el APK. Ahora se desactiva solo fuera del Editor. En el visor el desplazamiento es únicamente físico.
+
+### Pasos de los personajes (no se deslizan)
+
+No hay clips de caminar en el proyecto (tampoco de Glass Joe: se desliza despacio). Con un clip fijo se seguirían deslizando al ir de lado, girar o esquivar, así que se hizo un componente de pasos procedurales.
+
+`PasosProcedurales` (en el objeto del Animator de los cinco rivales y del réferi; lo pone *Tools > Boxeo > Poner pasos procedurales*, que también activó el IK Pass de `Referee.controller`):
+
+- Solo actúa **mientras el cuerpo se desplaza o gira** (más de 0,12 m/s o 25 °/s). Cada pie se queda clavado en la lona con IK; cuando el cuerpo se aleja de él más de 0,12 m (o gira más de 30°), da un paso en arco (7 cm de alto) hasta su sitio, adelantado según la velocidad. Los pies se turnan; en un movimiento brusco (esquive) van los dos.
+- Con el cuerpo quieto da un último paso para dejar la postura limpia y suelta la IK: manda la animación (incluido el balanceo del idle).
+- La postura (dónde van los pies respecto a la raíz) se lee de los huesos con la IK apagada, así que cada personaje conserva la suya.
+- En los rivales solo en `Idle` (en ataques, reacciones y caídas manda el clip); en el réferi, siempre.
+- **Lección:** dentro de `OnAnimatorIK`, `Animator.GetIKPosition` devuelve el objetivo del fotograma anterior aunque el peso sea 0, no la pose animada. La primera versión leía de ahí y el arco de cada paso se acumulaba (los pies del réferi subieron 48 cm en ~30 pasos: quedaba en cuclillas). `DefensaOponente` usa el mismo patrón para las manos; funciona porque su desfase se borra durante la subida, pero conviene tenerlo en cuenta.
+
+**Prueba (Play):** rival y réferi dan un paso cada 0,3–0,4 s mientras se desplazan; la altura de los pies se mantiene (0,06–0,2 m del tobillo sobre la lona, más el arco), sin derivas; con el cuerpo quieto el peso de la IK vuelve a 0. Capturas revisadas a mano: zancada al caminar, de pie al contar.
+
+### Réferi
+
+- **La cuenta del rival espera a que esté tendido.** Antes el 1 sonaba en el instante de la caída, mientras el clip de `Knockdown` aún lo tiraba (llega al piso a los 1,6 s). Ahora `Arbitro` espera a `ReaccionAnimada.EnElPiso` (o 2,5 s como mucho, o 1 s sin `ReaccionAnimada`) más `pausaAntesDeContar` (0,5 s). Mientras, el round sigue esperando (`CuentaEnMarcha`) y el réferi va hacia el rival. Prueba: caída a 83,67 s y 1 a 85,80 s (2,1 s), los diez números con el rival en el piso, un número por segundo.
+- **Gesto de la cuenta natural.** Antes: brazo recto que bajaba en línea recta en 0,12 s. Ahora el ángulo del hombro es un muelle amortiguado (bajada a 4,5 Hz con amortiguación 0,6: rápida, se pasa unos grados y se asienta; subida más lenta), el antebrazo tiene su propio muelle (llega con retraso, como un látigo) con el codo algo doblado arriba (25°) y casi recto abajo (6°), sin hiperextensión, y el pecho y la cabeza cabecean 5° y 7° con cada número. En la cuenta del rival el brazo se levanta cuando empieza la cuenta. El campo `segundosBajar` pasó a `segundosAbajo` (0,2 s que el brazo se queda abajo).
+- **Desplazamiento:** `SmoothDamp` (acelera y frena, ~0,35 s) en lugar de velocidad constante; con los pasos procedurales.
+
+### Otros puntos revisados
+
+- **Esquive de los rivales:** sigue siendo un desplazamiento del transform (no hay clip), pero ahora con pasos.
+- **Pies de Soda en los ganchos** (pendiente del 70 %): no se tocó; los pasos no actúan durante los ataques. Revisar en el visor.
+
+### Pendiente con visor
+
+- La pausa del Guardián: empezar lejos del centro del área, recentrar (mantener el botón Meta) y redibujar el Guardián; no debe salir el aviso estando dentro, y sí al salir.
+- Que los pasos y el gesto del réferi se vean naturales a escala real, y que los pies no atraviesen la lona en Sandman y Tyson (`ApoyoEnSuelo` corre después).
+
+## Bloque M (adelantado): informe final
+
+- **`docs/informe/Informe_SimuladorBox_Semana_14.tex`**: copia del de la semana 13 con portada del entregable 5 y copias propias de las secciones que cambian (`s01_05_..._s14.tex`, `s06_08_..._s14.tex`), para no tocar el de la semana 13. Sección nueva `secciones/s12_entregable5.tex` (mismo formato que la 11): Tyson, resultados y cinturón, rendimiento, HEART, correcciones, registro, comparación con los bocetos y verificación.
+- **`\pendiente{...}`**: macro en rojo que además cuenta: la portada dice "BORRADOR: quedan N datos pendientes" y cada uno avisa al compilar. Hoy quedan **32**. No se hace commit del PDF mientras haya alguno.
+- **Trazabilidad (8.3)** con el estado de la semana 14 y una tabla nueva para los RNF con su evidencia; **Gantt** con columna de estado, gris para lo que espera al visor y una fila para las correcciones.
+- **Nota del profesor, p. 7 ("EL ARCO DE ACUERDO A LA TEORIA VISTO EN CLASE")**: en la semana 12 el arco solo tenía detonante, acción ascendente y clímax. La tabla de la pirámide de Freytag de la semana 13 ya lo completa (las seis etapas); en la semana 14 se añadió además la pirámide dibujada (TikZ) con los niveles sobre la curva.
+- **Nota del profesor, p. 13 ("No se ve en el informe")**, junto a la tabla del boceto del knockout: los elementos del knockout no se veían implementados (la captura de la cuenta de la semana 13 no mostraba la viñeta). La sección 12.8 compara los dos bocetos elemento por elemento con dos capturas nuevas (`16_salud_baja_combate.png` y `17_cuenta_con_vineta.png`: la viñeta solo se ve con `capture_game_view --source camera`, recortada al campo de un ojo, porque su lienzo de 0,9 m a 0,3 m del ojo cubre el campo del visor pero no el de una captura 16:9) y una gráfica del ritmo del latido según la salud.
+- **Versión de Unity:** en el informe de la semana 13 (sin commit, cambio del usuario del 2026-11-11) "Unity 6" pasó a "Unity 2022 LTS"; la semana 14 sigue ese criterio.
+- Compila con `latexmk -xelatex` sin errores (55 páginas); se compiló en el scratchpad para no dejar `.aux` en el repositorio.
+
+### Pendiente con visor
+
+Rellenar los 32 `\pendiente` con los datos del visor y de las pruebas HEART, compilar y entonces sí subir el PDF.

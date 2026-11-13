@@ -4,7 +4,8 @@ using UnityEngine;
 /// <summary>
 /// Solo para debug: mueve el OVRCameraRig con el joystick izquierdo, relativo a hacia dónde mira la cabeza,
 /// y gira con el joystick derecho (giro por pasos, más cómodo sentado).
-/// Útil para probar sentado. Desactívalo (o quita el componente) antes de publicar.
+/// Útil para probar sentado en el Editor (Meta XR Simulator). Fuera del Editor se desactiva solo: RNF-04 pide
+/// desplazamiento exclusivamente físico, sin joystick ni teletransporte, así que en el visor no mueve ni gira nada.
 /// </summary>
 public class DebugLocomotion : MonoBehaviour
 {
@@ -24,6 +25,12 @@ public class DebugLocomotion : MonoBehaviour
     private TextMeshPro textoDiagnostico;
 
     private void Reset() => rig = GetComponent<OVRCameraRig>();
+
+    private void Awake()
+    {
+        // RNF-04: en el visor el desplazamiento es solo físico
+        if (!Application.isEditor) enabled = false;
+    }
 
     private void Start()
     {

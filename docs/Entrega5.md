@@ -645,6 +645,18 @@ No hay clips de caminar en el proyecto (tampoco de Glass Joe: se desliza despaci
 - **Gesto de la cuenta natural.** Antes: brazo recto que bajaba en línea recta en 0,12 s. Ahora el ángulo del hombro es un muelle amortiguado (bajada a 4,5 Hz con amortiguación 0,6: rápida, se pasa unos grados y se asienta; subida más lenta), el antebrazo tiene su propio muelle (llega con retraso, como un látigo) con el codo algo doblado arriba (25°) y casi recto abajo (6°), sin hiperextensión, y el pecho y la cabeza cabecean 5° y 7° con cada número. En la cuenta del rival el brazo se levanta cuando empieza la cuenta. El campo `segundosBajar` pasó a `segundosAbajo` (0,2 s que el brazo se queda abajo).
 - **Desplazamiento:** `SmoothDamp` (acelera y frena, ~0,35 s) en lugar de velocidad constante; con los pasos procedurales.
 
+### Barra de vida de prueba (`DebugSalud`)
+
+El usuario notó que "ya no aparece". Está en las cinco peleas, oculta al empezar (`visibleAlInicio` = 0, por RF-14: sin HUD), en un panel fijo a la izquierda del jugador, y se muestra con el botón Y del mando izquierdo. Pero leía `OVRInput.GetDown(Button.Four, Controller.LTouch)`, y con un mando individual `Button.Four` no corresponde a ningún botón (Y es `Button.Two`; `Four` solo existe en el mando combinado `Touch`), así que desde el rediseño del panel no se podía mostrar. Ahora lee `RawButton.Y`, el botón físico. Sigue oculta por defecto; pulsar Y también cuenta como pulsación en la cuenta del réferi (no molesta). Se ve en el video de demostración (nivel 2).
+
+### Menú de pausa tapado por el rival
+
+Al grabar el video se vio que el menú de pausa, y con él el aviso "VUELVE AL ÁREA SEGURA", se colocaba a 1,5 m delante de la cabeza, mientras que el rival suele estar a 1 m: quedaba detrás de él. Ahora `PauseMenu` mira si el rival o el réferi están delante (cono de 50°) más cerca que 1,5 m y entonces pone el menú 0,35 m delante de ellos, como mucho a `minDistance` (0,7 m), y lo encoge en la misma proporción, así que se ve igual de grande. Como aun así los guantes del rival en guardia (a ~0,6 m del jugador) lo tapaban, el menú se dibuja **siempre encima** (copias de sus materiales con `unity_GUIZTestMode` = *Always*; con `SetInt` la propiedad no se guarda porque el shader no la declara, hay que usar `SetFloat`). Comprobado en Play con Soda delante: el aviso y los tres botones se ven.
+
+### Video de demostración
+
+`Assets/Scripts/DirectorVideo.cs` (solo Editor) juega y graba una partida completa con todas las funciones; ver `docs/Video_Demo.md`. Al grabarlo se encontraron los dos problemas anteriores.
+
 ### Otros puntos revisados
 
 - **Esquive de los rivales:** sigue siendo un desplazamiento del transform (no hay clip), pero ahora con pasos.

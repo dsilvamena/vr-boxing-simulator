@@ -10243,6 +10243,8 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 2c2da0d8a57a5ab4d91a957c538d3ea3, type: 3}
   - {fileID: 8300000, guid: 491071d6b6b79264a8675f3db8872a1f, type: 3}
   segundosPorNumero: 1
+  pausaAntesDeContar: 0.5
+  esperaMaximaCaida: 2.5
   registrar: 1
 --- !u!4 &227027977
 Transform:
@@ -48241,7 +48243,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: eb69268391be4cfe8145425dbd784de0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1034510883}
   m_SourcePrefab: {fileID: 100100000, guid: eb69268391be4cfe8145425dbd784de0, type: 3}
 --- !u!4 &1034510880 stripped
 Transform:
@@ -48253,6 +48258,34 @@ Animator:
   m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: eb69268391be4cfe8145425dbd784de0, type: 3}
   m_PrefabInstance: {fileID: 1034510879}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1034510882 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: eb69268391be4cfe8145425dbd784de0, type: 3}
+  m_PrefabInstance: {fileID: 1034510879}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1034510883
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1034510882}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d57bf1aedf9246bb94afc51320bb11b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PasosProcedurales
+  estados: []
+  distanciaPaso: 0.12
+  giroPaso: 30
+  alturaPaso: 0.07
+  duracionPaso: 0.3
+  duracionMinima: 0.12
+  anticipacion: 0.6
+  alcanceMaximo: 0.35
+  velocidadQuieto: 0.12
+  giroQuieto: 25
+  mezcla: 0.2
 --- !u!1001 &1037441647
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -67847,9 +67880,10 @@ MonoBehaviour:
   velocidad: 1.6
   velocidadPelea: 0.8
   velocidadGiro: 6
+  tiempoAceleracion: 0.35
   anguloArriba: -150
   anguloAbajo: -75
-  segundosBajar: 0.12
+  segundosAbajo: 0.2
   segundosSubir: 0.45
   agachadoPelea: 0.55
   agachadoCuentaRival: 0.3
@@ -96439,6 +96473,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 1778393013546623862, guid: a8cae4f57b7ca492da5e7ade47f25544, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2098882082}
+    - targetCorrespondingSourceObject: {fileID: 1778393013546623862, guid: a8cae4f57b7ca492da5e7ade47f25544, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2098882083}
   m_SourcePrefab: {fileID: 100100000, guid: a8cae4f57b7ca492da5e7ade47f25544, type: 3}
 --- !u!1 &2098882073 stripped
 GameObject:
@@ -96653,6 +96690,30 @@ MonoBehaviour:
   tiempoBajar: 0.3
   posicionGuantes: {x: 0.1, y: -0.05, z: 0.22}
   aberturaTrasGuardia: 0.6
+--- !u!114 &2098882083
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2098882073}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d57bf1aedf9246bb94afc51320bb11b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PasosProcedurales
+  estados:
+  - Idle
+  distanciaPaso: 0.12
+  giroPaso: 30
+  alturaPaso: 0.07
+  duracionPaso: 0.3
+  duracionMinima: 0.12
+  anticipacion: 0.6
+  alcanceMaximo: 0.35
+  velocidadQuieto: 0.12
+  giroQuieto: 25
+  mezcla: 0.2
 --- !u!1001 &2100526628
 PrefabInstance:
   m_ObjectHideFlags: 0

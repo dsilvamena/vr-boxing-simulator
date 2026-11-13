@@ -1103,9 +1103,10 @@ MonoBehaviour:
   velocidad: 1.6
   velocidadPelea: 0.8
   velocidadGiro: 6
+  tiempoAceleracion: 0.35
   anguloArriba: -150
   anguloAbajo: -75
-  segundosBajar: 0.12
+  segundosAbajo: 0.2
   segundosSubir: 0.45
   agachadoPelea: 0.55
   agachadoCuentaRival: 0.3
@@ -2858,7 +2859,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: eb69268391be4cfe8145425dbd784de0, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 56759904}
   m_SourcePrefab: {fileID: 100100000, guid: eb69268391be4cfe8145425dbd784de0, type: 3}
 --- !u!4 &56759901 stripped
 Transform:
@@ -2870,6 +2874,34 @@ Animator:
   m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: eb69268391be4cfe8145425dbd784de0, type: 3}
   m_PrefabInstance: {fileID: 56759900}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &56759903 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: eb69268391be4cfe8145425dbd784de0, type: 3}
+  m_PrefabInstance: {fileID: 56759900}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &56759904
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 56759903}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d57bf1aedf9246bb94afc51320bb11b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PasosProcedurales
+  estados: []
+  distanciaPaso: 0.12
+  giroPaso: 30
+  alturaPaso: 0.07
+  duracionPaso: 0.3
+  duracionMinima: 0.12
+  anticipacion: 0.6
+  alcanceMaximo: 0.35
+  velocidadQuieto: 0.12
+  giroQuieto: 25
+  mezcla: 0.2
 --- !u!1001 &56818850
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -13240,6 +13272,8 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 2c2da0d8a57a5ab4d91a957c538d3ea3, type: 3}
   - {fileID: 8300000, guid: 491071d6b6b79264a8675f3db8872a1f, type: 3}
   segundosPorNumero: 1
+  pausaAntesDeContar: 0.5
+  esperaMaximaCaida: 2.5
   registrar: 1
 --- !u!4 &282927673
 Transform:
@@ -98317,6 +98351,7 @@ GameObject:
   - component: {fileID: 1512360520}
   - component: {fileID: 1512360521}
   - component: {fileID: 6876044844901561533}
+  - component: {fileID: 6876044844901561534}
   m_Layer: 0
   m_Name: MikeTyson
   m_TagString: Untagged
@@ -101245,6 +101280,30 @@ MonoBehaviour:
     - {x: -0.006089626, y: 0.0910776, z: -0.0008955918}
     - {x: -0.0060397186, y: 0.08877503, z: 0.036050018}
     - {x: -0.007797517, y: 0.08226596, z: 0.046478547}
+--- !u!114 &6876044844901561534
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 200236611304092796}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d57bf1aedf9246bb94afc51320bb11b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PasosProcedurales
+  estados:
+  - Idle
+  distanciaPaso: 0.12
+  giroPaso: 30
+  alturaPaso: 0.07
+  duracionPaso: 0.3
+  duracionMinima: 0.12
+  anticipacion: 0.6
+  alcanceMaximo: 0.35
+  velocidadQuieto: 0.12
+  giroQuieto: 25
+  mezcla: 0.2
 --- !u!1 &7006153886338179025
 GameObject:
   m_ObjectHideFlags: 0

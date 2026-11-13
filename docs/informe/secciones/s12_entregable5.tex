@@ -1,0 +1,292 @@
+% ============================================================
+\section{Implementación del Entregable 5: Versión Final de la Semana 14 (100\,\% de Avance Acumulado)}
+\label{sec:e5}
+\subsection{Resumen del Hito y Resultado Verificable}
+Según el cronograma (sección~\ref{sec:crono}), el Entregable~5 comprende la IA del nivel 5 (Iron Mike Tyson), la escena de resultados con el cinturón y las estadísticas, la optimización a 72--90 FPS con háptica en menos de 15 ms, las pruebas HEART y la corrección de errores. Su resultado verificable es: \textbf{versión final con los 5 niveles y resultados de las pruebas de usabilidad}. La primera mitad se cumplió: el jugador recorre los cinco niveles en una partida continua, ve sus estadísticas al terminar cada combate y recibe el cinturón al vencer a Tyson. La segunda depende del visor y de los usuarios: \pendiente{resultados de las pruebas de usabilidad y mediciones en Meta Quest 2}.
+
+Además se corrigieron los problemas que aparecieron al probar el juego en el visor: la pausa del Guardián que saltaba estando dentro del área segura, los personajes que se deslizaban sin dar pasos y el gesto rígido de la cuenta del réferi (sección~\ref{sec:correcciones}).
+
+\begin{table}[H]
+\centering
+\caption{Bloques de trabajo del Entregable 5.}
+\tablita{|c|L|>{\raggedright\arraybackslash}p{2.6cm}|c|}{\hd{Bloque}&\hd{Contenido}&\hd{Requisitos}&\hd{Sección}}{
+H & Iron Mike Tyson y el nivel 5 & RF-07, RF-08, RF-09 & \ref{sec:tyson}\\ \hline
+I & Escena de resultados y cinturón de campeón & RF-18, RF-19 & \ref{sec:resultados}\\ \hline
+J & Rendimiento y latencia háptica & RNF-01, RNF-02, RNF-08 & \ref{sec:rendimiento}\\ \hline
+K & Pruebas HEART con usuarios & RNF-03, RNF-05, RF-21 & \ref{sec:heart}\\ \hline
+L & Correcciones tras la prueba en el visor & RF-12, RF-20, RNF-04 & \ref{sec:correcciones}\\ \hline
+M & Informe final y comparación con los bocetos & --- & \ref{sec:bocetos}\\
+}
+\end{table}
+
+\subsection{Iron Mike Tyson y el Nivel 5 (RF-07, RF-08, RF-09)}
+\label{sec:tyson}
+El equipo riggeó el modelo de Tyson en Blender con los nombres de hueso de Mixamo, así que Unity reconoció solo los 22 huesos del avatar humanoide. La malla original tenía 31\,092 triángulos, el doble que la de Mr.\ Sandman; un script de Blender sin interfaz (\cs{Tools/reducir_tyson.py}) la reduce a 15\,000 conservando los pesos y el UV. El mismo script corrige un defecto del rig: unos 130 vértices de lo alto de cada hombro dependían del antebrazo y, al subir la guardia, salía una ``cuchilla'' desde la axila. Como Mr.\ Sandman, Tyson usa las animaciones de Soda Popinski retargeteadas por el avatar humanoide, y el componente \cs{ApoyoEnSuelo} levanta la cadera lo que se hunden las suelas (de 6 a 14~cm con esos clips).
+
+Su perfil es el más exigente del juego (tabla~\ref{tab:tyson}): combo de cuatro golpes (gancho izquierdo, gancho derecho, barrido y gancho izquierdo) cada 2 a 3~s, a 1,5 veces la velocidad de los clips, con más bloqueo y esquive que Mr.\ Sandman.
+
+\begin{table}[H]
+\centering
+\caption{Perfil de Iron Mike Tyson frente a Mr.\ Sandman.}
+\label{tab:tyson}
+\tablita{|>{\raggedright\arraybackslash}p{5cm}|C|C|}{\hd{Parámetro}&\hd{Mr.\ Sandman}&\hd{Iron Mike Tyson}}{
+Salud & 175 & 250\\ \hline
+Bloqueo (base $\to$ máximo) & 25\,\% $\to$ 55\,\% & 30\,\% $\to$ 65\,\%\\ \hline
+Esquive & 45\,\%, 1,0 s & 50\,\%, 0,9 s\\ \hline
+Velocidad de ataque & $\times$1,4 & $\times$1,5\\ \hline
+Patrón & gancho, barrido, gancho & gancho, gancho, barrido, gancho\\ \hline
+Espera entre ataques & 2,8 a 4 s & 2 a 3 s\\ \hline
+Daño por golpe (gancho / barrido) & 8 / 12 & 9 / 14\\ \hline
+Castigo por guardia baja & +100\,\% & +120\,\%\\
+}
+\end{table}
+
+Con una espera tan corta, Tyson lanzaba combos al aire mientras aún caminaba hacia el jugador. Desde este entregable ningún rival ataca si la cabeza del jugador está fuera de su alcance: sigue acercándose y ataca en cuanto llega.
+
+Para comprobar que la dificultad sigue subiendo (RF-08) se repitieron las dos medidas del Entregable~4: el modelo de peleas simuladas y una pelea en Play con un jugador programado, igual en los niveles 4 y 5 (tabla~\ref{tab:dificultad5}). Tyson hace un 59\,\% más de daño por segundo, aguanta un 19\,\% más y derriba al jugador programado, que a Sandman nunca le cae; aun así, en las cuatro partidas ganó el jugador.
+
+\begin{table}[H]
+\centering
+\caption{Dificultad de Iron Mike Tyson frente a Mr.\ Sandman (estimaciones).}
+\label{tab:dificultad5}
+\tablita{|>{\raggedright\arraybackslash}p{6.4cm}|C|C|}{\hd{Medida}&\hd{Mr.\ Sandman}&\hd{Iron Mike Tyson}}{
+Daño por segundo si todo conecta, guardia arriba (modelo) & 6,65 & 10,60\\ \hline
+Golpes para ganarle, 1 cada 0,5 s (modelo) & 52,8 & 80,9\\ \hline
+Pelea simulada: segundos de round (dos partidas) & 98 y 99 & 118 y 117\\ \hline
+Pelea simulada: daño recibido por el jugador & 91 y 86 & 150 y 138\\ \hline
+Pelea simulada: caídas del jugador & 0 y 0 & 1 y 1\\
+}
+\end{table}
+
+Son estimaciones con un jugador que nunca baja la guardia: \pendiente{confirmar en el visor, con jugadores reales, que el combate contra Tyson es difícil pero se puede ganar}.
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{11_nivel5_mike_tyson.png}
+    \caption{Iron Mike Tyson en guardia.}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{12_menu_niveles_5.png}
+    \caption{Menú de niveles con el nivel 5.}
+  \end{subfigure}
+  \caption{El nivel 5 y su acceso desde el menú (se desbloquea al ganar el nivel 4, RF-09).}
+\end{figure}
+
+\subsection{Resultados y Cinturón de Campeón (RF-18, RF-19)}
+\label{sec:resultados}
+Al terminar cualquier combate, ganado o perdido, el juego muestra el cartel de siempre y carga \cs{Scene_Results}: la misma arena, con una hoja en un Canvas del mundo (no pegado a la vista) que se maneja con el puntero láser. Los datos los guarda el registro de sesión al cerrar el combate, así que la escena no necesita estado nuevo.
+
+\begin{table}[H]
+\centering
+\caption{Contenido de la hoja de resultados.}
+\tablita{|>{\raggedright\arraybackslash}p{3.6cm}|L|}{\hd{Elemento}&\hd{Qué muestra}}{
+Título & ¡VICTORIA!, DERROTA o ¡CAMPEÓN!\\ \hline
+Subtítulo & Nivel, rival y cómo terminó (por ejemplo, ``Ganaste por K.O. en el round 2'')\\ \hline
+Precisión & Porcentaje y golpes conectados de los lanzados\\ \hline
+Golpes bloqueados & Ataques del rival que el jugador bloqueó, de los recibidos\\ \hline
+Tiempo total & Minutos y rounds del combate, sin las pausas\\ \hline
+Detalle & Golpes que el rival bloqueó o esquivó, y derribos de cada uno\\ \hline
+Botones & SIGUIENTE NIVEL (victoria), REINTENTAR (derrota) o REPETIR (tras el nivel 5), y MENÚ\\
+}
+\end{table}
+
+\textbf{Cinturón de campeón.} No se usó el modelo de un repositorio externo, porque no se pudo verificar su licencia: el equipo generó uno propio con un script de Blender (\cs{Tools/crear_cinturon.py}), de 1\,540 triángulos, sin texturas y con tres materiales (cuero, oro y esmalte). Al ganar a Tyson, el cinturón sube desde el suelo creciendo, gira y su oro pulsa de brillo, y la hoja cambia al texto de cierre del arco narrativo: ``Derrotaste a Iron Mike Tyson, el campeón invicto. El cinturón de campeón regional es tuyo.'' Es el desenlace de la pirámide de Freytag (figura~\ref{fig:freytag}).
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.32\linewidth}
+    \includegraphics[width=\linewidth]{13_resultados_victoria.png}
+    \caption{Victoria.}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.32\linewidth}
+    \includegraphics[width=\linewidth]{14_resultados_derrota.png}
+    \caption{Derrota.}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.32\linewidth}
+    \includegraphics[width=\linewidth]{15_resultados_campeon.png}
+    \caption{Campeón, con el cinturón.}
+  \end{subfigure}
+  \caption{La hoja de resultados en sus tres variantes.}
+\end{figure}
+
+\subsection{Rendimiento y Latencia Háptica (RNF-01, RNF-02, RNF-08)}
+\label{sec:rendimiento}
+Las cifras de FPS y de latencia del Editor no valen para el Quest, así que este bloque deja preparado todo lo necesario para que la sesión con el visor consista en instalar, jugar y sacar los datos.
+
+\textbf{Compilación para Android.} El juego completo compila para Meta Quest~2 (IL2CPP, ARM64, Vulkan, OpenXR con Multiview) sin errores. Hay tres APK generados desde el mismo código: el de desarrollo, el mismo sin MSAA (para comparar sin recompilar) y uno sin opciones de desarrollo. El 94\,\% del paquete son las texturas de 2\,048~px de la arena.
+
+\textbf{Física a 72 Hz.} El paso de física pasó de 0,02~s (50 Hz) a exactamente 1/72~s, un paso por fotograma del Quest~2: el impacto se detecta como mucho un fotograma tarde, y no dos. Se revisó todo lo que depende del paso; solo el suavizado de la velocidad del puño necesitó ajustarse para seguir siendo el mismo filtro en segundos. Con golpes por física idénticos a 50 y a 72 Hz, los resultados y las clasificaciones fueron los mismos, y la medida de la rapidez del puño quedó más estable.
+
+\textbf{Latencia medida en el juego.} La latencia háptica tiene tres tramos. El juego mide en cada golpe los dos que dependen de él y los guarda por combate (media, percentil 95 y máximo):
+
+\begin{table}[H]
+\centering
+\caption{Tramos de la latencia háptica.}
+\tablita{|>{\raggedright\arraybackslash}p{3cm}|L|>{\raggedright\arraybackslash}p{3.4cm}|}{\hd{Tramo}&\hd{Qué es}&\hd{Cómo se obtiene}}{
+1. Detección & Del contacto real del guante al paso de física que lo detecta: de media medio fotograma (unos 7 ms) & Estimado en cada golpe por la penetración del guante en la zona\\ \hline
+2. Código & Del aviso de colisión a la orden de vibración & Medido con un cronómetro de alta resolución\\ \hline
+3. Runtime y mando & Del runtime de OpenXR al motor del mando por Bluetooth & No medible desde el código\\
+}
+\end{table}
+
+RNF-02 se informará como la suma de los tramos 1 y 2 medidos en el visor: \pendiente{latencia háptica en Meta Quest 2 (media y p95)}.
+
+\textbf{Auditoría de coste por escena.} Las siete escenas comparten la arena, que pesa casi todo el fotograma: unos 99\,000 triángulos y 570 piezas de material visibles, 25 luces en tiempo real con sombra y unas 175 texturas de 2\,048~px. Con esa auditoría se ordenaron doce recortes posibles por coste y beneficio. Ninguno está aplicado: se deciden con los FPS del visor. Los tres primeros (quitar las sombras de las luces salvo la direccional, bajar un nivel de mipmaps en Android y fijar la foveación) se aplican y se deshacen con un clic desde el menú \emph{Tools > Boxeo > Rendimiento}, que guarda el estado anterior de cada ajuste y lo restaura exactamente.
+
+\textbf{Cambios tras la revisión del equipo.} Las texturas de los guantes pasaron de 2\,048~px sin comprimir a 1\,024~px en ASTC (de 107 a 5~MB de memoria), se activó el MSAA 4$\times$ en la calidad de Android (los bordes se veían dentados) y la aplicación se llama ``Simulador de Boxeo RV'' en la biblioteca del visor.
+
+\begin{table}[H]
+\centering
+\caption{Rendimiento medido en Meta Quest 2 (se completa en la sesión con visor).}
+\tablita{|>{\raggedright\arraybackslash}p{4.2cm}|L|c|}{\hd{Medida}&\hd{Resultado}&\hd{Cumple}}{
+FPS medio por nivel (RNF-01) & \pendiente{tabla de \cs{Tools/tabla_rendimiento.py}} & \pendiente{}\\ \hline
+Fotogramas bajo 72 FPS (RNF-01) & \pendiente{porcentaje del peor nivel} & \pendiente{}\\ \hline
+Latencia háptica, tramos 1 + 2 (RNF-02) & \pendiente{p95 en ms} & \pendiente{}\\ \hline
+Sesión continua (RNF-08) & \pendiente{duración, cierres y pérdidas de seguimiento} & \pendiente{}\\ \hline
+MSAA 4$\times$ y recortes aplicados & \pendiente{decisión tras medir} & ---\\
+}
+\end{table}
+
+\subsection{Pruebas HEART (RNF-03, RNF-05)}
+\label{sec:heart}
+El protocolo de las pruebas está escrito para que cualquiera del equipo pueda conducirlas: de 5 a 8 participantes novatos (3 usos de RV o menos), unos 25 minutos cada uno, con una persona que guía y vigila la seguridad y otra que anota y cronometra. Cada participante tiene un código (P01, P02...) y no se guarda su nombre en ningún archivo.
+
+\begin{itemize}
+  \item \textbf{Sin instrucciones de control (RNF-03).} Solo se explica cómo usar el puntero del menú. Desde la primera campana del nivel 1 no se dice cómo golpear, bloquear ni levantarse; si el participante pregunta, se responde ``haz lo que harías en un ring''.
+  \item \textbf{Adopción medida por el juego.} El registro de sesión guarda, desde la primera campana y sin contar las pausas, los segundos hasta la primera guardia (las dos manos delante de la cara durante al menos 0,5 s, la misma condición que bloquea) y hasta el primer golpe que conecta. El cronómetro del anotador es el respaldo. Cumple quien hace las dos cosas en 120 s o menos.
+  \item \textbf{Instrumentos.} Un cuestionario Likert de 1 a 5 (satisfacción inmersiva, ausencia de cinetosis y retención), una hoja de observación por participante y el registro de sesión del juego. Un script (\cs{Tools/tabla_heart.py}) cruza las tres fuentes por participante y calcula cada dimensión y los dos requisitos.
+  \item \textbf{Retention adaptada.} No se pueden contar sesiones en la segunda y la tercera semana: se mide la intención de volver a jugar y si el participante sigue jugando cuando se le ofrece parar.
+  \item \textbf{Observaciones dirigidas.} Si se entiende que hay que pulsar A, B, X o Y en la cuenta, si se nota el roce háptico cuando el rival esquiva y si los combos se pueden defender.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Resultados de las pruebas HEART (se completa tras las pruebas).}
+\tablita{|>{\raggedright\arraybackslash}p{2.4cm}|>{\raggedright\arraybackslash}p{5cm}|L|}{\hd{Dimensión}&\hd{Indicador}&\hd{Resultado}}{
+Happiness & Satisfacción inmersiva (media 1--5) & \pendiente{media}\\ \hline
+Happiness & Ausencia de cinetosis, RNF-05 (mínimo 4) & \pendiente{media y si cumple}\\ \hline
+Engagement & Duración de sesión, combates y reintentos & \pendiente{medias}\\ \hline
+Adoption & Guardia y golpe en 2 min, RNF-03 (80\,\%) & \pendiente{porcentaje de novatos y si cumple}\\ \hline
+Retention & Volvería a jugar; continuación voluntaria & \pendiente{porcentajes}\\ \hline
+Task Success & Bloqueos, precisión, cuentas superadas & \pendiente{porcentajes}\\
+}
+\end{table}
+
+\pendiente{lista priorizada de problemas encontrados en las pruebas y su corrección}.
+
+\subsection{Correcciones tras la Prueba en el Visor (RF-12, RF-20, RNF-04)}
+\label{sec:correcciones}
+Al probar el juego en el Meta Quest se encontraron tres problemas, que se corrigieron:
+
+\begin{itemize}
+  \item \textbf{La pausa del Guardián saltaba estando dentro del área.} El área del Guardián que entrega el sistema está centrada en el centro del área dibujada, mientras que el juego mide la cabeza desde donde estaba el visor al arrancar. Si el jugador no empezaba justo en el centro, o recentraba la vista, el juego creía que estaba fuera y mostraba ``VUELVE AL ÁREA SEGURA''. Ahora el área se convierte al mismo sistema de coordenadas que la cabeza, se vuelve a leer al recentrar y al redibujar el Guardián, hace falta estar fuera un cuarto de segundo para pausar, y si el jugador pulsa REANUDAR estando ``fuera'' el juego deja de fiarse de esa geometría (el Guardián del propio Quest sigue avisando). Así un fallo nunca deja al jugador atrapado en la pausa.
+  \item \textbf{Locomoción con joystick.} Un componente de depuración permitía moverse y girar con los sticks, lo que RNF-04 prohíbe. Ahora solo funciona en el Editor; en el visor el desplazamiento es únicamente físico.
+  \item \textbf{Personajes que se deslizaban.} Ningún personaje tiene animación de caminar, así que al acercarse, esquivar o volver a su esquina se deslizaban sobre la lona. Un componente nuevo (\cs{PasosProcedurales}) clava cada pie en el suelo con cinemática inversa y, cuando el cuerpo se aleja o gira, da un paso en arco hasta su sitio, en cualquier dirección. Con el cuerpo quieto manda la animación.
+  \item \textbf{Réferi.} Su gesto de cuenta era una bajada lineal del brazo recto. Ahora el brazo se mueve como un muelle amortiguado (baja rápido, se pasa un poco y se asienta), el antebrazo llega con retraso y el codo queda algo doblado, y el torso cabecea con cada número. Además se desplaza acelerando y frenando, y en la cuenta del rival \textbf{espera a que el rival esté tendido} para decir el primer número, en lugar de empezar mientras aún cae (unos 2 s después de la caída).
+\end{itemize}
+
+\pendiente{validar en el visor la pausa del Guardián, los pasos y el gesto del réferi}.
+
+\subsection{Registro de Métricas (RF-21, Segunda Mitad)}
+\label{sec:registro5}
+El registro de sesión del Entregable~4 se amplió sin cambiar la lógica del juego: escucha eventos que ya existían. Por combate guarda ahora también la latencia háptica (tramos 1 y 2, con media, percentil 95 y máximo) y el paso de física con que se jugó, y para la adopción de RNF-03 el tiempo hasta la primera guardia y hasta el primer golpe conectado, por combate y por sesión. Las columnas nuevas van siempre al final del CSV: un archivo de una versión anterior solo amplía su cabecera, y sus filas viejas siguen siendo válidas.
+
+\subsection{Comparación de los Bocetos con lo Implementado}
+\label{sec:bocetos}
+Esta comparación prepara el Entregable~6. Las tablas~\ref{tab:boceto-combate} y~\ref{tab:boceto-ko} recorren los elementos numerados de los bocetos de las figuras~\ref{fig:boceto-combate} y~\ref{fig:boceto-ko}, y la figura~\ref{fig:bocetos-real} muestra las mismas situaciones en el juego, desde los ojos del jugador.
+
+\begin{table}[H]
+\centering
+\caption{Boceto de combate (figura~\ref{fig:boceto-combate}) frente a lo implementado.}
+\label{tab:boceto-combate}
+\tablita{|c|>{\raggedright\arraybackslash}p{2.6cm}|L|}{\hd{N.º}&\hd{Elemento}&\hd{Implementado}}{
+1 & Esquive activo & Apartar la cabeza de la línea del golpe anula el daño (RF-06); sin vibración, porque ya lo siente el cuerpo\\ \hline
+2 & Oponente IA & Cinco rivales con perfil propio, combos, bloqueo y esquive (secciones~\ref{sec:ia} y~\ref{sec:tyson})\\ \hline
+3 & Tus guantes & Guantes 1:1 sobre los mandos, con texturas propias comprimidas para el Quest\\ \hline
+4 & Salud & Viñeta que oscurece los bordes según la salud y parpadeo por debajo de 20 de salud (figura~\ref{fig:bocetos-real}a)\\ \hline
+5 & Pulso cardíaco & Latido desde el 60\,\% de salud, de 60 a 90 pulsaciones por minuto y más fuerte cuanto menos salud (figura~\ref{fig:latido})\\ \hline
+6 & Réferi & Réferi 3D con voz espacial que vigila la pelea a un lado y cuenta las caídas\\ \hline
+7 & Vibración & Un patrón distinto por tipo de golpe, bloqueo, esquive, derribo y golpe recibido (sección~\ref{sec:haptica})\\
+}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Boceto del estado de knockout (figura~\ref{fig:boceto-ko}) frente a lo implementado.}
+\label{tab:boceto-ko}
+\tablita{|c|>{\raggedright\arraybackslash}p{2.6cm}|L|}{\hd{N.º}&\hd{Elemento}&\hd{Implementado}}{
+1 & Salud crítica & En la lona la viñeta llega a su máximo y la vista parpadea; con cada pulsación se aclara (figura~\ref{fig:bocetos-real}b)\\ \hline
+2 & Pulso cardíaco & El latido acompaña la cuenta: empieza acelerado y se calma con cada pulsación\\ \hline
+3 & Réferi & Se pone delante del jugador, a un lado del rival, cuenta del 1 al 10 en voz alta y marca cada número con el brazo, como en el boceto\\ \hline
+4 & Button mashing & Pulsar A, B, X o Y levanta al jugador; cada pulsación vibra más fuerte y el cartel ``¡ARRIBA! PULSA A B X Y'' sobre el réferi lo indica, dentro del mundo y no como HUD\\
+}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{16_salud_baja_combate.png}
+    \caption{Combate con poca salud: los bordes se oscurecen.}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\linewidth}
+    \includegraphics[width=\linewidth]{17_cuenta_con_vineta.png}
+    \caption{Knockout: viñeta al máximo, réferi contando y cartel de los botones.}
+  \end{subfigure}
+  \caption{Las situaciones de los bocetos en el juego (campo de visión de un ojo, recortado de la captura).}
+  \label{fig:bocetos-real}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[x=0.11cm,y=0.07cm,font=\small]
+    \draw[->] (0,50) -- (105,50) node[below left]{salud (\%)};
+    \draw[->] (0,50) -- (0,98) node[above right]{pulsaciones por minuto};
+    \foreach \x in {0,20,40,60,80,100} \draw (\x,50) -- (\x,48.5) node[below]{\scriptsize\x};
+    \foreach \y in {60,70,80,90} \draw (0,\y) -- (-1.5,\y) node[left]{\scriptsize\y};
+    \draw[very thick,rojo,domain=0:60,samples=40] plot (\x,{60+30*((1-\x/60)^2*(3-2*(1-\x/60)))});
+    \draw[dashed,gray] (60,50) -- (60,95);
+    \node[align=left,gray] at (80,80) {\scriptsize sin latido\\[-2pt]\scriptsize por encima del 60\,\%};
+  \end{tikzpicture}
+  \caption{Ritmo del latido según la salud del jugador (el volumen sube igual, del 25\,\% al 100\,\%).}
+  \label{fig:latido}
+\end{figure}
+
+\textbf{Diferencias con los bocetos.} El boceto del knockout mostraba solo el réferi con la mano en alto; en el juego el réferi también acompaña la pelea durante el round y cuenta al rival junto a él. El cartel ``¡ARRIBA! PULSA A B X Y'' no estaba en el boceto: se añadió porque, sin ningún texto, nada indicaba qué botón pulsar; está anclado al réferi dentro del mundo, así que respeta la regla de no usar HUD. El resto de los elementos se implementó como se diseñó.
+
+\subsection{Verificación y Validación}
+\label{sec:verif5}
+\textbf{Pruebas en el Editor.} Se hicieron en Play con el Meta XR Simulator, con un arnés que fija la cabeza y las manos del jugador cada fotograma y, para los golpes, mueve el guante por trayectorias realistas contra las zonas de golpe, de modo que pasan por la física igual que en el visor.
+
+\begin{table}[H]
+\centering
+\caption{Pruebas del Entregable 5 en el Editor.}
+\label{tab:pruebas5}
+\tablita{|>{\raggedright\arraybackslash}p{3.6cm}|L|}{\hd{Área}&\hd{Resultado}}{
+Nivel 5 y progresión & Del menú al nivel 5 y de ahí a resultados; el nivel 5 bloqueado hasta ganar el 4\\ \hline
+Resultados & Las tres variantes de la hoja y sus botones en los cinco niveles\\ \hline
+Detección de impactos (RNF-07) & 70 golpes por física que atraviesan la zona de la cabeza, de 1 a 12 m/s y con desvíos al azar: 68 detectados (97\,\%); todos hasta 8 m/s y 9 de 10 a 10 y a 12 m/s. Los 21 roces del borde también se detectaron\\ \hline
+Área segura (RNF-06) & Con un área de 1,5 $\times$ 1,5 m y la cabeza quieta en el centro, el rival se acerca y ataca con normalidad; a 0,6 m del centro sigue el combate, a 0,7 m (5 cm del borde) se pausa con el aviso y al volver se reanuda. Con un área equivocada, pulsar REANUDAR deja de usarla\\ \hline
+Locomoción (RNF-04) & Ninguna escena tiene teletransporte; la locomoción con joystick se desactiva fuera del Editor\\ \hline
+Adopción (RNF-03) & Guardia subida a los 3 s y golpe por física a los 5 s tras la campana: el registro guarda 3,03 y 5,22 s; tras un combate abandonado, el valor de sesión suma su tiempo\\ \hline
+Cuenta del rival & El primer número llega 2,1 s después de la caída, con el rival ya tendido\\ \hline
+Pasos & Rivales y réferi dan un paso cada 0,3 a 0,4 s mientras se desplazan; los pies no se hunden ni se elevan con el tiempo\\ \hline
+Compilación & Los tres APK compilan sin errores; el paquete y los dispositivos declarados no cambian\\
+}
+\end{table}
+
+\textbf{Validación con el visor.} \pendiente{FPS, latencia y sesión de 30 minutos según el protocolo de rendimiento; pausa del Guardián, pasos y gesto del réferi en el visor; pruebas HEART con usuarios}.
+
+\subsection{Resumen de Cumplimiento (Semana 14)}
+\begin{table}[H]
+\centering
+\caption{Cumplimiento del Entregable 5.}
+\tablita{|>{\raggedright\arraybackslash}p{3.8cm}|L|>{\raggedright\arraybackslash}p{2.4cm}|}{\hd{Actividad planificada}&\hd{Implementación en Unity / scripts C\#}&\hd{Estado}}{
+IA del nivel 5 & Perfil de Tyson, modelo reducido con \cs{ApoyoEnSuelo}, \cs{AtaqueOponente} sin ataques fuera de alcance & \ok\\ \hline
+Resultados, cinturón y estadísticas & \cs{PantallaResultados}, \cs{CinturonCampeon} y \cs{Scene_Results} & \ok\\ \hline
+Optimización (72--90 FPS, háptica < 15 ms) & Física a 1/72 s, latencia medida, auditoría y recortes con menú & \pendiente{medir en el visor}\\ \hline
+Pruebas HEART & Protocolo, cuestionario, hoja de observación, \cs{Tools/tabla_heart.py} y adopción en el registro & \pendiente{pruebas con usuarios}\\ \hline
+Corrección de errores & Pausa del Guardián, joystick, \cs{PasosProcedurales} y réferi & \ok\\ \hline
+Resultado verificable & Versión final con los 5 niveles y resultados de las pruebas de usabilidad & \pendiente{resultados HEART}\\
+}
+\end{table}

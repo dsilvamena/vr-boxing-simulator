@@ -67,7 +67,9 @@ LINEAS = [
 ]
 
 NUMEROS = {"1": "uno", "2": "dos", "3": "tres", "4": "cuatro", "5": "cinco", "6": "seis", "7": "siete", "8": "ocho",
-           "9": "nueve", "10": "diez"}
+           "9": "nueve", "10": "diez",
+           # Cómo escribe Whisper lo que el réferi dice bien
+           "knockout": "nocaut", "vox": "box"}
 
 
 # ---------- API ----------

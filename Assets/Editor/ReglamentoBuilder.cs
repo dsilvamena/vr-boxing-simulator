@@ -9,8 +9,8 @@ using UnityEngine.SceneManagement;
 /// <summary>
 /// Tools > Boxeo > Poner reglamento: monta en las cinco escenas de pelea lo que necesita el reglamento de boxeo del
 /// pulido final (se puede repetir):
-/// - asigna al Arbitro las órdenes de voz ("¡Box!", "¡Esquina!", "¡Nocaut!") y a ControlRondas la claqueta de los diez
-///   segundos (Audio/Arbitro, de Tools/voces_arbitro.py, y Audio/Efectos, de Tools/sintetizar_audio.py);
+/// - asigna al Arbitro su voz (VocesArbitroBuilder: números y frases de Audio/Arbitro) y a ControlRondas la claqueta de
+///   los diez segundos (Audio/Efectos, de Tools/sintetizar_audio.py);
 /// - coloca el marcador luminoso (MarcadorRing): un panel con el round, el reloj y los nombres en cada lado de la
 ///   estructura de focos, mirando al ring;
 /// - fija en cada perfil en qué número de la cuenta se levanta el rival tras una caída (cuentaKnockdown): ninguno en el
@@ -19,7 +19,6 @@ using UnityEngine.SceneManagement;
 public static class ReglamentoBuilder
 {
     private const string Audio = "Assets/_Project/Audio/Efectos/";
-    private const string VozArbitro = "Assets/_Project/Audio/Arbitro/";
     private const string Perfiles = "Assets/_Project/Data/Oponentes/";
     private const string RutaFuente = "Assets/_Project/Fonts/Bangers SDF.asset";
     private const string RutaPanel = "Assets/_Project/Art/Arena/Marcador_Panel.mat";
@@ -55,13 +54,9 @@ public static class ReglamentoBuilder
                 var rondas = Object.FindAnyObjectByType<ControlRondas>();
                 if (arbitro == null || rondas == null) continue;
 
-                var so = new SerializedObject(arbitro);
-                so.FindProperty("ordenBox").objectReferenceValue = Clip("Voz_Box_1", VozArbitro);
-                so.FindProperty("ordenEsquina").objectReferenceValue = Clip("Voz_Esquina_1", VozArbitro);
-                so.FindProperty("ordenNocaut").objectReferenceValue = Clip("Voz_Nocaut_1", VozArbitro);
-                so.ApplyModifiedPropertiesWithoutUndo();
+                VocesArbitroBuilder.Asignar(arbitro);
 
-                so = new SerializedObject(rondas);
+                var so = new SerializedObject(rondas);
                 so.FindProperty("avisoDiezSegundos").objectReferenceValue = Clip("Aviso_Diez_Segundos");
                 so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -78,10 +73,10 @@ public static class ReglamentoBuilder
         }
     }
 
-    private static AudioClip Clip(string nombre, string carpeta = Audio)
+    private static AudioClip Clip(string nombre)
     {
-        var clip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{carpeta}{nombre}.wav");
-        if (clip == null) Debug.LogWarning($"Falta {carpeta}{nombre}.wav: genera los sonidos con Tools/sintetizar_audio.py (efectos) o Tools/voces_arbitro.py (réferi).");
+        var clip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{Audio}{nombre}.wav");
+        if (clip == null) Debug.LogWarning($"Falta {nombre}.wav: genera los sonidos con Tools/sintetizar_audio.py.");
         return clip;
     }
 

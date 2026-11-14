@@ -3241,6 +3241,8 @@ MonoBehaviour:
   alcanceMaximo: 0.35
   velocidadQuieto: 0.12
   giroQuieto: 25
+  zancada: {x: 1, y: 1.5}
+  velocidadZancadaLarga: 1
   mezcla: 0.2
 --- !u!1001 &56818850
 PrefabInstance:
@@ -14305,10 +14307,35 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 690d3beb4c18fc14eb415c032cbfad53, type: 3}
   - {fileID: 8300000, guid: 2c2da0d8a57a5ab4d91a957c538d3ea3, type: 3}
   - {fileID: 8300000, guid: 491071d6b6b79264a8675f3db8872a1f, type: 3}
-  ordenBox: {fileID: 8300000, guid: 9dfc01319b7c04ee2bc5d4d03cf0651a, type: 3}
-  ordenEsquina: {fileID: 8300000, guid: aa3722499d41247f3b1c77c237db7f25, type: 3}
-  ordenNocaut: {fileID: 8300000, guid: 83403c70cef294b7089d2eafa90fd5c4, type: 3}
+  frasesBox:
+  - {fileID: 8300000, guid: 9dfc01319b7c04ee2bc5d4d03cf0651a, type: 3}
+  - {fileID: 8300000, guid: 84fa9d3c9eb6942d68d7fa8291ce791c, type: 3}
+  - {fileID: 8300000, guid: 3aca8425ce5f94d5abbed518d6fca046, type: 3}
+  frasesSeguir:
+  - {fileID: 8300000, guid: 121f83b4acae641a99ae7371fe830696, type: 3}
+  - {fileID: 8300000, guid: b55912258cb2545acb0c541ee447a389, type: 3}
+  - {fileID: 8300000, guid: e5201454547894f3495da7239732e0a5, type: 3}
+  frasesEsquina:
+  - {fileID: 8300000, guid: aa3722499d41247f3b1c77c237db7f25, type: 3}
+  - {fileID: 8300000, guid: f21397f06e25740398105ab1736c661c, type: 3}
+  - {fileID: 8300000, guid: e4fb06d4ba073476f91077b50a535d03, type: 3}
+  frasesNocaut:
+  - {fileID: 8300000, guid: 83403c70cef294b7089d2eafa90fd5c4, type: 3}
+  - {fileID: 8300000, guid: a63d0aca275004ff3adb435734e01f53, type: 3}
+  - {fileID: 8300000, guid: 37d63c26169504768bff39ca991b3f9c, type: 3}
+  frasesInstrucciones:
+  - {fileID: 8300000, guid: 7a5caadf17e7a45c69d55724433b9ee2, type: 3}
+  - {fileID: 8300000, guid: e7f5b643513f94b62b5f09a629529044, type: 3}
+  frasesTiempo:
+  - {fileID: 8300000, guid: 0828a99c7b1df4826a429ebb87f7aa05, type: 3}
+  - {fileID: 8300000, guid: 310ab812741174ee884860d296500d32, type: 3}
+  - {fileID: 8300000, guid: b812728f194124edaa0d657e717de8c9, type: 3}
+  frasesDecision:
+  - {fileID: 8300000, guid: e999a04f5046e4c9d9b7e8840dd4c7d3, type: 3}
+  - {fileID: 8300000, guid: 465ca522607bb4737b02a530a347f232, type: 3}
   retrasoBox: 0.5
+  retrasoInstrucciones: 0.4
+  retrasoTiempo: 1
   cuentaProteccion: 8
   segundosParaIncorporarse: 2
   segundosPorNumero: 1
@@ -107703,6 +107730,8 @@ MonoBehaviour:
   alcanceMaximo: 0.35
   velocidadQuieto: 0.12
   giroQuieto: 25
+  zancada: {x: 1, y: 1.5}
+  velocidadZancadaLarga: 1
   mezcla: 0.2
 --- !u!114 &6876044844901561535
 MonoBehaviour:

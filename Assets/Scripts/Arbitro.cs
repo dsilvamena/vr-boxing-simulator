@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>Órdenes del réferi que no son números de la cuenta. CuerpoArbitro hace la seña de cada una.</summary>
@@ -28,6 +29,10 @@ public enum OrdenArbitro
 /// pausaAntesDeContar: así el réferi no cuenta a alguien que todavía se está cayendo.
 /// Si alguien más lo levanta (el descanso, una prueba), la cuenta se cancela y la voz se calla.
 /// La cuenta usa tiempo escalado y la voz se pausa a mano, porque un AudioSource no se detiene con timeScale = 0.
+/// Además de las órdenes habla en otros momentos, solo con la voz: las instrucciones antes del primer round, "¡Tiempo!"
+/// al terminar un round y, si el combate llega al final sin nocaut, que deciden los jueces. Cada momento tiene varias
+/// frases (Audio/Arbitro, de Tools/voces_arbitro.py) y elige una al azar sin repetir la anterior; tras una cuenta
+/// superada no dice el "¡Box!" de empezar el round sino una de frasesSeguir ("¿Puede seguir? ¡Box!").
 /// Sin este componente en la escena, el rival se levanta con segundosKnockdown, como antes.
 /// Va en un objeto propio de cada escena de pelea. El cuerpo visible (CuerpoArbitro) es un hijo con la voz y el modelo,
 /// provisional por ahora; se cambia el modelo sin tocar este componente.
@@ -51,12 +56,27 @@ public class Arbitro : MonoBehaviour
     [Tooltip("Del 1 al 10, en orden. Se reemplazan por grabaciones arrastrando otros clips aquí o sobrescribiendo los WAV")]
     [SerializeField] private AudioClip[] numeros = new AudioClip[NumerosPorCuenta];
 
-    [Tooltip("\"¡Box!\", \"¡Esquina!\" y \"¡Nocaut!\" (Audio/Arbitro/Voz_*_1.wav); vacíos = solo la seña")]
-    [SerializeField] private AudioClip ordenBox;
-    [SerializeField] private AudioClip ordenEsquina;
-    [SerializeField] private AudioClip ordenNocaut;
+    [Header("Frases (Audio/Arbitro/Voz_*.wav; vacías = solo la seña)")]
+    [Tooltip("Al empezar cada round: \"¡Box!\", \"¡A pelear!\"...")]
+    [SerializeField] private AudioClip[] frasesBox;
+    [Tooltip("Al reanudar tras una cuenta superada (del rival o del jugador); vacías = frasesBox")]
+    [SerializeField] private AudioClip[] frasesSeguir;
+    [Tooltip("Antes de contar al rival: manda al jugador a la esquina neutral. Cortas: el primer número llega pausaAntesDeContar después")]
+    [SerializeField] private AudioClip[] frasesEsquina;
+    [Tooltip("Al parar el combate por nocaut (de cualquiera de los dos)")]
+    [SerializeField] private AudioClip[] frasesNocaut;
+    [Tooltip("En la preparación, antes de la primera campana. Tienen que caber antes del primer \"¡Box!\"")]
+    [SerializeField] private AudioClip[] frasesInstrucciones;
+    [Tooltip("Al terminar un round que no acaba el combate")]
+    [SerializeField] private AudioClip[] frasesTiempo;
+    [Tooltip("Al terminar el último round sin nocaut: deciden los jueces")]
+    [SerializeField] private AudioClip[] frasesDecision;
     [Tooltip("Segundos entre la campana y el \"¡Box!\" del principio de cada round")]
     [SerializeField, Min(0f)] private float retrasoBox = 0.5f;
+    [Tooltip("Segundos desde que se carga la pelea hasta las instrucciones")]
+    [SerializeField, Min(0f)] private float retrasoInstrucciones = 0.4f;
+    [Tooltip("Segundos entre la campana de fin de round y \"¡Tiempo!\" (o la decisión), para no pisar los tres toques")]
+    [SerializeField, Min(0f)] private float retrasoTiempo = 1f;
 
     [Header("Cuenta del rival")]
     [Tooltip("Cuenta de protección: aunque el rival se levante antes, se cuenta hasta este número antes de seguir")]
@@ -96,6 +116,10 @@ public class Arbitro : MonoBehaviour
     private bool rivalSoltado;       // ya se está levantando (o está de pie) y la cuenta sigue
     private bool levantandoYo;       // el Levantarse que llega lo pidió esta cuenta: no la cancela
     private float boxEn = -1f;       // cuándo toca el "¡Box!" pendiente (tiempo de juego); -1 = ninguno
+    private bool boxTrasCuenta;      // el "¡Box!" pendiente reanuda tras una cuenta: frasesSeguir
+    private AudioClip[] frasePendiente; // frase sin seña que toca decir en fraseEn (instrucciones, tiempo, decisión)
+    private float fraseEn = -1f;
+    private readonly Dictionary<AudioClip[], int> ultimaFrase = new Dictionary<AudioClip[], int>();
 
     private void Awake()
     {
@@ -126,7 +150,15 @@ public class Arbitro : MonoBehaviour
             rondas.CuentaEnMarcha = HayCuentaDelRival;
             rondas.AlTerminarCombate += AlTerminarCombate;
             rondas.AlIniciarRound += AlIniciarRound;
+            rondas.AlTerminarRound += AlTerminarRound;
         }
+    }
+
+    private void Start()
+    {
+        // Las instrucciones solo al principio de la pelea, mientras corre la preparación
+        if (rondas != null && rondas.isActiveAndEnabled && rondas.Estado == EstadoRondas.Preparacion)
+            Programar(frasesInstrucciones, retrasoInstrucciones);
     }
 
     private void OnDisable()
@@ -144,6 +176,7 @@ public class Arbitro : MonoBehaviour
             rondas.CuentaEnMarcha = null;
             rondas.AlTerminarCombate -= AlTerminarCombate;
             rondas.AlIniciarRound -= AlIniciarRound;
+            rondas.AlTerminarRound -= AlTerminarRound;
         }
     }
 
@@ -178,7 +211,13 @@ public class Arbitro : MonoBehaviour
         if (boxEn >= 0f && Time.time >= boxEn)
         {
             boxEn = -1f;
-            if (!combateTerminado && !ContandoRival && !ContandoJugador) Ordenar(OrdenArbitro.Box, Vector3.zero);
+            if (!combateTerminado && !ContandoRival && !ContandoJugador) Ordenar(OrdenArbitro.Box, Vector3.zero, boxTrasCuenta);
+        }
+
+        if (fraseEn >= 0f && Time.time >= fraseEn)
+        {
+            fraseEn = -1f;
+            if (!ContandoRival && !ContandoJugador) Hablar(frasePendiente);
         }
 
         int numero = combateTerminado ? 0 : NumeroEnCurso();
@@ -244,7 +283,7 @@ public class Arbitro : MonoBehaviour
         if (combateTerminado || (rondas != null && rondas.Estado != EstadoRondas.Round)) return;
         oponente.Protegido = false;
         if (ataqueRival != null) ataqueRival.Reanudar();
-        Ordenar(OrdenArbitro.Box, Vector3.zero);
+        Ordenar(OrdenArbitro.Box, Vector3.zero, true);
     }
 
     // Alguien más lo levantó con la cuenta a medias (el descanso, una prueba): la cuenta ya no tiene sentido
@@ -260,10 +299,22 @@ public class Arbitro : MonoBehaviour
     private void AlLevantarseJugador()
     {
         Callar();
-        if (!combateTerminado) boxEn = Time.time + 0.6f;
+        if (combateTerminado) return;
+        boxEn = Time.time + 0.6f;
+        boxTrasCuenta = true;
     }
 
-    private void AlIniciarRound(int numero) => boxEn = Time.time + retrasoBox;
+    private void AlIniciarRound(int numero)
+    {
+        boxEn = Time.time + retrasoBox;
+        boxTrasCuenta = false;
+    }
+
+    // Llega antes que AlTerminarCombate: si el round era el último (o fue nocaut), éste cambia la frase
+    private void AlTerminarRound(int numero)
+    {
+        if (!combateTerminado) Programar(frasesTiempo, retrasoTiempo);
+    }
 
     private void AlTerminarCombate(ResultadoCombate resultado)
     {
@@ -283,16 +334,43 @@ public class Arbitro : MonoBehaviour
         // Por nocaut (el del jugador o la tercera caída del rival) para el combate agitando los brazos
         if (resultado == ResultadoCombate.VictoriaPorKO || resultado == ResultadoCombate.DerrotaPorKO)
             Ordenar(OrdenArbitro.Fin, Vector3.zero);
+        else
+            Programar(frasesDecision, retrasoTiempo);
     }
 
-    private void Ordenar(OrdenArbitro orden, Vector3 punto)
+    private void Ordenar(OrdenArbitro orden, Vector3 punto, bool trasCuenta = false)
     {
         if (registrar) Debug.Log($"Réferi: {(orden == OrdenArbitro.Box ? "¡Box!" : orden == OrdenArbitro.Esquina ? "¡Esquina!" : "¡Nocaut!")}", this);
         AlOrdenar?.Invoke(orden, punto);
-        AudioClip clip = orden == OrdenArbitro.Box ? ordenBox : orden == OrdenArbitro.Esquina ? ordenEsquina : ordenNocaut;
-        if (voz == null || clip == null) return;
+        AudioClip[] frases = orden == OrdenArbitro.Esquina ? frasesEsquina
+            : orden == OrdenArbitro.Fin ? frasesNocaut
+            : trasCuenta && frasesSeguir != null && frasesSeguir.Length > 0 ? frasesSeguir : frasesBox;
+        Hablar(frases);
+    }
+
+    private void Programar(AudioClip[] frases, float retraso)
+    {
+        frasePendiente = frases;
+        fraseEn = Time.time + retraso;
+    }
+
+    // Una frase al azar del grupo, sin repetir la última que se dijo de ese grupo
+    private void Hablar(AudioClip[] frases)
+    {
+        if (voz == null || frases == null || frases.Length == 0) return;
+        int i;
+        if (frases.Length == 1) i = 0;
+        else if (!ultimaFrase.TryGetValue(frases, out int ultima)) i = UnityEngine.Random.Range(0, frases.Length);
+        else
+        {
+            i = UnityEngine.Random.Range(0, frases.Length - 1);
+            if (i >= ultima) i++;
+        }
+        ultimaFrase[frases] = i;
+        if (frases[i] == null) return;
+        if (registrar) Debug.Log($"Réferi dice: {frases[i].name}", this);
         vozPausada = false;
-        voz.clip = clip;
+        voz.clip = frases[i];
         voz.Play();
     }
 
@@ -309,6 +387,7 @@ public class Arbitro : MonoBehaviour
     private void Callar()
     {
         NumeroActual = 0;
+        fraseEn = -1f;
         vozPausada = false;
         if (voz != null) voz.Stop();
     }

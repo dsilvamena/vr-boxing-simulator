@@ -81,13 +81,26 @@ public class DirectorVideo : MonoBehaviour
     private float proximaPulsacion;
     private UnityEngine.Events.UnityAction alRender;
 
-    public static DirectorVideo Empezar(string carpeta)
+    private bool corto, peleas;
+
+    /// <param name="corto">Solo el nivel 1 (con las funciones que la versión completa reparte entre los niveles 2–4)
+    /// y el nivel 5, saltando del uno al otro por el menú.</param>
+    public static DirectorVideo Empezar(string carpeta, bool corto = false)
     {
         if (Instancia != null) return Instancia;
         var go = new GameObject("DirectorVideo");
         DontDestroyOnLoad(go);
         var d = go.AddComponent<DirectorVideo>();
         d.carpeta = carpeta;
+        d.corto = corto;
+        return d;
+    }
+
+    /// <summary>Solo las peleas de los niveles 3 (Soda Popinski) y 4 (Mr. Sandman), entrando desde el menú.</summary>
+    public static DirectorVideo EmpezarPeleas(string carpeta)
+    {
+        var d = Empezar(carpeta);
+        d.peleas = true;
         return d;
     }
 
@@ -708,6 +721,133 @@ public class DirectorVideo : MonoBehaviour
     private IEnumerator Guion()
     {
         int nivelAntes = PlayerPrefs.GetInt("nivelSuperado", 0);
+        yield return peleas ? GuionPeleas() : corto ? GuionCorto() : GuionCompleto();
+        PlayerPrefs.SetInt("nivelSuperado", nivelAntes);
+        PlayerPrefs.Save();
+        yield return Hasta(() => Volatile.Read(ref pendientes) == 0, 10f, "fotogramas pendientes");
+        Cerrar();
+    }
+
+    // Nivel 1 completo (defensa, golpes, cuentas, pausa, Guardián, fin de round, caída del jugador) y nivel 5
+    private IEnumerator GuionCorto()
+    {
+        PlayerPrefs.SetInt("nivelSuperado", 0);   // el menú muestra los niveles 2–5 bloqueados
+        yield return Esperar(0.5f);
+
+        Titulo("Simulador de Boxeo RV");
+        Subtitulo("Menú principal dentro de la arena: se elige con el láser del mando derecho y el gatillo");
+        mirarA = CentroCanvas();
+        poseDer = Pose.Apuntar;
+        apuntarA = mirarA;
+        yield return Esperar(3f);
+        yield return Pulsar("ButtonOptions");
+        Subtitulo("Opciones: volumen y vibración, que se guardan");
+        yield return Esperar(2.5f);
+        yield return Pulsar("ButtonAtras");
+        yield return Pulsar("ButtonPlayer");
+        Subtitulo("Cinco rivales: cada nivel se desbloquea al ganar el anterior");
+        yield return Esperar(3f);
+        yield return Pulsar("ButtonNivel1");
+
+        // Nivel 1
+        yield return EsperarEscena("Scene_Ring_Level1");
+        yield return EmpezarPelea("Nivel 1: Glass Joe", "Nivel 1: Glass Joe. 3 rounds de 90 s, sin HUD; el réferi da las instrucciones");
+        yield return Bloquear("Guardia arriba ante el ataque del rival");
+        yield return Esquivar();
+        yield return GolpearHastaCaida("Golpes reales con los mandos: jab, cross, gancho y uppercut, cada uno con su vibración", 4);
+        yield return CuentaDelRival();
+
+        var pausa = FindAnyObjectByType<PauseMenu>();
+        if (pausa != null)
+        {
+            Subtitulo("Botón Menú: pausa el combate");
+            pausa.Show();
+            mirarA = CentroCanvas();
+            yield return Esperar(3f);
+            if (Boton("ButtonReanudar") != null) yield return Pulsar("ButtonReanudar"); else pausa.Hide();
+            mirarA = null;
+            poseIzq = poseDer = Pose.Guardia;
+            var guardian = FindAnyObjectByType<PausaGuardian>(FindObjectsInactive.Include);
+            if (guardian != null)
+            {
+                Campo(guardian, "sinFoco", false);
+                guardian.enabled = true;
+                esquiveObjetivo = new Vector3(-0.5f, 0f, 0f);
+                Llamar(guardian, "ProbarSalir");
+                Subtitulo("Fuera del área segura del Guardián: el juego se pausa y avisa");
+                yield return Esperar(0.3f);
+                mirarA = CentroCanvas();
+                yield return Esperar(3.5f);
+                esquiveObjetivo = Vector3.zero;
+                Llamar(guardian, "ProbarVolver");
+                mirarA = null;
+                Subtitulo("De vuelta en el área segura, el combate sigue solo");
+                yield return Esperar(2f);
+                guardian.enabled = false;
+            }
+        }
+
+        if (rondas != null)
+        {
+            Llamar(rondas, "ProbarAcabarRound");
+            Subtitulo("Fin del round: tres campanadas y «¡Tiempo!» del réferi");
+            yield return Hasta(() => rondas.Estado == EstadoRondas.Descanso, 8f, "descanso");
+            Subtitulo("Descanso de 20 s: el rival camina a su esquina roja y el jugador recupera salud");
+            yield return Hasta(() => rondas.Estado == EstadoRondas.Round, 30f, "round 2");
+            Subtitulo("Round 2: una campanada y «¡Box!»");
+            yield return Hasta(() => op == null || PlanoXZ(op.transform.position - cabeza).magnitude < 1.4f, 15f, "rival cerca");
+        }
+        yield return CaidaDelJugador(levantarse: true);
+        yield return GolpearHastaCaida("Cada golpe que conecta resta salud según su tipo y rapidez; el rival reacciona hacia donde lo empujan");
+        yield return CuentaDelRival();
+        yield return GolpearHastaCaida("Tercera caída: K.O.");
+        Subtitulo("¡Victoria por K.O.!");
+        yield return EsperarEscena("Scene_Results");
+        // Para la demo se saltan los niveles 2–4: quedan desbloqueados (al final se restaura el progreso real)
+        PlayerPrefs.SetInt("nivelSuperado", 4);
+        yield return Resultados("BotonMenu", "Resultados del combate: precisión, golpes bloqueados y tiempo total");
+
+        // Del menú al nivel 5
+        yield return EsperarEscena("Main_Scene");
+        yield return Esperar(0.6f);
+        mirarA = CentroCanvas();
+        poseDer = Pose.Apuntar;
+        apuntarA = mirarA;
+        Titulo("Simulador de Boxeo RV");
+        yield return Pulsar("ButtonPlayer");
+        Subtitulo("Para la demo se saltan los niveles 2 a 4 y se va directo al campeón");
+        yield return Esperar(3f);
+        yield return Pulsar("ButtonNivel5");
+
+        // Nivel 5
+        yield return EsperarEscena("Scene_Ring_Level5");
+        yield return EmpezarPelea("Nivel 5: Iron Mike Tyson", "Nivel 5: Iron Mike Tyson, el campeón: el rival más duro");
+        yield return Bloquear("Combo de cuatro golpes de Tyson contra la guardia");
+        yield return Hasta(() => ataque == null || !ataque.Atacando, 6f, "fin del combo");
+        yield return GolpearHastaCaida("Tyson bloquea y esquiva: hay que pegar entre sus combos");
+        yield return CuentaDelRival();
+        yield return GolpearHastaCaida("Segunda caída");
+        yield return CuentaDelRival();
+        yield return GolpearHastaCaida("K.O. al campeón");
+        Subtitulo("¡Eres el nuevo campeón!");
+        yield return EsperarEscena("Scene_Results");
+        yield return Esperar(1.5f);
+        var cinturon = FindAnyObjectByType<CinturonCampeon>();
+        if (cinturon != null)
+        {
+            mirarA = cinturon.transform.position;
+            Subtitulo("El cinturón de campeón y el texto de cierre de la historia");
+            yield return Esperar(5f);
+        }
+        yield return Resultados("BotonMenu", "Fin del recorrido: vuelta al menú", 4f);
+        yield return EsperarEscena("Main_Scene");
+        mirarA = CentroCanvas();
+        Subtitulo("Simulador de Boxeo RV: cinco rivales, sin HUD, háptica y audio 3D");
+        yield return Esperar(4f);
+    }
+
+    private IEnumerator GuionCompleto()
+    {
         yield return Esperar(0.5f);
 
         // Menú
@@ -767,6 +907,43 @@ public class DirectorVideo : MonoBehaviour
         yield return Resultados("BotonPrincipal", "Victoria: SIGUIENTE NIVEL");
 
         // Nivel 3: combos, pausa, Guardián y victoria por salud
+        yield return PeleaNivel3();
+        yield return Resultados("BotonPrincipal", "Victoria por decisión de los jueces: las tarjetas salen en la hoja");
+
+        // Nivel 4: esquive del rival, cambio de round y levantarse
+        yield return PeleaNivel4();
+        yield return Resultados("BotonPrincipal", "Siguiente: el campeón");
+
+        // Nivel 5: Tyson y el cinturón
+        yield return EsperarEscena("Scene_Ring_Level5");
+        yield return EmpezarPelea("Nivel 5: Iron Mike Tyson", "Nivel 5: Iron Mike Tyson, el campeón invicto");
+        yield return Bloquear("Combo de cuatro golpes de Tyson contra la guardia");
+        yield return Hasta(() => ataque == null || !ataque.Atacando, 6f, "fin del combo");
+        yield return GolpearHastaCaida("Hay que pegar entre sus combos");
+        yield return CuentaDelRival();
+        yield return GolpearHastaCaida("Segunda caída");
+        yield return CuentaDelRival();
+        yield return GolpearHastaCaida("K.O. al campeón");
+        Subtitulo("¡Eres el nuevo campeón!");
+        yield return EsperarEscena("Scene_Results");
+        yield return Esperar(1.5f);
+        var cinturon = FindAnyObjectByType<CinturonCampeon>();
+        if (cinturon != null)
+        {
+            mirarA = cinturon.transform.position;
+            Subtitulo("El cinturón de campeón regional (RF-19) y el texto de cierre de la historia");
+            yield return Esperar(5f);
+        }
+        yield return Resultados("BotonMenu", "Fin del recorrido: vuelta al menú", 4f);
+        yield return EsperarEscena("Main_Scene");
+        mirarA = CentroCanvas();
+        Subtitulo("Simulador de Boxeo RV: cinco rivales, sin HUD, háptica y audio 3D");
+        yield return Esperar(4f);
+    }
+
+    // Nivel 3: combos, pausa, Guardián y victoria a los puntos (termina en la hoja de resultados, sin pulsar)
+    private IEnumerator PeleaNivel3()
+    {
         yield return EsperarEscena("Scene_Ring_Level3");
         yield return EmpezarPelea("Nivel 3: Soda Popinski", "Nivel 3: Soda Popinski, combinaciones rápidas de ganchos");
         yield return Bloquear("Combo de tres ganchos contra la guardia");
@@ -804,13 +981,15 @@ public class DirectorVideo : MonoBehaviour
         yield return CuentaDelRival();
         if (rondas != null)
         {
-            Subtitulo("Si nadie cae por K.O., al final del tercer round gana quien tenga más salud");
+            Subtitulo("Si nadie cae por K.O., al final del tercer round deciden los tres jueces");
             yield return Esperar(1.5f);
             Llamar(rondas, "ProbarGanarPorSalud");
         }
-        yield return Resultados("BotonPrincipal", "Victoria por salud al terminar el último round");
+    }
 
-        // Nivel 4: esquive del rival, cambio de round y levantarse
+    // Nivel 4: esquive del rival, cambio de round, caída del jugador y K.O. (termina al ganar)
+    private IEnumerator PeleaNivel4()
+    {
         yield return EsperarEscena("Scene_Ring_Level4");
         yield return EmpezarPelea("Nivel 4: Mr. Sandman", "Nivel 4: Mr. Sandman, alta velocidad y esquive activo");
         yield return GolpearHastaCaida("Mr. Sandman esquiva y bloquea; cuando bloquea queda abierto");
@@ -829,38 +1008,30 @@ public class DirectorVideo : MonoBehaviour
         yield return GolpearHastaCaida("Segunda caída de Mr. Sandman");
         yield return CuentaDelRival();
         yield return GolpearHastaCaida("K.O.");
-        yield return Resultados("BotonPrincipal", "Siguiente: el campeón");
+    }
 
-        // Nivel 5: Tyson y el cinturón
-        yield return EsperarEscena("Scene_Ring_Level5");
-        yield return EmpezarPelea("Nivel 5: Iron Mike Tyson", "Nivel 5: Iron Mike Tyson, el campeón invicto");
-        yield return Bloquear("Combo de cuatro golpes de Tyson contra la guardia");
-        yield return Hasta(() => ataque == null || !ataque.Atacando, 6f, "fin del combo");
-        yield return GolpearHastaCaida("Hay que pegar entre sus combos");
-        yield return CuentaDelRival();
-        yield return GolpearHastaCaida("Segunda caída");
-        yield return CuentaDelRival();
-        yield return GolpearHastaCaida("K.O. al campeón");
-        Subtitulo("¡Eres el nuevo campeón!");
-        yield return EsperarEscena("Scene_Results");
+    // Solo las peleas de los niveles 3 y 4: menú → Soda Popinski → Mr. Sandman → menú
+    private IEnumerator GuionPeleas()
+    {
+        PlayerPrefs.SetInt("nivelSuperado", 2);   // nivel 3 abierto (el progreso real se restaura al final)
+        yield return Esperar(0.5f);
+        Titulo("Simulador de Boxeo RV");
+        mirarA = CentroCanvas();
+        poseDer = Pose.Apuntar;
+        apuntarA = mirarA;
         yield return Esperar(1.5f);
-        var cinturon = FindAnyObjectByType<CinturonCampeon>();
-        if (cinturon != null)
-        {
-            mirarA = cinturon.transform.position;
-            Subtitulo("El cinturón de campeón regional (RF-19) y el texto de cierre de la historia");
-            yield return Esperar(5f);
-        }
-        yield return Resultados("BotonMenu", "Fin del recorrido: vuelta al menú", 4f);
+        yield return Pulsar("ButtonPlayer");
+        Subtitulo("Peleas de los niveles 3 y 4");
+        yield return Esperar(2f);
+        yield return Pulsar("ButtonNivel3");
+        yield return PeleaNivel3();
+        yield return Resultados("BotonPrincipal", "Victoria por decisión de los jueces: SIGUIENTE NIVEL");
+        yield return PeleaNivel4();
+        Subtitulo("¡Victoria por K.O.!");
+        yield return Resultados("BotonMenu", "Resultados del combate: precisión, golpes bloqueados y tiempo total");
         yield return EsperarEscena("Main_Scene");
         mirarA = CentroCanvas();
-        Subtitulo("Simulador de Boxeo RV: cinco rivales, sin HUD, háptica y audio 3D");
-        yield return Esperar(4f);
-
-        PlayerPrefs.SetInt("nivelSuperado", nivelAntes);
-        PlayerPrefs.Save();
-        yield return Hasta(() => Volatile.Read(ref pendientes) == 0, 10f, "fotogramas pendientes");
-        Cerrar();
+        yield return Esperar(2f);
     }
 }
 #endif

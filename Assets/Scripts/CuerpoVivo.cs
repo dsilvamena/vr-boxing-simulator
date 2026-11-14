@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Capa procedural que se suma a los clips de un personaje humanoide para que se vea vivo y acuse los golpes:
-/// - Mirada: la cabeza (y un poco el torso) sigue los ojos del jugador con la IK de mirada del Animator.
+/// - Mirada: la cabeza (y un poco el torso) sigue los ojos del jugador, girando cuello y cabeza sobre la pose del clip.
 /// - Impacto: cada golpe que entra sacude la cabeza o el torso en la dirección real del puño (un gancho le gira la cara,
 ///   un uppercut le levanta el mentón, uno al cuerpo lo dobla), con un muelle amortiguado y proporcional a la intensidad.
 ///   Los clips de reacción siguen sonando por debajo; esto les da dirección y peso. Un golpe bloqueado solo lo empuja un poco.
@@ -12,7 +12,7 @@ using UnityEngine;
 ///   los guantes. Es la señal, sin HUD, de que está a punto de irse a la lona (RF-14).
 /// Todo son giros añadidos a los huesos en LateUpdate, después de la animación y la IK, así que no cambia ningún clip ni
 /// la lógica del combate. Las hitboxes cuelgan de los huesos y los siguen. En el piso (Knockdown, Defeat) se apaga.
-/// Va en el objeto del Animator (necesita IK Pass en la capa base para la mirada). Sin Oponente (los boxeadores de
+/// Va en el objeto del Animator. Sin Oponente (los boxeadores de
 /// adorno del menú) solo mira y respira. Lo añade Tools > Boxeo > Poner pulido de combate.
 /// </summary>
 [RequireComponent(typeof(Animator))]
@@ -31,6 +31,9 @@ public class CuerpoVivo : MonoBehaviour
     [SerializeField, Range(0f, 1f)] private float pesoTorsoMirada = 0.12f;
     [Tooltip("Segundos que tarda la mirada en seguir al jugador")]
     [SerializeField, Min(0.01f)] private float suavizadoMirada = 0.12f;
+    [Tooltip("Lo más que gira la cabeza a los lados (grados) y lo más que la sube o baja para mirar al jugador")]
+    [SerializeField, Range(0f, 90f)] private float limiteGiroMirada = 60f;
+    [SerializeField, Range(0f, 60f)] private float limiteCabeceoMirada = 30f;
 
     [Header("Impacto")]
     [Tooltip("Grados que gira la cabeza con un golpe completo a la cabeza")]
@@ -246,18 +249,40 @@ public class CuerpoVivo : MonoBehaviour
         }
     }
 
-    private void OnAnimatorIK(int capa)
+    // Mirada hecha a mano y no con la IK de mirada del Animator: esa IK orienta la cabeza según cómo se definió el
+    // avatar, y con el de Bald Bull le echaba la cabeza hacia atrás y de lado (miraba al techo, no al jugador). Aquí se
+    // supone que el clip deja la cara mirando al frente del cuerpo y se añade solo el giro que falta hasta los ojos del
+    // jugador (en horizontal y en vertical, limitados), repartido entre pecho, cuello y cabeza.
+    private void Mirar(float p)
     {
-        if (capa != 0) return;
-        float w = hayPuntoMirada ? pesoMirada * mirada : 0f;
-        animator.SetLookAtWeight(w, pesoTorsoMirada, 1f, 0f, 0.55f);
-        if (w > 0f) animator.SetLookAtPosition(puntoMirada);
+        float w = hayPuntoMirada ? pesoMirada * mirada * p : 0f;
+        if (w <= 0.001f) return;
+        Vector3 local = raiz.InverseTransformDirection(puntoMirada - cabeza.position);
+        float horizontal = new Vector2(local.x, local.z).magnitude;
+        if (horizontal < 0.05f || local.z <= 0f) return;    // detrás o encima: no se retuerce
+        float giro = Mathf.Clamp(Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg, -limiteGiroMirada, limiteGiroMirada);
+        float cabeceo = Mathf.Clamp(-Mathf.Atan2(local.y, horizontal) * Mathf.Rad2Deg, -limiteCabeceoMirada, limiteCabeceoMirada);
+        // Primero cabecea sobre su derecha y después gira sobre la vertical (en el espacio de la raíz): en un solo eje
+        // combinado la cabeza se ladeaba
+        float torso = pecho != null ? pesoTorsoMirada : 0f;
+        if (pecho != null) Girar(pecho, Vector3.up * (giro * torso * w));
+        Quaternion total = Quaternion.AngleAxis(giro * (1f - torso), raiz.up) * Quaternion.AngleAxis(cabeceo, raiz.right);
+        Quaternion completo = Quaternion.Slerp(Quaternion.identity, total, w);
+        if (cuello != null)
+        {
+            Quaternion parteCuello = Quaternion.Slerp(Quaternion.identity, total, w * 0.4f);
+            cuello.rotation = parteCuello * cuello.rotation;
+            // La cabeza ya va girada con el cuello: le falta el resto
+            completo = completo * Quaternion.Inverse(parteCuello);
+        }
+        cabeza.rotation = completo * cabeza.rotation;
     }
 
     private void LateUpdate()
     {
         if (presencia <= 0.001f) return;
         float p = Mathf.SmoothStep(0f, 1f, presencia);
+        Mirar(p);
 
         // Torso: cansancio + respiración (sobre su derecha), esquive e impacto
         float cabeceo = encorvado * cansancio

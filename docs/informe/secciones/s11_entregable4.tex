@@ -6,7 +6,7 @@ Según el cronograma (sección~\ref{sec:crono}), el Entregable~4 comprende la IA
 
 Además se adelantó el registro de métricas por sesión (RF-21, previsto para las semanas 13 y 14), que alimentará las pruebas HEART de la semana 14.
 
-Todo se implementó en Unity 6000.4.7f1 para Meta Quest (OpenXR, Android). El réferi y Mr.\ Sandman usan sus modelos 3D definitivos, riggeados por el equipo; Mr.\ Sandman reutiliza las animaciones de Soda Popinski gracias al avatar humanoide de Unity. El modelo de Iron Mike Tyson también está listo y se integrará con el nivel 5.
+Todo se implementó en Unity 2022 LTS para Meta Quest (OpenXR, Android). El réferi y Mr.\ Sandman usan sus modelos 3D definitivos, riggeados por el equipo; Mr.\ Sandman reutiliza las animaciones de Soda Popinski gracias al avatar humanoide de Unity. El modelo de Iron Mike Tyson también está listo y se integrará con el nivel 5.
 
 \begin{table}[H]
 \centering
@@ -99,7 +99,7 @@ En la cuenta tiene el brazo arriba; con cada número lo baja de golpe en 0,12 s 
   \label{fig:cuentas}
 \end{figure}
 
-\textbf{Modelo del réferi.} El modelo 3D (camisa azul, pantalón oscuro y pajarita) tiene un esqueleto humanoide y dos poses: de pie en T y agachado vigilando. Su malla original tenía 378\,936 triángulos, unas 50 veces más que la de los rivales (6\,652 la de Glass Joe y 8\,636 la de Bald Bull), demasiado para el Meta Quest 2. En un \emph{SkinnedMeshRenderer} el coste es por vértice en cada fotograma, así que el \emph{Mesh LOD} de Unity 6 no servía: comparte el buffer de vértices. El script \cs{Tools/reducir_referi.py} aplica en Blender una decimación antes del modificador de armadura, que conserva los pesos de los huesos, el UV y el material, y deja la malla en 20\,000 triángulos. A partir de la pose en T se generó una pose de pie relajada que respira, y un \emph{blend tree} lleva al réferi suavemente de una postura a otra según la fase del combate. El gesto de la cuenta se aplica sobre el brazo derecho del esqueleto después de la animación, así que sirve para cualquier modelo humanoide. La herramienta \emph{Tools > Boxeo > Montar réferi} lo monta en las cuatro escenas de combate.
+\textbf{Modelo del réferi.} El modelo 3D (camisa azul, pantalón oscuro y pajarita) tiene un esqueleto humanoide y dos poses: de pie en T y agachado vigilando. Su malla original tenía 378\,936 triángulos, unas 50 veces más que la de los rivales (6\,652 la de Glass Joe y 8\,636 la de Bald Bull), demasiado para el Meta Quest 2. En un \emph{SkinnedMeshRenderer} el coste es por vértice en cada fotograma, así que el \emph{Mesh LOD} de Unity 2022 no servía: comparte el buffer de vértices. El script \cs{Tools/reducir_referi.py} aplica en Blender una decimación antes del modificador de armadura, que conserva los pesos de los huesos, el UV y el material, y deja la malla en 20\,000 triángulos. A partir de la pose en T se generó una pose de pie relajada que respira, y un \emph{blend tree} lleva al réferi suavemente de una postura a otra según la fase del combate. El gesto de la cuenta se aplica sobre el brazo derecho del esqueleto después de la animación, así que sirve para cualquier modelo humanoide. La herramienta \emph{Tools > Boxeo > Montar réferi} lo monta en las cuatro escenas de combate.
 
 \subsection{IA de los Niveles 3 y 4 (RF-07, RF-08)}
 \label{sec:ia}
@@ -273,7 +273,7 @@ Los datos se guardan en el dispositivo: un JSON por sesión, reescrito al termin
 
 \subsection{Verificación y Validación}
 \label{sec:verif}
-\textbf{Pruebas en el Editor.} Se realizaron en Play en Unity 6000.4.7f1, con menús contextuales de prueba en cada componente y llamadas directas a los componentes. Sin visor la cabeza queda a la altura del piso, así que para probar los ataques del rival se colocaron la cabeza y las manos a mano. La tabla~\ref{tab:pruebas} resume lo comprobado.
+\textbf{Pruebas en el Editor.} Se realizaron en Play en Unity 2022 LTS, con menús contextuales de prueba en cada componente y llamadas directas a los componentes. Sin visor la cabeza queda a la altura del piso, así que para probar los ataques del rival se colocaron la cabeza y las manos a mano. La tabla~\ref{tab:pruebas} resume lo comprobado.
 
 \begin{table}[H]
 \centering

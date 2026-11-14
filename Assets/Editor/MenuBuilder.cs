@@ -216,29 +216,25 @@ public static class MenuBuilder
         };
     }
 
-    // Mr. Sandman: guantes en la cintura, piernas abiertas y la barbilla alta; cambia el peso de una pierna a otra
+    // Mr. Sandman: guantes en la cintura, piernas abiertas y la barbilla alta, quieto con las dos botas plantadas.
+    // Antes cambiaba el peso de una pierna a otra, pero con su esqueleto (no es de Mixamo) el retarget de ese vaivén le
+    // levantaba un pie del suelo con la rodilla doblada. Quieto, la respiración y la mirada se las pone CuerpoVivo.
     private static List<(float, Maniqui.Fotograma)> EnJarras(Maniqui m, AnimationClip idle)
     {
-        Maniqui.Fotograma Foto(float peso)
+        m.PoseDePie(0.2f, idle);
+        m.GirarTorso(Vector3.right * -6f);
+        m.GirarCabeza(Vector3.right * 6f);
+        Vector3 cadera = m.P(HumanBodyBones.Hips);
+        float a = m.Ancho;
+        foreach (bool izquierda in new[] { true, false })
         {
-            m.PoseDePie(0.24f, idle);
-            m.MoverCadera(new Vector3(peso * 0.035f, -0.01f, 0f), Vector3.forward * (-peso * 2.5f));
-            m.GirarTorso(Vector3.right * -6f + Vector3.forward * (peso * 3f));
-            m.GirarCabeza(Vector3.right * 6f);
-            Vector3 cadera = m.P(HumanBodyBones.Hips);
-            float a = m.Ancho;
-            foreach (bool izquierda in new[] { true, false })
-            {
-                float lado = izquierda ? -1f : 1f;
-                m.Mano(izquierda,
-                    cadera + new Vector3(lado * 0.62f * a, 0.5f * a, 0.12f * a),
-                    cadera + new Vector3(lado * 2.4f * a, 1.1f * a, -0.7f * a));
-            }
-            return m.Capturar();
+            float lado = izquierda ? -1f : 1f;
+            m.Mano(izquierda,
+                cadera + new Vector3(lado * 0.62f * a, 0.5f * a, 0.12f * a),
+                cadera + new Vector3(lado * 2.4f * a, 1.1f * a, -0.7f * a));
         }
-
-        Maniqui.Fotograma izquierda = Foto(-1f), derecha = Foto(1f);
-        return new List<(float, Maniqui.Fotograma)> { (0f, izquierda), (2.6f, derecha), (5.2f, izquierda) };
+        Maniqui.Fotograma quieto = m.Capturar();
+        return new List<(float, Maniqui.Fotograma)> { (0f, quieto), (4f, quieto) };
     }
 
     // Iron Mike Tyson: su guardia cerrada ("peek-a-boo"), agazapado con los guantes pegados a los pómulos, y el

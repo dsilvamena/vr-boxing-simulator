@@ -7,7 +7,8 @@ using UnityEngine;
 /// Mientras el cuerpo se desplaza o gira, cada pie se queda clavado donde pisó (IK de pies). Cuando el cuerpo se aleja
 /// de él más de distanciaPaso, o gira más de giroPaso, el pie da un paso: se levanta en arco y aterriza en su sitio de
 /// la postura, un poco adelantado según la velocidad. Los pies se turnan; si el cuerpo se mueve de golpe (un esquive)
-/// pueden ir los dos a la vez. Vale en cualquier dirección: adelante, atrás, de lado y girando.
+/// pueden ir los dos a la vez. Vale en cualquier dirección: adelante, atrás, de lado y girando. A paso de pelea los pasos
+/// son cortos y rasantes; caminando deprisa (a la esquina, el réferi cruzando el ring) la zancada se alarga y sube.
 /// Con el cuerpo quieto, manda la animación: antes de soltar los pies da un último paso para dejarlos en la postura, y
 /// después la IK se apaga con una mezcla corta. La postura (dónde van los pies respecto a la raíz) se toma de la propia
 /// animación mientras la IK está apagada, así que cada personaje conserva la suya.
@@ -47,6 +48,10 @@ public class PasosProcedurales : MonoBehaviour
     [Tooltip("Por debajo de esta velocidad (m/s) y de giroQuieto (°/s) el cuerpo se considera quieto")]
     [SerializeField, Min(0f)] private float velocidadQuieto = 0.12f;
     [SerializeField, Min(0f)] private float giroQuieto = 25f;
+    [Tooltip("Cuánto se alarga la zancada (y sube el pie) caminando deprisa: x = a paso de pelea, y = a velocidadZancadaLarga o más")]
+    [SerializeField] private Vector2 zancada = new Vector2(1f, 1.5f);
+    [Tooltip("Velocidad (m/s) a la que la zancada ya es la larga; por debajo de 0,35 m/s es siempre la de pelea")]
+    [SerializeField, Min(0.4f)] private float velocidadZancadaLarga = 1f;
     [Tooltip("Segundos de mezcla al encender o apagar la IK de pies")]
     [SerializeField, Min(0.01f)] private float mezcla = 0.2f;
 
@@ -230,17 +235,20 @@ public class PasosProcedurales : MonoBehaviour
             float error = Distancia(sitio, pie.plantado);
             float errorGiro = Quaternion.Angle(giroSitio, pie.giro);
             // Moviéndose, pasos al pasar el umbral; quieto, uno más pequeño para dejar la postura limpia
-            float umbral = quieto ? 0.04f : distanciaPaso;
+            // Caminando un tramo largo (a su esquina, el réferi cruzando el ring) da zancadas más largas y altas que el
+            // pasito corto de la pelea
+            float largo = Mathf.Lerp(zancada.x, zancada.y, Mathf.InverseLerp(0.35f, velocidadZancadaLarga, velocidad.magnitude));
+            float umbral = quieto ? 0.04f : distanciaPaso * largo;
             bool necesita = error > umbral || errorGiro > (quieto ? 10f : giroPaso);
             float errorOtro = Distancia(SitioPostura(otro), otro.plantado);
             // Se turnan, primero el más atrasado; si el cuerpo se fue lejos de golpe, los dos a la vez
-            bool puede = (!otro.enPaso && (errorOtro <= error * 1.2f || errorOtro < umbral)) || error > distanciaPaso * 2.5f;
+            bool puede = (!otro.enPaso && (errorOtro <= error * 1.2f || errorOtro < umbral)) || error > distanciaPaso * largo * 2.5f;
             if (necesita && puede)
             {
                 pie.enPaso = true;
                 pie.t = 0f;
                 pie.duracion = Mathf.Lerp(duracionPaso, duracionMinima, Mathf.InverseLerp(0.4f, 3f, velocidad.magnitude));
-                pie.altura = alturaPaso * Mathf.Clamp01(Mathf.Max(error / (distanciaPaso * 2f), errorGiro / (giroPaso * 2f)) + 0.35f);
+                pie.altura = alturaPaso * largo * Mathf.Clamp01(Mathf.Max(error / (distanciaPaso * largo * 2f), errorGiro / (giroPaso * 2f)) + 0.35f);
                 pie.desde = pie.plantado;
                 pie.giroDesde = pie.giro;
                 Pasos++;

@@ -113,3 +113,115 @@ Son builds incrementales: para medir el tamaño con exactitud hay que compilar c
 ## Qué no cambió
 
 Las reglas del combate, `RegistroSesion` (mismos campos), los protocolos de rendimiento y HEART, y el informe. El video de demostración (`Builds/Video/`) es anterior a estos cambios.
+
+---
+
+# Segunda pasada (2026-11-14): presentación, animaciones y reglamento
+
+Misma rama, `entrega-final/pulido-combate`. **Sin merge ni push.** Objetivo: que el juego se vea y se comporte como un producto terminado: el menú, la arena, las reacciones a los golpes, el réferi y las reglas de un combate de boxeo de verdad. Todo se hizo con el Editor abierto, manejándolo con el CLI de Unity, y se probó en Play con el Meta XR Simulator; **nada de esto se ha visto todavía en el visor**.
+
+## Qué cambia para quien juega
+
+| Antes | Ahora | Dónde |
+|---|---|---|
+| En el Editor, Bald Bull, Mr. Sandman y Tyson se veían en T (solo animaban en Play) y tres rivales del menú compartían la misma guardia | Cada rival del menú tiene su pose: Glass Joe nervioso, Bald Bull choca los guantes, Soda en guardia, Sandman con los guantes en la cintura, Tyson balanceándose en su guardia cerrada. También quedan posados fuera de Play, en el menú y en las peleas | `MenuBuilder`, `Maniqui` |
+| Arena plana y gris: todo en la sombra de una luz "de sol" tapada por el techo | Ring iluminado desde arriba con sombras de los púgiles en la lona, gradas en penumbra, luces de relleno cálidas por delante y azules por detrás del rival | `ArenaBuilder` |
+| Lona gris, esquinas negras, cuerdas blancas | Lona clara con el emblema del juego, esquina roja (rival), azul (jugador) y dos neutrales blancas, cuerdas roja, blanca y azul | `ArenaBuilder` |
+| Gradas vacías con el murmullo de la multitud sonando | 834 espectadores en los asientos; saltan y disparan las cámaras cuando alguien cae | `PublicoBuilder`, shader `Boxeo/Publico` |
+| Un gancho de izquierda y uno de derecha producían la misma reacción; todo golpe al cuerpo, la misma | La cabeza gira hacia donde va el guante y el cuerpo la sigue; un golpe al costado lo dobla sobre ese lado y baja el codo a cubrirse | `ReaccionesBuilder`, `ReaccionAnimada` |
+| Nada avisaba de que el rival estaba a punto de caer | Se tambalea, le cuelga la cabeza y se le bajan los guantes cuando le queda poco para la próxima caída | `CuerpoVivo` (tocado) |
+| El rival se levantaba al llegar al 10 | Está de pie antes del 10 (cada rival en su número) y la cuenta sigue hasta 8, la cuenta de protección; el réferi ordena "¡Box!" para seguir | `Arbitro` |
+| Tras tumbarte se burlaba encima de ti | Se retira a la esquina neutral y se burla desde allí | `AtaqueOponente` |
+| En el descanso se quedaba en el centro | Camina a su esquina, la roja | `ControlRondas`, `AtaqueOponente` |
+| Sin K.O. ganaba quien tuviera más salud | Deciden tres jueces con tarjetas de 10 puntos por round; la decisión puede ser unánime, mayoritaria o dividida y las tarjetas se ven en el cartel y en resultados | `ControlRondas` |
+| El réferi solo contaba | Da la salida de cada round, manda a la esquina neutral, para el combate agitando los brazos y señala al ganador | `CuerpoArbitro` |
+| No había forma de saber cuánto quedaba de round | Marcador luminoso colgado de la estructura de focos con round, reloj y nombres, y claqueta a falta de diez segundos | `MarcadorRing`, `ControlRondas` |
+| Cuando ganaba, el rival se quedaba en guardia | Levanta los brazos y celebra | `ReaccionAnimada` (estado `Victoria`) |
+
+## `Maniqui`: animaciones humanoides por código
+
+No hay animador en el equipo ni clips nuevos de Mixamo, así que las poses y reacciones nuevas se generan en el Editor (`Assets/Editor/Maniqui.cs`):
+
+1. Se instancia una copia oculta del personaje.
+2. Se coloca en una pose: se muestrea un clip (su guardia) o se parte de una pose de pie, y se mueven huesos con giros en el espacio del personaje y con IK analítica de dos huesos para brazos (`Mano`) y piernas (`MoverCadera` vuelve a plantar los pies donde estaban, así que bajar la cadera dobla las rodillas).
+3. `HumanPoseHandler` convierte esa pose en músculos (`Capturar`).
+4. `EscribirClip` escribe las fotos como fotogramas clave de un clip humanoide, con tangentes suaves.
+
+Como el clip queda en espacio de músculos, se retargetea solo a cualquier esqueleto Humanoid y se mezcla con los clips de Mixamo en el Animator. Las medidas se dan en "anchos de hombros" para que valgan en cuerpos distintos. Dos detalles que costaron: con todos los músculos a cero la cabeza de Bald Bull mira al techo (depende de cómo se definió su avatar), así que la pose de pie toma la cabeza de su guardia; y al regenerar, la guardia de referencia tiene que salir del controlador del prefab, no del que ya tiene puesto la escena.
+
+Clips generados:
+
+| Clip | Personajes | Uso |
+|---|---|---|
+| `Menu/Menu_BaldBull`, `Menu_MrSandman`, `Menu_MikeTyson` | uno cada uno | Poses del menú, en bucle, cada una en un controlador de un solo estado |
+| `<Rival>/Animations/Generadas/<Rival>@Cabeza_Derecha`, `Cabeza_Izquierda`, `Cuerpo_Derecha`, `Cuerpo_Izquierda` | Glass Joe, Bald Bull, Soda (Sandman y Tyson usan los de Soda) | Reacciones según la dirección del golpe |
+| `GlassJoe/Animations/Generadas/GlassJoe@Victoria` | todos (sin override) | Celebración al ganar |
+
+Los estados nuevos están en `GlassJoe.controller`; los clips de Bull y Soda, en sus override controllers. `ReaccionAnimada` elige el estado lateral cuando al menos la mitad de la velocidad del puño va de lado en el espacio del rival (`umbralLateral`); de frente siguen los clips de siempre.
+
+## Arena (`Tools > Boxeo > Vestir arena`)
+
+**Iluminación.** La escena tenía 25 luces en tiempo real con sombra y, con la calidad *Medium* de Android (una luz por píxel), la que mandaba era la direccional, que el techo tapaba: todo quedaba en sombra y el mapa de sombras dibujaba más de mil objetos por fotograma. Ahora:
+
+- La direccional es la luz del ring (casi cenital, cálida, la única por píxel y con sombra) y solo alumbra lo que no está en la capa nueva **`Arena`**, a la que pasa todo el edificio menos el ring. Ni lo ilumina ni entra en su mapa de sombras.
+- Los focos del edificio quedan como relleno por vértice, fríos y sin sombra; la puntual del centro se apaga.
+- Cuatro luces por vértice en las esquinas del ring (`LucesRing`).
+- Ambiente en tres tonos, niebla oscura.
+- Sombras de *Medium*: distancia 20 → 12 m y resolución *Low* → *Medium*, para que no se vean a bloques.
+
+Esto coincide con el recorte 1 de la auditoría de `docs/Entrega5.md` (quitar sombras a las luces que no son la direccional), que ya no hace falta aplicar aparte: *Tools > Boxeo > Rendimiento* lo encontrará sin nada que cambiar. Los recortes 2 y 3 siguen igual.
+
+**Ring.** La lona es un plano 4 mm por encima del piso original con una textura de 1024 px que pinta el propio Editor (el texto sale del atlas SDF de Bangers). Los materiales propios están en `Art/Arena/`; los de MarpaStudio no se tocan. De paso se devolvió a su esquina el cuarto pilar de la estructura de focos, que en la escena original estaba en mitad de un lado y hundido en el suelo.
+
+**Público.** Los 1 012 asientos de la arena son planos de 1 m con la butaca pintada. `PublicoBuilder` sienta gente en el 82 %: una sola malla de 1 866 triángulos (una draw call) con una textura de 512 × 64 (5 KB) y un shader sin luces. El shader mece las siluetas y, cuando `AmbienteMultitud` ovaciona, las hace saltar y abre destellos de cámara (`_PublicoAnimo`, global). Para quitarlo basta con desactivar el objeto `Publico` de cada escena.
+
+## Reglamento
+
+- **Cuenta al rival.** Nadie se levanta "en el 10": eso es nocaut. `cuentaKnockdown` del perfil es ahora el número en el que ya está de pie (Glass Joe 9, Bald Bull 8, Soda 8, Sandman 7, Tyson 6). Empieza a incorporarse 2 s antes, la cuenta sigue hasta 8 como mínimo y hasta el "¡Box!" queda protegido y sin atacar. La caída queda en 8–9 s de cuenta más la espera de la esquina, parecido a los 10 s de antes.
+- **Tres caídas.** La tercera caída del rival sigue parando el combate sin cuenta: es la regla de las tres caídas.
+- **Esquinas neutrales.** Las da `LimiteRing.EsquinaNeutralLejana`. El jugador no puede ser obligado a ir (es su espacio real); el réferi se la señala.
+- **Jueces.** En cada round, 10 puntos para quien más salud le quitó al otro (en fracción de su máximo) y 9 para el otro; 10-10 si la diferencia es menor de 1,5 %; un punto menos por caída. Tres jueces con sesgos de −2 %, 0 y +2 %. Gana quien tenga más jueces; el empate sigue siendo del jugador. **Esto cambia RF-11 respecto al informe**, que decía "gana quien tenga más salud": hay que actualizar esa frase. `ResultadoCombate` conserva `VictoriaPorSalud` / `DerrotaPorSalud` para no romper los registros ni `Tools/tabla_heart.py`; `RegistroSesion` añade `tarjetas` y `decision` al final.
+- **Lo que no se cambió:** 3 rounds de 90 s con 20 s de descanso (un asalto de 3 min con el visor puesto cansa demasiado), el daño, la salud y las probabilidades de bloqueo y esquive.
+
+## Pasos
+
+Los pasos procedurales (`PasosProcedurales`) ya clavaban cada pie entre paso y paso; se comprobó de nuevo con Mr. Sandman, el esqueleto más delicado. Lo que cambia: caminando deprisa o un tramo largo (el rival a su esquina o a la neutral, el réferi cruzando el ring) la zancada se alarga y el pie sube más (`zancada`, hasta ×1,5 a 1 m/s), en vez de recorrer tres metros a pasitos de pelea. Medido en el nivel 4, de camino a la esquina (2,5 m): antes los pies hacían 1,6 y 1,1 m de ese recorrido a menos de 2 cm de la lona; ahora 0,6 y 0,9 m en 22 pasos. Por debajo de 0,35 m/s (el juego de pies de la pelea) todo sigue igual. Además, en el descanso el rival camina mirando hacia su esquina en vez de ir de espaldas.
+
+## Herramientas nuevas (todas se pueden repetir)
+
+| Menú | Qué hace |
+|---|---|
+| *Tools > Boxeo > Poner rivales en el menú* | Ahora también genera las tres poses y deja posados a los cinco |
+| *Tools > Boxeo > Posar rivales en las peleas* | Deja a cada rival en su guardia dentro de las escenas de pelea |
+| *Tools > Boxeo > Vestir arena* | Iluminación, capa `Arena`, lona, esquinas, cuerdas y público en las siete escenas |
+| *Tools > Boxeo > Regenerar la lona del ring* / *Regenerar el público* | Rehacen la textura de la lona o la malla y la textura del público |
+| *Tools > Boxeo > Crear reacciones a los golpes* | Genera los clips de reacción y `Victoria` y los monta en los controladores |
+| *Tools > Boxeo > Poner reglamento* | Asigna las órdenes de voz y la claqueta, monta el marcador y fija los perfiles |
+
+Sonidos nuevos (`python3 Tools/sintetizar_audio.py Assets/_Project/Audio/Efectos Voz_Orden Aviso_`): `Voz_Orden_Box`, `Voz_Orden_Esquina`, `Voz_Orden_Nocaut` y `Aviso_Diez_Segundos`.
+
+## Pruebas (Editor, Play con Meta XR Simulator)
+
+- Menú: los cinco animan, miran al jugador, consola sin errores.
+- Reacciones: golpes por `Oponente.RecibirGolpe` a cámara lenta en los niveles 1 y 2, vistos desde una cámara externa (gancho a cada lado y golpe al costado).
+- Reglamento (niveles 1, 3 y 5): salida con "¡Box!"; cuenta completa a Glass Joe ("¡Esquina!", 1 a 9, de pie en el 9, "¡Box!"); derribo del jugador con el rival yendo a la esquina neutral; nocaut del jugador ("¡Nocaut!"); descanso con Soda en (2,15; 2,15), su esquina; derrota por decisión unánime con las tarjetas en `Scene_Results`; Tyson celebrando con el réferi señalándolo.
+- En las pruebas se usó un arnés que fija cabeza y manos y rellena la salud del jugador, así que las tarjetas de esas peleas no son representativas.
+
+## APK (`Builds/Android/`, fuera del repositorio)
+
+Regenerados el 2026-11-14 con todo lo de esta pasada, con builds incrementales y sin errores (el shader `Boxeo/Publico` compila para Android):
+
+| APK | Tamaño | Notas |
+|---|---|---|
+| `vrboxing_dev.apk` | 193,6 MB | El de las pruebas (MSAA 4×). Igual que antes de esta pasada: la lona, el público, los clips y las voces no llegan a medio MB |
+| `vrboxing_release.apk` | 169,1 MB | Sin *Development* |
+| `vrboxing_dev_sinmsaa.apk` | 193,7 MB | **No regenerado**: sigue siendo el del 2026-11-13 (commit `e76dc0f`), sin nada de esta pasada |
+
+## Sin probar: hace falta el visor
+
+1. **Shader del público en multiview.** Lleva las macros de estéreo, pero el simulador renderiza en MultiPass: hay que confirmar que las siluetas salen en los dos ojos.
+2. **FPS.** La iluminación nueva debería costar menos que la anterior (un mapa de sombras pequeño en vez de más de mil objetos), y el público es una draw call, pero hay que medirlo.
+3. **Brillo.** Gradas en penumbra y lona clara: comprobar en las lentes que la lona no deslumbra y que el público se distingue.
+4. **Marcador.** Que se lea levantando la vista desde el centro del ring.
+5. **Voces nuevas** ("¡Box!", "¡Esquina!", "¡Nocaut!"): son del mismo sintetizador que los números; se pueden sustituir por grabaciones sobrescribiendo los WAV.
+6. **Dificultad.** La cuenta de protección da al jugador unos segundos más de respiro tras cada derribo, y la decisión por jueces premia ganar rounds, no solo conservar salud.

@@ -96,6 +96,14 @@ public class CuerpoVivo : MonoBehaviour
         faseRespiracion = Random.value * Mathf.PI * 2f;
     }
 
+    // De adorno (sin Oponente): varios personajes comparten el clip de Idle; se desfasa para que no se muevan a la vez
+    private void Start()
+    {
+        if (oponente != null || !animator.HasState(0, Idle)) return;
+        animator.Play(Idle, 0, Random.value);
+        animator.speed = Random.Range(0.9f, 1.1f);
+    }
+
     private void OnEnable()
     {
         if (oponente == null) return;

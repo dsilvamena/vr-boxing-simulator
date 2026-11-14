@@ -17,6 +17,14 @@ using UnityEngine;
 /// Tools > Boxeo > Poner pasos procedurales.
 /// Nota: dentro de OnAnimatorIK, Animator.GetIKPosition devuelve el objetivo del fotograma anterior y no la pose animada,
 /// por eso la postura se lee de los huesos en LateUpdate y no de ahí.
+/// Con ApoyoEnSuelo (Mr. Sandman, Tyson) la postura se guarda sin la subida de cadera que ese componente aplica después
+/// de la IK: así los pies se clavan a la altura del clip y ApoyoEnSuelo los sube igual que cuando la IK está apagada. Si
+/// se guardaran ya subidos, ApoyoEnSuelo no vería suelas hundidas, no subiría la cadera y el personaje daría los pasos
+/// agachado (22 cm en Sandman).
+/// El objetivo de IK de un pie no es el hueso: Unity lo define con su propia orientación y algo desplazado, y cuánto
+/// depende del esqueleto (en los de Mixamo casi coinciden; en el de Mr. Sandman, pasarle el giro del hueso volteaba el
+/// pie). Por eso, con la IK apagada y el cuerpo quieto, se guarda el desfase entre el objetivo y el hueso, y al clavar el
+/// pie se le suma: así, pedirle a la IK la pose del clip devuelve exactamente la pose del clip.
 /// </summary>
 [RequireComponent(typeof(Animator))]
 public class PasosProcedurales : MonoBehaviour
@@ -58,9 +66,13 @@ public class PasosProcedurales : MonoBehaviour
         public Quaternion giroDesde;
         public Vector3 actual;
         public Quaternion giroActual;
+        // Del hueso al objetivo de IK, en el espacio del hueso (constante para cada esqueleto)
+        public Vector3 desfasePosicion;
+        public Quaternion desfaseGiro = Quaternion.identity;
     }
 
     private Animator animator;
+    private ApoyoEnSuelo apoyo;
     private readonly Pie izquierdo = new Pie { objetivo = AvatarIKGoal.LeftFoot, hueso = HumanBodyBones.LeftFoot };
     private readonly Pie derecho = new Pie { objetivo = AvatarIKGoal.RightFoot, hueso = HumanBodyBones.RightFoot };
     private Pie[] pies;
@@ -83,6 +95,7 @@ public class PasosProcedurales : MonoBehaviour
     private void Awake()
     {
         animator = GetComponent<Animator>();
+        apoyo = GetComponent<ApoyoEnSuelo>();
         pies = new[] { izquierdo, derecho };
         hashes = new int[estados.Length];
         for (int i = 0; i < estados.Length; i++) hashes[i] = Animator.StringToHash(estados[i]);
@@ -174,6 +187,7 @@ public class PasosProcedurales : MonoBehaviour
                 animator.SetIKPositionWeight(pie.objetivo, 0f);
                 animator.SetIKRotationWeight(pie.objetivo, 0f);
             }
+            MedirDesfase();
             return;
         }
 
@@ -187,8 +201,22 @@ public class PasosProcedurales : MonoBehaviour
         {
             animator.SetIKPositionWeight(pie.objetivo, w);
             animator.SetIKRotationWeight(pie.objetivo, w);
-            animator.SetIKPosition(pie.objetivo, pie.actual);
-            animator.SetIKRotation(pie.objetivo, pie.giroActual);
+            animator.SetIKPosition(pie.objetivo, pie.actual + pie.giroActual * pie.desfasePosicion);
+            animator.SetIKRotation(pie.objetivo, pie.giroActual * pie.desfaseGiro);
+        }
+    }
+
+    // Con la IK apagada, el objetivo que devuelve el Animator aquí es el de la pose que dejó el fotograma anterior (ya con
+    // la subida de ApoyoEnSuelo), igual que los huesos: su diferencia es el desfase propio del esqueleto. Se mide con el
+    // cuerpo quieto por si en algún caso el objetivo llegara un fotograma adelantado.
+    private void MedirDesfase()
+    {
+        if (velocidad.sqrMagnitude > 0.0004f || velocidadGiro > 2f || !EstadoConPasos()) return;
+        foreach (Pie pie in pies)
+        {
+            Quaternion inverso = Quaternion.Inverse(pie.transformHueso.rotation);
+            pie.desfaseGiro = inverso * animator.GetIKRotation(pie.objetivo);
+            pie.desfasePosicion = inverso * (animator.GetIKPosition(pie.objetivo) - pie.transformHueso.position);
         }
     }
 
@@ -258,9 +286,11 @@ public class PasosProcedurales : MonoBehaviour
     private void LateUpdate()
     {
         if (peso > 0f || !EstadoConPasos()) return;
+        // ApoyoEnSuelo ya corrió este fotograma (orden -50) y subió la cadera: se le quita para guardar la altura del clip
+        Vector3 subida = apoyo != null && apoyo.isActiveAndEnabled ? Vector3.up * apoyo.UltimaCorreccion : Vector3.zero;
         foreach (Pie pie in pies)
         {
-            pie.posturaLocal = transform.InverseTransformPoint(pie.transformHueso.position);
+            pie.posturaLocal = transform.InverseTransformPoint(pie.transformHueso.position - subida);
             pie.giroPosturaLocal = Quaternion.Inverse(transform.rotation) * pie.transformHueso.rotation;
             pie.hayPostura = true;
         }

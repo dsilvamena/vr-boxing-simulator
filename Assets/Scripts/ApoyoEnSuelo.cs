@@ -44,6 +44,20 @@ public class ApoyoEnSuelo : MonoBehaviour
         if (corregida && cadera.localPosition == caderaEscrita) cadera.localPosition = caderaAnimada;
         corregida = false;
 
+        float hundido = MedirHundimiento();
+        UltimaCorreccion = hundido > tolerancia ? hundido : 0f;
+        if (UltimaCorreccion == 0f) return;
+
+        caderaAnimada = cadera.localPosition;
+        cadera.position += Vector3.up * hundido;
+        caderaEscrita = cadera.localPosition;
+        corregida = true;
+    }
+
+    /// <summary>Cuánto queda la suela más baja por debajo del piso del personaje (negativo = por encima), en metros.
+    /// También sirve en modo edición, para dejar posado al personaje en la escena.</summary>
+    public float MedirHundimiento()
+    {
         float minimo = float.MaxValue;
         foreach (var suela in suelas)
         {
@@ -52,15 +66,7 @@ public class ApoyoEnSuelo : MonoBehaviour
             foreach (var p in suela.puntos)
                 minimo = Mathf.Min(minimo, m.m10 * p.x + m.m11 * p.y + m.m12 * p.z + m.m13);
         }
-
-        float hundido = transform.position.y - minimo;
-        UltimaCorreccion = hundido > tolerancia ? hundido : 0f;
-        if (UltimaCorreccion == 0f) return;
-
-        caderaAnimada = cadera.localPosition;
-        cadera.position += Vector3.up * hundido;
-        caderaEscrita = cadera.localPosition;
-        corregida = true;
+        return minimo == float.MaxValue ? 0f : transform.position.y - minimo;
     }
 
 #if UNITY_EDITOR

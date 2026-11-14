@@ -213,7 +213,7 @@ Regenerados el 2026-11-14 con todo lo de esta pasada, con builds incrementales y
 
 | APK | Tamaño | Notas |
 |---|---|---|
-| `vrboxing_dev.apk` | 193,6 MB | El de las pruebas (MSAA 4×). Igual que antes de esta pasada: la lona, el público, los clips y las voces no llegan a medio MB |
+| `vrboxing_dev.apk` | 198,0 MB | El de las pruebas (MSAA 4×). La primera build de esta pasada pesó 193,6 MB, igual que antes de ella: la lona, el público, los clips y las voces no llegan a medio MB. Los 4 MB de más de la segunda son huecos del empaquetado incremental, no contenido |
 | `vrboxing_release.apk` | 169,1 MB | Sin *Development* |
 | `vrboxing_dev_sinmsaa.apk` | 193,7 MB | **No regenerado**: sigue siendo el del 2026-11-13 (commit `e76dc0f`), sin nada de esta pasada |
 

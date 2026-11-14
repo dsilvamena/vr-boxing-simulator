@@ -3,7 +3,8 @@ using UnityEngine;
 /// <summary>
 /// RF-16: la multitud alrededor del ring, con audio espacial 3D. Crea varias fuentes en círculo (las gradas) que
 /// repiten el murmullo, cada una desde un punto distinto del clip para que no suenen al unísono.
-/// Ovaciona cuando el rival cae o se derrumba el jugador, desde las fuentes más cercanas a quien cayó.
+/// Ovaciona cuando el rival cae o se derrumba el jugador, desde las fuentes más cercanas a quien cayó, y en ese momento
+/// el público de las gradas (las siluetas del shader Boxeo/Publico) salta y dispara las cámaras.
 /// Va en un objeto propio en el centro del ring, en cada escena de pelea.
 /// </summary>
 public class AmbienteMultitud : MonoBehaviour
@@ -24,7 +25,15 @@ public class AmbienteMultitud : MonoBehaviour
     [SerializeField, Range(0f, 1f)] private float volumenMurmullo = 0.35f;
     [SerializeField, Range(0f, 1f)] private float volumenOvacion = 0.8f;
 
+    [Header("Público visible")]
+    [Tooltip("Segundos que el público de las gradas sigue saltando tras una ovación (shader Boxeo/Publico)")]
+    [SerializeField, Min(0f)] private float segundosAnimado = 3.5f;
+
+    private static readonly int IdAnimo = Shader.PropertyToID("_PublicoAnimo");
+
     private AudioSource[] gradas;
+    private float animo;          // 0 = en calma, 1 = saltando
+    private float animadoHasta;
 
     private void Awake()
     {
@@ -74,6 +83,16 @@ public class AmbienteMultitud : MonoBehaviour
     {
         if (oponente != null) oponente.AlCaer -= AlCaerOponente;
         if (jugador != null) jugador.AlQuedarseSinSalud -= AlCaerJugador;
+        // El valor es global: que no se quede el público saltando en la escena siguiente
+        Shader.SetGlobalFloat(IdAnimo, 0f);
+    }
+
+    // El público visible sube de golpe con la ovación y se calma poco a poco
+    private void Update()
+    {
+        float objetivo = Time.time < animadoHasta ? 1f : 0f;
+        animo = Mathf.MoveTowards(animo, objetivo, Time.deltaTime * (objetivo > animo ? 4f : 0.6f));
+        Shader.SetGlobalFloat(IdAnimo, animo);
     }
 
     private void AlCaerOponente(Golpe golpe) => Ovacionar(oponente.transform.position);
@@ -83,6 +102,7 @@ public class AmbienteMultitud : MonoBehaviour
     /// <summary>La ovación sale de las dos gradas más cercanas al punto, para que se oiga de ese lado.</summary>
     public void Ovacionar(Vector3 punto)
     {
+        animadoHasta = Time.time + segundosAnimado;
         if (ovacion == null) return;
         System.Array.Sort(gradas, (a, b) =>
             (a.transform.position - punto).sqrMagnitude.CompareTo((b.transform.position - punto).sqrMagnitude));

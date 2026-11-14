@@ -26,6 +26,12 @@ public class Puno : MonoBehaviour
     [Tooltip("Por debajo de esta rapidez alejándose de la cabeza el puño queda listo para contar otro golpe lanzado")]
     [SerializeField] private float rapidezRearme = 0.2f;
 
+    [Header("Sonido al lanzar")]
+    [Tooltip("Silbido del guante al cortar el aire; suena al lanzar un golpe, conecte o no. Vacío = sin sonido")]
+    [SerializeField] private AudioClip[] sonidosAire;
+    [Tooltip("Volumen del silbido con un golpe apenas lanzado (x) y con uno a rapidezVibracionMaxima o más (y)")]
+    [SerializeField] private Vector2 volumenAire = new Vector2(0.25f, 0.7f);
+
     [Header("Vibración")]
     [Tooltip("Rapidez del puño (m/s) con la que la vibración llega al máximo")]
     [SerializeField] private float rapidezVibracionMaxima = 2.5f;
@@ -57,6 +63,7 @@ public class Puno : MonoBehaviour
     private Coroutine vibracion;
     private bool lanzando; // ya contó el golpe que está lanzando
     private Collider miCollider;
+    private AudioSource fuenteAire;
 
     /// <summary>
     /// Un puño lanzó un golpe: la mano se alejó deprisa de la cabeza, o tocó al rival sin haberlo hecho antes. Se cuenta una
@@ -93,6 +100,17 @@ public class Puno : MonoBehaviour
             Mano = transform.IsChildOf(rig.leftHandAnchor) ? Mano.Izquierda : Mano.Derecha;
         }
         jugador = GetComponentInParent<SaludJugador>();
+
+        if (sonidosAire != null && sonidosAire.Length > 0)
+        {
+            // Fuente propia en el guante: el silbido se oye salir de la mano que golpea
+            fuenteAire = gameObject.AddComponent<AudioSource>();
+            fuenteAire.playOnAwake = false;
+            fuenteAire.spatialBlend = 1f;
+            fuenteAire.minDistance = 0.3f;
+            fuenteAire.maxDistance = 6f;
+            fuenteAire.dopplerLevel = 0f;
+        }
     }
 
     private void OnEnable() => posicionAnterior = PosicionLocal();
@@ -104,7 +122,9 @@ public class Puno : MonoBehaviour
     private void FixedUpdate()
     {
         Vector3 posicion = PosicionLocal();
-        float paso = Time.fixedDeltaTime;
+        // Tiempo real entre dos pasos: en cámara lenta (EfectosGolpe) la mano sigue a velocidad real y los pasos de
+        // física llegan más espaciados, así que sin esto un gesto normal mediría como un golpe rapidísimo
+        float paso = Time.fixedDeltaTime / Mathf.Max(0.05f, Time.timeScale);
         Vector3 medida = (posicion - posicionAnterior) / paso;
         // Mismo filtro en segundos con cualquier paso: con 0,02 s es exactamente Lerp(..., suavizado)
         float alfa = 1f - Mathf.Pow(1f - suavizado, paso / PasoCalibracion);
@@ -120,8 +140,22 @@ public class Puno : MonoBehaviour
         Vector3 desdeCabeza = transform.position - cabeza.position;
         if (desdeCabeza.sqrMagnitude < 0.0001f) return;
         float alejandose = Vector3.Dot(Velocidad, desdeCabeza.normalized);
-        if (!lanzando && alejandose > rapidezLanzamiento) ContarLanzamiento();
+        if (!lanzando && alejandose > rapidezLanzamiento)
+        {
+            ContarLanzamiento();
+            SonarAire();
+        }
         else if (lanzando && alejandose < rapidezRearme) lanzando = false;
+    }
+
+    private void SonarAire()
+    {
+        if (fuenteAire == null) return;
+        AudioClip clip = sonidosAire[UnityEngine.Random.Range(0, sonidosAire.Length)];
+        if (clip == null) return;
+        fuenteAire.pitch = UnityEngine.Random.Range(0.9f, 1.12f);
+        float fuerza = Mathf.InverseLerp(rapidezLanzamiento, rapidezVibracionMaxima * 1.6f, Velocidad.magnitude);
+        fuenteAire.PlayOneShot(clip, Mathf.Lerp(volumenAire.x, volumenAire.y, fuerza));
     }
 
     private void ContarLanzamiento()

@@ -78,6 +78,11 @@ public class PerfilOponente : ScriptableObject
     [Tooltip("Distancia al jugador que intenta mantener, en metros (debe quedar dentro de alcanceAtaque)")]
     public float distanciaCombate = 1.1f;
 
+    [Tooltip("Metros por segundo a los que se desplaza de lado alrededor del jugador mientras espera (0 = se queda plantado)")]
+    public float velocidadLateral = 0.2f;
+    [Tooltip("Metros que lo empuja hacia atrás un golpe completo del jugador (después vuelve a entrar caminando)")]
+    public float retrocesoPorGolpe = 0.1f;
+
     [Header("Ataques")]
     [Tooltip("Segundos entre ataques (se elige uno al azar en el rango)")]
     public Vector2 intervaloAtaque = new Vector2(4f, 6f);
@@ -128,6 +133,8 @@ public class PerfilOponente : ScriptableObject
     public AudioClip[] sonidosGolpe;
     public AudioClip sonidoBloqueo;
     public AudioClip sonidoKO;
+    [Tooltip("Esfuerzo al lanzar cada golpe (resoplido); se oye antes del impacto y sirve de aviso")]
+    public AudioClip[] sonidosAtaque;
 
     public float DanoAtaque(TipoAtaque tipo) => tipo switch
     {

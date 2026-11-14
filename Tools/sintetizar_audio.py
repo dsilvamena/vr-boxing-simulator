@@ -1,6 +1,9 @@
 """Sintetiza los efectos de sonido del juego (golpes, bloqueo, latido, multitud, campana, voz del réferi) como WAV mono 16 bits.
 
-Uso: python3 Tools/sintetizar_audio.py Assets/_Project/Audio/Efectos
+Uso: python3 Tools/sintetizar_audio.py Assets/_Project/Audio/Efectos [prefijo ...]
+
+Con prefijos solo se escriben los sonidos cuyo nombre empieza por alguno (p. ej. "Golpe_Aire Rival_"), y el resto de
+los WAV no se toca: sirve para no pisar grabaciones puestas encima de los Voz_Cuenta.
 """
 import math
 import random
@@ -10,9 +13,14 @@ import wave
 
 SR = 22050
 OUT = sys.argv[1]
+SOLO = sys.argv[2:]
 
 
-def guardar(nombre, muestras, sr=SR):
+def guardar(nombre, crear, sr=SR):
+    """crear: función sin argumentos que devuelve las muestras (no se llama si el nombre queda fuera de SOLO)."""
+    if SOLO and not any(nombre.startswith(p) for p in SOLO):
+        return
+    muestras = crear()
     pico = max(1e-9, max(abs(s) for s in muestras))
     escala = 0.89 / pico
     with wave.open(f"{OUT}/{nombre}.wav", "wb") as w:
@@ -66,6 +74,46 @@ def golpe(seed, dur=0.35, f0=140, f1=45, cuerpo=1.0, chasquido=0.6, corte=2500, 
         ruido = lp2(lp(rnd.uniform(-1, 1))) * math.exp(-t * 60) * chasquido * 3
         ataque = min(1.0, t / 0.002)
         out.append((thump + ruido) * ataque)
+    return out
+
+
+def aire(seed, dur=0.22, f0=500, f1=2600, q=1.6):
+    """Silbido del guante al cortar el aire: ruido pasa banda cuyo tono sube y baja con la velocidad del brazo."""
+    rnd = random.Random(seed)
+    bp = Biquad("bp", f0, q)
+    hp = Biquad("hp", 250, 0.7)
+    n = int(dur * SR)
+    out = []
+    for i in range(n):
+        x = i / n
+        # La mano acelera y frena: envolvente en campana, algo adelantada
+        env = math.sin(math.pi * x ** 0.8) ** 2
+        if i % 16 == 0:
+            bp.set("bp", f0 + (f1 - f0) * env, q)
+        out.append(hp(bp(rnd.uniform(-1, 1))) * env)
+    return out
+
+
+def esfuerzo(seed, dur=0.28, tono=120, aspereza=0.5):
+    """Resoplido de un boxeador al lanzar un golpe: un soplo de aire con dos formantes y un fondo de voz grave."""
+    rnd = random.Random(seed)
+    f1 = Biquad("bp", 950, 2.0)
+    f2 = Biquad("bp", 2300, 2.5)
+    lp = Biquad("lp", 700, 0.8)
+    n = int(dur * SR)
+    fase = 0.0
+    out = []
+    for i in range(n):
+        t = i / SR
+        x = i / n
+        # Ataque brusco (el aire sale de golpe) y caída más lenta
+        env = min(1.0, t / 0.012) * math.exp(-x * 4.5)
+        r = rnd.uniform(-1, 1)
+        soplo = f1(r) * 1.0 + f2(r) * 0.6
+        fase += 2 * math.pi * tono * (1 - 0.25 * x) / SR
+        # Voz: una onda rica en armónicos, filtrada, que se mezcla poco
+        voz_grave = lp(math.sin(fase) + 0.5 * math.sin(2 * fase) + 0.3 * math.sin(3 * fase)) * aspereza
+        out.append((soplo * 2.2 + voz_grave) * env)
     return out
 
 
@@ -257,19 +305,26 @@ def bucle(muestras, cruce):
 
 
 if __name__ == "__main__":
-    guardar("Golpe_Conectado_1", golpe(1))
-    guardar("Golpe_Conectado_2", golpe(2, f0=160, f1=55, chasquido=0.8, corte=3200))
-    guardar("Golpe_Conectado_3", golpe(3, f0=125, f1=40, cuerpo=1.2, chasquido=0.5, corte=2000, decaimiento=14))
+    guardar("Golpe_Conectado_1", lambda: golpe(1))
+    guardar("Golpe_Conectado_2", lambda: golpe(2, f0=160, f1=55, chasquido=0.8, corte=3200))
+    guardar("Golpe_Conectado_3", lambda: golpe(3, f0=125, f1=40, cuerpo=1.2, chasquido=0.5, corte=2000, decaimiento=14))
     # Guante contra guante: más agudo, corto y sin cuerpo grave
-    guardar("Golpe_Bloqueado", golpe(4, dur=0.22, f0=260, f1=180, cuerpo=0.35, chasquido=1.0, corte=1800, decaimiento=35))
+    guardar("Golpe_Bloqueado", lambda: golpe(4, dur=0.22, f0=260, f1=180, cuerpo=0.35, chasquido=1.0, corte=1800, decaimiento=35))
     # Golpe que recibe el jugador: más grave y largo, se siente cerca
-    guardar("Golpe_Recibido", golpe(5, dur=0.5, f0=110, f1=35, cuerpo=1.4, chasquido=0.7, corte=2200, decaimiento=10))
-    guardar("Latido", latido())
-    guardar("Multitud_Loop", bucle(balbuceo(6, 10.5, 28), 1.5))
-    guardar("Multitud_Ovacion", balbuceo(7, 3.5, 22, vocal_ahh=True, crescendo=True))
+    guardar("Golpe_Recibido", lambda: golpe(5, dur=0.5, f0=110, f1=35, cuerpo=1.4, chasquido=0.7, corte=2200, decaimiento=10))
+    guardar("Latido", lambda: latido())
+    guardar("Multitud_Loop", lambda: bucle(balbuceo(6, 10.5, 28), 1.5))
+    guardar("Multitud_Ovacion", lambda: balbuceo(7, 3.5, 22, vocal_ahh=True, crescendo=True))
     # Un toque al empezar el round y tres seguidos al terminarlo, para distinguirlos solo de oído
-    guardar("Campana_Inicio", campana())
-    guardar("Campana_Fin", campana(toques=3))
+    guardar("Campana_Inicio", lambda: campana())
+    guardar("Campana_Fin", lambda: campana(toques=3))
     # Voz del réferi: del 1 al 10. Se pueden reemplazar por grabaciones sobrescribiendo estos WAV (el .meta los mantiene asignados)
     for numero, segmentos in enumerate(NUMEROS, start=1):
-        guardar(f"Voz_Cuenta_{numero:02d}", voz(100 + numero, segmentos))
+        guardar(f"Voz_Cuenta_{numero:02d}", lambda numero=numero, segmentos=segmentos: voz(100 + numero, segmentos))
+    # Silbido del guante del jugador al lanzar un golpe (Puno) y resoplido del rival al lanzar el suyo (AtaqueOponente)
+    guardar("Golpe_Aire_1", lambda: aire(201))
+    guardar("Golpe_Aire_2", lambda: aire(202, dur=0.26, f0=420, f1=2100))
+    guardar("Golpe_Aire_3", lambda: aire(203, dur=0.19, f0=600, f1=3000, q=1.9))
+    guardar("Rival_Esfuerzo_1", lambda: esfuerzo(211))
+    guardar("Rival_Esfuerzo_2", lambda: esfuerzo(212, dur=0.24, tono=135, aspereza=0.35))
+    guardar("Rival_Esfuerzo_3", lambda: esfuerzo(213, dur=0.33, tono=105, aspereza=0.65))

@@ -15,6 +15,10 @@ using UnityEngine;
 /// Choque con la guardia: si el jugador tiene las manos arriba y el golpe iba a llegar, el guante se frena contra sus
 /// manos justo antes del impacto y, si el golpe resulta bloqueado, se queda un instante y se retira, en vez de seguir
 /// de largo atravesándolas. No cambia el daño ni quién bloquea: eso lo sigue decidiendo SaludJugador.
+/// Juego de pies: en guardia no se queda clavado. Se desplaza de lado alrededor del jugador (velocidadLateral del perfil),
+/// cambiando de sentido cada pocos segundos y sin salir de un arco a cada lado de la línea en la que empezó, para que el
+/// jugador solo tenga que girar un poco y no dar la vuelta entera. Cada golpe que recibe lo empuja unos centímetros hacia
+/// atrás (retrocesoPorGolpe) y después vuelve a entrar caminando. Los pasos los pone PasosProcedurales.
 /// </summary>
 [RequireComponent(typeof(Oponente))]
 public class AtaqueOponente : MonoBehaviour
@@ -45,8 +49,25 @@ public class AtaqueOponente : MonoBehaviour
     [Tooltip("Segundos que tarda en retirar el brazo y volver a la guardia tras chocar")]
     [SerializeField, Min(0.02f)] private float retornoGuardia = 0.1f;
 
+    [Header("Juego de pies")]
+    [Tooltip("Si está activo, en guardia se desplaza de lado alrededor del jugador y cada golpe lo empuja hacia atrás")]
+    [SerializeField] private bool juegoDePies = true;
+    [Tooltip("Grados a cada lado de la línea inicial jugador-rival que puede recorrer de lado")]
+    [SerializeField, Range(0f, 180f)] private float arcoLateral = 35f;
+    [Tooltip("Segundos que mantiene un sentido (o se queda quieto) antes de elegir otro")]
+    [SerializeField] private Vector2 segundosLateral = new Vector2(1.2f, 3.2f);
+    [Tooltip("Probabilidad de quedarse quieto en vez de desplazarse, cada vez que elige")]
+    [SerializeField, Range(0f, 1f)] private float probabilidadQuieto = 0.3f;
+    [Tooltip("Rapidez con la que se frena el empujón de un golpe (más alto = más seco)")]
+    [SerializeField, Min(1f)] private float frenoEmpuje = 9f;
+
     private Oponente oponente;
     private SaludJugador jugador;
+    private int sentidoLateral;
+    private float cambioLateralEn;
+    private Vector3 rumboInicial;   // del jugador al rival cuando empezó, en el plano del suelo
+    private bool hayRumboInicial;
+    private Vector3 empuje;         // velocidad del empujón de un golpe, se frena sola
     private float proximoAtaque;
     private int ataques;
     private float impactoEn = -1f;
@@ -114,6 +135,7 @@ public class AtaqueOponente : MonoBehaviour
 
         if (jugador == null) jugador = FindAnyObjectByType<SaludJugador>();
         GestionarFreno();
+        AplicarEmpuje();
 
         if (oponente.Caido)
         {
@@ -152,7 +174,7 @@ public class AtaqueOponente : MonoBehaviour
         // Solo desde la guardia: si aún está reaccionando a un golpe, espera a que vuelva a Idle
         bool enIdle = !animator.IsInTransition(0) && animator.GetCurrentAnimatorStateInfo(0).shortNameHash == Idle;
         // Mientras se aparta o vuelve de un esquive no camina: ese movimiento se suma a este y se pelearían
-        if (enIdle && (esquive == null || !esquive.EnMovimiento)) Acercarse();
+        if (enIdle && (esquive == null || !esquive.EnMovimiento)) MoverPies();
         if (Time.time < proximoAtaque || !enIdle) return;
         // Con la espera corta de Tyson llegaba a lanzar combos enteros al aire mientras aún caminaba hacia el jugador:
         // fuera de alcance sigue acercándose, y el ataque sale en cuanto llega
@@ -184,6 +206,9 @@ public class AtaqueOponente : MonoBehaviour
         puntoApuntado = jugador != null
             ? jugador.PosicionCabeza
             : transform.position + Vector3.up * p.alturaAtaque + transform.forward * p.alcanceAtaque;
+
+        // El esfuerzo del golpe se oye antes de que llegue: también avisa al jugador
+        oponente.Sonar(p.sonidosAtaque, transform.position + Vector3.up * p.alturaAtaque, 0.8f);
 
         ataqueEnCurso = tipo;
         impactoEn = Time.time + p.RetardoImpacto(tipo) / Mathf.Max(0.1f, p.velocidadAtaque);
@@ -355,10 +380,39 @@ public class AtaqueOponente : MonoBehaviour
         CancelarGolpes();
         if (frenado) Soltar(false);
         Esperar(oponente.Perfil.esperaTrasGolpe);
+        Empujar(golpe, 1f);
     }
 
     // Paró el golpe: aprovecha que el jugador quedó expuesto
-    private void AlBloquear(Golpe golpe) => Esperar(oponente.Perfil.contraataqueTrasBloqueo);
+    private void AlBloquear(Golpe golpe)
+    {
+        Esperar(oponente.Perfil.contraataqueTrasBloqueo);
+        Empujar(golpe, 0.5f);
+    }
+
+    // El golpe lo desplaza hacia donde iba el puño; frenoEmpuje reparte ese recorrido en una fracción de segundo
+    private void Empujar(Golpe golpe, float escala)
+    {
+        if (!juegoDePies) return;
+        Vector3 direccion = golpe.velocidad;
+        direccion.y = 0f;
+        if (direccion.sqrMagnitude < 0.0001f) return;
+        float metros = oponente.Perfil.retrocesoPorGolpe * Mathf.Lerp(0.3f, 1f, Mathf.Clamp01(golpe.intensidad)) * escala;
+        empuje += direccion.normalized * (metros * frenoEmpuje);
+    }
+
+    private void AplicarEmpuje()
+    {
+        if (empuje.sqrMagnitude < 0.0001f) { empuje = Vector3.zero; return; }
+        transform.position = EnElRing(transform.position + empuje * Time.deltaTime);
+        empuje *= Mathf.Exp(-frenoEmpuje * Time.deltaTime);
+    }
+
+    private Vector3 EnElRing(Vector3 punto)
+    {
+        if (ring == null) ring = FindAnyObjectByType<LimiteRing>();
+        return ring != null ? ring.DentroDelRing(punto, margenRing) : punto;
+    }
 
     // Se apartó y el jugador quedó con el brazo estirado: contraataca enseguida
     private void AlEsquivar(Golpe golpe) => Esperar(oponente.Perfil.ventanaContraataque);
@@ -383,20 +437,50 @@ public class AtaqueOponente : MonoBehaviour
         transform.rotation = Quaternion.Slerp(transform.rotation, mirar, velocidadGiro * Time.deltaTime);
     }
 
-    // Si el jugador se aleja más de distanciaCombate, camina hacia él sin salir del ring
-    private void Acercarse()
+    // En guardia: si el jugador se aleja más de distanciaCombate camina hacia él, y mientras tanto se desplaza de lado
+    // a su alrededor. Todo sin salir del ring.
+    private void MoverPies()
     {
         PerfilOponente p = oponente.Perfil;
-        if (p.velocidadDesplazamiento <= 0f || objetivo == null) return;
+        if (objetivo == null) return;
 
-        Vector3 haciaJugador = objetivo.position - transform.position;
-        haciaJugador.y = 0f;
-        float sobra = haciaJugador.magnitude - p.distanciaCombate;
-        if (sobra <= 0.05f) return;
+        Vector3 desdeJugador = transform.position - objetivo.position;
+        desdeJugador.y = 0f;
+        float distancia = desdeJugador.magnitude;
+        if (distancia < 0.01f) return;
+        Vector3 radial = desdeJugador / distancia;
+        if (!hayRumboInicial)
+        {
+            rumboInicial = radial;
+            hayRumboInicial = true;
+        }
 
-        Vector3 destino = transform.position + haciaJugador.normalized * Mathf.Min(sobra, p.velocidadDesplazamiento * Time.deltaTime);
-        if (ring == null) ring = FindAnyObjectByType<LimiteRing>();
-        transform.position = ring != null ? ring.DentroDelRing(destino, margenRing) : destino;
+        Vector3 movimiento = Vector3.zero;
+        float sobra = distancia - p.distanciaCombate;
+        if (p.velocidadDesplazamiento > 0f && sobra > 0.05f)
+            movimiento -= radial * Mathf.Min(sobra, p.velocidadDesplazamiento * Time.deltaTime);
+
+        // De lado solo cuando ya está a distancia de pelea: si viene de lejos, primero llega
+        if (juegoDePies && p.velocidadLateral > 0f && sobra < 0.3f)
+        {
+            if (Time.time >= cambioLateralEn)
+            {
+                sentidoLateral = Random.value < probabilidadQuieto ? 0 : (Random.value < 0.5f ? -1 : 1);
+                cambioLateralEn = Time.time + Random.Range(segundosLateral.x, segundosLateral.y);
+            }
+            // Al llegar al borde del arco da la vuelta
+            float angulo = Vector3.SignedAngle(rumboInicial, radial, Vector3.up);
+            if (sentidoLateral != 0 && Mathf.Abs(angulo) > arcoLateral && Mathf.Sign(angulo) == sentidoLateral)
+                sentidoLateral = -sentidoLateral;
+            movimiento += Vector3.Cross(Vector3.up, radial) * (sentidoLateral * p.velocidadLateral * Time.deltaTime);
+        }
+        if (movimiento.sqrMagnitude < 1e-10f) return;
+
+        Vector3 destino = transform.position + movimiento;
+        Vector3 limitado = EnElRing(destino);
+        // Las cuerdas no lo dejan seguir por ahí: prueba hacia el otro lado
+        if ((limitado - destino).sqrMagnitude > 1e-8f && sentidoLateral != 0) sentidoLateral = -sentidoLateral;
+        transform.position = limitado;
     }
 
     private static bool EsAtaque(int estado) =>

@@ -106,14 +106,15 @@ public class Oponente : MonoBehaviour
         if (bloqueado)
         {
             Bloqueos++;
-            Sonar(new[] { perfil.sonidoBloqueo }, golpe.punto);
+            Sonar(new[] { perfil.sonidoBloqueo }, golpe.punto, Mathf.Lerp(0.6f, 1f, golpe.intensidad));
             AlBloquear?.Invoke(golpe);
             AlCambiarSalud?.Invoke(Salud, perfil.saludMaxima);
             return ResultadoGolpe.Bloqueado;
         }
 
         Golpes++;
-        Sonar(perfil.sonidosGolpe, golpe.punto);
+        // Un golpe flojo suena menos; el tono varía un poco para que dos golpes seguidos no suenen idénticos
+        Sonar(perfil.sonidosGolpe, golpe.punto, Mathf.Lerp(0.5f, 1f, golpe.intensidad));
         AlRecibirGolpe?.Invoke(golpe);
         AlCambiarSalud?.Invoke(Salud, perfil.saludMaxima);
 
@@ -187,12 +188,17 @@ public class Oponente : MonoBehaviour
         if (Caido) Levantarse();
     }
 
-    private void Sonar(AudioClip[] clips, Vector3 punto)
+    /// <summary>Suena uno de los clips al azar en su fuente 3D (o en el punto, si no tiene), con un tono algo distinto cada vez.</summary>
+    public void Sonar(AudioClip[] clips, Vector3 punto, float volumen = 1f)
     {
         if (clips == null || clips.Length == 0) return;
         AudioClip clip = clips[UnityEngine.Random.Range(0, clips.Length)];
         if (clip == null) return;
-        if (audioSource != null) audioSource.PlayOneShot(clip);
-        else AudioSource.PlayClipAtPoint(clip, punto);
+        if (audioSource != null)
+        {
+            audioSource.pitch = UnityEngine.Random.Range(0.93f, 1.07f);
+            audioSource.PlayOneShot(clip, volumen);
+        }
+        else AudioSource.PlayClipAtPoint(clip, punto, volumen);
     }
 }

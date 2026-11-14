@@ -17,8 +17,9 @@ using UnityEngine;
 /// de largo atravesándolas. No cambia el daño ni quién bloquea: eso lo sigue decidiendo SaludJugador.
 /// Juego de pies: en guardia no se queda clavado. Se desplaza de lado alrededor del jugador (velocidadLateral del perfil),
 /// cambiando de sentido cada pocos segundos y sin salir de un arco a cada lado de la línea en la que empezó, para que el
-/// jugador solo tenga que girar un poco y no dar la vuelta entera. Cada golpe que recibe lo empuja unos centímetros hacia
-/// atrás (retrocesoPorGolpe) y después vuelve a entrar caminando. Los pasos los pone PasosProcedurales.
+/// jugador solo tenga que girar un poco y no dar la vuelta entera. Cada golpe que recibe lo echa unos centímetros hacia
+/// atrás (retrocesoPorGolpe) y un muelle lo devuelve a su sitio en una fracción de segundo: encaja el golpe sin irse
+/// alejando del jugador, que en un espacio real no puede perseguirlo. Los pasos los pone PasosProcedurales.
 /// Burla: cuando tumba al jugador, tras un instante hace el gesto de burla (estado Burla del controlador, si existe)
 /// una vez por caída, según probabilidadBurla del perfil; si el jugador se levanta antes, vuelve a la guardia.
 /// </summary>
@@ -61,8 +62,8 @@ public class AtaqueOponente : MonoBehaviour
     [SerializeField] private Vector2 segundosLateral = new Vector2(1.2f, 3.2f);
     [Tooltip("Probabilidad de quedarse quieto en vez de desplazarse, cada vez que elige")]
     [SerializeField, Range(0f, 1f)] private float probabilidadQuieto = 0.3f;
-    [Tooltip("Rapidez con la que se frena el empujón de un golpe (más alto = más seco)")]
-    [SerializeField, Min(1f)] private float frenoEmpuje = 9f;
+    [Tooltip("Rigidez del muelle que lo devuelve a su sitio tras el empujón de un golpe (más alto = vuelve antes)")]
+    [SerializeField, Min(1f)] private float rigidezEmpuje = 70f;
 
     private Oponente oponente;
     private SaludJugador jugador;
@@ -70,7 +71,8 @@ public class AtaqueOponente : MonoBehaviour
     private float cambioLateralEn;
     private Vector3 rumboInicial;   // del jugador al rival cuando empezó, en el plano del suelo
     private bool hayRumboInicial;
-    private Vector3 empuje;         // velocidad del empujón de un golpe, se frena sola
+    private Vector3 empuje;         // cuánto lo tiene desplazado ahora el empujón de los golpes; vuelve a cero solo
+    private Vector3 velocidadEmpuje;
     private float burlaEn = -1f;    // cuándo empieza la burla de esta caída del jugador; -1 = aún no se decidió
     private bool burlaResuelta;     // ya se burló (o decidió no hacerlo) en esta caída
     private bool tieneBurla;
@@ -423,7 +425,8 @@ public class AtaqueOponente : MonoBehaviour
         Empujar(golpe, 0.5f);
     }
 
-    // El golpe lo desplaza hacia donde iba el puño; frenoEmpuje reparte ese recorrido en una fracción de segundo
+    // El golpe lo desplaza hacia donde iba el puño. Con amortiguación crítica el muelle llega a v0 / (e·ω) y vuelve sin
+    // pasarse hacia el jugador, así que esta velocidad inicial lo lleva justo a "metros"
     private void Empujar(Golpe golpe, float escala)
     {
         if (!juegoDePies) return;
@@ -431,14 +434,24 @@ public class AtaqueOponente : MonoBehaviour
         direccion.y = 0f;
         if (direccion.sqrMagnitude < 0.0001f) return;
         float metros = oponente.Perfil.retrocesoPorGolpe * Mathf.Lerp(0.3f, 1f, Mathf.Clamp01(golpe.intensidad)) * escala;
-        empuje += direccion.normalized * (metros * frenoEmpuje);
+        velocidadEmpuje += direccion.normalized * (metros * 2.718f * Mathf.Sqrt(rigidezEmpuje));
     }
 
+    // Se aplica como diferencia de un fotograma a otro (igual que el esquive): se suma a la caminata y no deja desvío
     private void AplicarEmpuje()
     {
-        if (empuje.sqrMagnitude < 0.0001f) { empuje = Vector3.zero; return; }
-        transform.position = EnElRing(transform.position + empuje * Time.deltaTime);
-        empuje *= Mathf.Exp(-frenoEmpuje * Time.deltaTime);
+        if (empuje.sqrMagnitude < 1e-8f && velocidadEmpuje.sqrMagnitude < 1e-6f)
+        {
+            if (empuje != Vector3.zero) transform.position -= empuje;
+            empuje = velocidadEmpuje = Vector3.zero;
+            return;
+        }
+        float dt = Mathf.Min(Time.deltaTime, 0.033f);
+        float amortiguacion = 2f * Mathf.Sqrt(rigidezEmpuje);
+        velocidadEmpuje += (-rigidezEmpuje * empuje - amortiguacion * velocidadEmpuje) * dt;
+        Vector3 nuevo = empuje + velocidadEmpuje * dt;
+        transform.position = EnElRing(transform.position + nuevo - empuje);
+        empuje = nuevo;
     }
 
     private Vector3 EnElRing(Vector3 punto)

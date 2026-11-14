@@ -80,7 +80,7 @@ public class PerfilOponente : ScriptableObject
 
     [Tooltip("Metros por segundo a los que se desplaza de lado alrededor del jugador mientras espera (0 = se queda plantado)")]
     public float velocidadLateral = 0.2f;
-    [Tooltip("Metros que lo empuja hacia atrás un golpe completo del jugador (después vuelve a entrar caminando)")]
+    [Tooltip("Metros que lo echa hacia atrás un golpe completo del jugador (un muelle lo devuelve a su sitio enseguida)")]
     public float retrocesoPorGolpe = 0.1f;
 
     [Header("Ataques")]

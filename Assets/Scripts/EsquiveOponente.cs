@@ -39,6 +39,9 @@ public class EsquiveOponente : MonoBehaviour
     /// <summary>Se está apartando: los golpes que lleguen tampoco lo alcanzan.</summary>
     public bool Apartandose => EnMovimiento && tiempo < oponente.Perfil.segundosEsquive;
 
+    /// <summary>Cuánto está apartado de su sitio ahora mismo, en mundo (CuerpoVivo inclina el torso hacia ahí).</summary>
+    public Vector3 Desplazamiento => EnMovimiento ? aplicado : Vector3.zero;
+
     private bool Atacando => ataque != null && ataque.enabled && ataque.Atacando;
 
     private void Awake()

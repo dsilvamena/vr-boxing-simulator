@@ -192,11 +192,19 @@ public class PantallaResultados : MonoBehaviour
         switch (c.resultado)
         {
             case nameof(ResultadoCombate.VictoriaPorKO): return $"Ganaste por K.O. en el round {c.roundAlcanzado}";
-            case nameof(ResultadoCombate.VictoriaPorSalud): return "Ganaste por salud al terminar el último round";
+            case nameof(ResultadoCombate.VictoriaPorSalud): return "Ganaste por decisión" + Jueces(c);
             case nameof(ResultadoCombate.DerrotaPorKO): return $"Perdiste por K.O. en el round {c.roundAlcanzado}";
-            case nameof(ResultadoCombate.DerrotaPorSalud): return "Perdiste por salud al terminar el último round";
+            case nameof(ResultadoCombate.DerrotaPorSalud): return "Perdiste por decisión" + Jueces(c);
             default: return c.resultado;
         }
+    }
+
+    // " unánime de los jueces: 29-28, 29-28, 30-27" (puntos del jugador primero); vacío en registros sin tarjetas
+    private static string Jueces(DatosCombate c)
+    {
+        if (string.IsNullOrEmpty(c.tarjetas)) return " al terminar el último round";
+        string tipo = c.decision == "empate" ? " (empate en las tarjetas)" : string.IsNullOrEmpty(c.decision) ? "" : " " + c.decision;
+        return $"{tipo} de los jueces: {c.tarjetas.Replace(" ", ", ")}";
     }
 
     private static string Contar(int n, string singular, string plural) => $"{n} {(n == 1 ? singular : plural)}";

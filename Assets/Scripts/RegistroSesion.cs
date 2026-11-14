@@ -64,6 +64,12 @@ public class DatosCombate
     // descansos). -1 si no ocurrió en este combate.
     public float segundosHastaGuardia = -1f;         // primera vez que mantiene la guardia (SaludJugador.EnGuardia) 0,5 s seguidos; cuenta desde que la sube
     public float segundosHastaGolpeConectado = -1f;  // primer golpe que conecta al rival (ni bloqueado ni esquivado)
+
+    [Header("Jueces (pulido final)")]
+    // Tarjetas de los tres jueces con los rounds puntuados, puntos del jugador primero ("29-28 29-28 28-29"), y cómo
+    // fue la decisión si el combate llegó al final sin K.O. ("unánime", "mayoritaria", "dividida", "empate"; si no, vacío)
+    public string tarjetas = "";
+    public string decision = "";
 }
 
 [Serializable]
@@ -426,6 +432,11 @@ public class RegistroSesion : MonoBehaviour
         combateCerrado = true;
         if (resultado != null) combate.resultado = resultado;
         if (rondas != null && combate.roundAlcanzado == 0) combate.roundAlcanzado = rondas.RoundActual;
+        if (rondas != null)
+        {
+            combate.tarjetas = rondas.TarjetasTexto.Replace(", ", " ");
+            combate.decision = rondas.Decision;
+        }
         combate.segundosCombate = inicioCombate >= 0f ? Mathf.Round((Time.time - inicioCombate) * 10f) / 10f : 0f;
         if (inicioCombate >= 0f) tiempoCombatesPrevios += Time.time - inicioCombate;
         // Si se sale de la escena los componentes ya no existen y quedan los conteos por eventos
@@ -512,6 +523,8 @@ public class RegistroSesion : MonoBehaviour
         "retrasoDeteccionMedioMs", "retrasoDeteccionP95Ms", "retrasoDeteccionMaxMs",
         // Entrega 5, bloque K (RNF-03)
         "segundosHastaGuardia", "segundosHastaGolpeConectado",
+        // Pulido final: tarjetas de los jueces
+        "tarjetas", "decision",
     };
 
     private void AgregarCsv(DatosCombate c)
@@ -530,6 +543,7 @@ public class RegistroSesion : MonoBehaviour
             c.latenciaHapticaP95Ms.ToString(inv), c.latenciaHapticaMaxMs.ToString(inv), c.muestrasRetraso.ToString(inv),
             c.retrasoDeteccionMedioMs.ToString(inv), c.retrasoDeteccionP95Ms.ToString(inv), c.retrasoDeteccionMaxMs.ToString(inv),
             c.segundosHastaGuardia.ToString(inv), c.segundosHastaGolpeConectado.ToString(inv),
+            c.tarjetas, c.decision,
         };
         try
         {

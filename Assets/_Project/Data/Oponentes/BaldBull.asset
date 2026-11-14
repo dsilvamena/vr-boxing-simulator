@@ -21,7 +21,7 @@ MonoBehaviour:
   multiplicadorCabeza: 1.5
   danoMinimoPorRapidez: 0.4
   caidasParaDerrota: 3
-  cuentaKnockdown: 10
+  cuentaKnockdown: 8
   segundosAlLevantarse: 1.3
   segundosKnockdown: 3.7
   invulnerabilidad: 0.2
@@ -52,6 +52,7 @@ MonoBehaviour:
   esperaTrasLevantarse: 2.5
   contraataqueTrasBloqueo: {x: 0.5, y: 1}
   castigoGuardiaBaja: 0.8
+  probabilidadBurla: 1
   danoAtaqueJab: 8
   danoAtaqueUppercut: 14
   danoAtaqueGancho: 10

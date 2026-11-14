@@ -223,6 +223,15 @@ NUMEROS = (
 )
 
 
+# Órdenes del réferi, con los mismos sonidos: "¡Box!" (a pelear), "¡Esquina!" (a la esquina neutral tras un derribo)
+# y "¡Nocaut!" (se acabó)
+ORDENES = {
+    "Box": (("b", 55), ("o", 190), ("cierre", 45), ("k", 30), ("s", 190)),
+    "Esquina": (("e", 110), ("s", 110), ("cierre", 35), ("k", 25), ("i", 120), ("n", 80), ("a", 230)),
+    "Nocaut": (("n", 75), ("o", 150), ("cierre", 45), ("k", 30), ("a", 190), ("u", 130), ("cierre", 45), ("t", 30)),
+}
+
+
 GANANCIA_RUIDO = 1.6
 
 
@@ -292,6 +301,23 @@ def voz(seed, segmentos, f0_inicio=165, f0_fin=108):
     return out
 
 
+def claqueta(seed=31):
+    """Aviso de los diez segundos: dos golpes secos de madera, como la claqueta del cronometrador."""
+    rnd = random.Random(seed)
+    n = int(0.42 * SR)
+    out = [0.0] * n
+    for inicio, fuerza in ((0.0, 1.0), (0.17, 0.85)):
+        filtro = Biquad("bp", 1350, 5.0)
+        cuerpo = Biquad("bp", 620, 6.0)
+        i0 = int(inicio * SR)
+        for i in range(int(0.2 * SR)):
+            t = i / SR
+            golpe_seco = rnd.uniform(-1, 1) * math.exp(-t * 160)
+            out[i0 + i] += fuerza * (2.2 * filtro(golpe_seco) + 1.2 * cuerpo(golpe_seco)) * math.exp(-t * 28)
+    pico = max(1e-9, max(abs(v) for v in out))
+    return [0.9 * v / pico for v in out]
+
+
 def bucle(muestras, cruce):
     """Hace que el final empalme con el principio (fundido cruzado) para un loop sin clic."""
     c = int(cruce * SR)
@@ -321,6 +347,9 @@ if __name__ == "__main__":
     # Voz del réferi: del 1 al 10. Se pueden reemplazar por grabaciones sobrescribiendo estos WAV (el .meta los mantiene asignados)
     for numero, segmentos in enumerate(NUMEROS, start=1):
         guardar(f"Voz_Cuenta_{numero:02d}", lambda numero=numero, segmentos=segmentos: voz(100 + numero, segmentos))
+    for orden, segmentos in ORDENES.items():
+        guardar(f"Voz_Orden_{orden}", lambda orden=orden, segmentos=segmentos: voz(300 + len(orden), segmentos, f0_inicio=175, f0_fin=118))
+    guardar("Aviso_Diez_Segundos", lambda: claqueta())
     # Silbido del guante del jugador al lanzar un golpe (Puno) y resoplido del rival al lanzar el suyo (AtaqueOponente)
     guardar("Golpe_Aire_1", lambda: aire(201))
     guardar("Golpe_Aire_2", lambda: aire(202, dur=0.26, f0=420, f1=2100))

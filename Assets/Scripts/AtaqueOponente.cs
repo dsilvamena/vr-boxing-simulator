@@ -20,8 +20,11 @@ using UnityEngine;
 /// jugador solo tenga que girar un poco y no dar la vuelta entera. Cada golpe que recibe lo echa unos centímetros hacia
 /// atrás (retrocesoPorGolpe) y un muelle lo devuelve a su sitio en una fracción de segundo: encaja el golpe sin irse
 /// alejando del jugador, que en un espacio real no puede perseguirlo. Los pasos los pone PasosProcedurales.
-/// Burla: cuando tumba al jugador, tras un instante hace el gesto de burla (estado Burla del controlador, si existe)
-/// una vez por caída, según probabilidadBurla del perfil; si el jugador se levanta antes, vuelve a la guardia.
+/// Esquina neutral: cuando tumba al jugador se retira, sin darle la espalda, a la esquina neutral más alejada de él,
+/// como manda el reglamento, y espera allí la cuenta. Al levantarse el jugador vuelve a buscarlo.
+/// Burla: ya en la esquina hace el gesto de burla (estado Burla del controlador, si existe) una vez por caída, según
+/// probabilidadBurla del perfil; si el jugador se levanta antes, vuelve a la guardia.
+/// En las pausas con destino (el descanso: su esquina) camina mirando hacia donde va y al llegar se vuelve al jugador.
 /// </summary>
 [RequireComponent(typeof(Oponente))]
 public class AtaqueOponente : MonoBehaviour
@@ -65,8 +68,15 @@ public class AtaqueOponente : MonoBehaviour
     [Tooltip("Rigidez del muelle que lo devuelve a su sitio tras el empujón de un golpe (más alto = vuelve antes)")]
     [SerializeField, Min(1f)] private float rigidezEmpuje = 70f;
 
+    [Header("Esquina neutral")]
+    [Tooltip("Metros que deja hasta cada cuerda cuando espera en una esquina")]
+    [SerializeField, Min(0f)] private float separacionEsquina = 0.75f;
+    [Tooltip("Cuánto más rápido que velocidadDesplazamiento se retira a la esquina neutral")]
+    [SerializeField, Min(0.1f)] private float prisaEsquina = 1.8f;
+
     private Oponente oponente;
     private SaludJugador jugador;
+    private Vector3? esquinaNeutral;   // adónde se retira mientras el jugador está en la lona
     private int sentidoLateral;
     private float cambioLateralEn;
     private Vector3 rumboInicial;   // del jugador al rival cuando empezó, en el plano del suelo
@@ -165,9 +175,10 @@ public class AtaqueOponente : MonoBehaviour
         {
             CancelarGolpes();
             proximoAtaque = Mathf.Max(proximoAtaque, Time.time + oponente.Perfil.esperaTrasLevantarse);
-            Burlarse();
+            if (IrALaEsquinaNeutral()) Burlarse();
             return;
         }
+        esquinaNeutral = null;
         TerminarBurla();
 
         ResolverImpacto();
@@ -244,14 +255,30 @@ public class AtaqueOponente : MonoBehaviour
         }
     }
 
-    // El jugador está en la lona: espera a que termine su propio golpe y se burla una vez
+    // El jugador está en la lona: se retira a la esquina neutral más alejada de él. Devuelve true cuando ya llegó
+    private bool IrALaEsquinaNeutral()
+    {
+        if (ring == null) ring = FindAnyObjectByType<LimiteRing>();
+        if (ring == null) return true;
+        if (esquinaNeutral == null)
+            esquinaNeutral = ring.EsquinaNeutralLejana(jugador.PosicionCabeza, separacionEsquina, transform.position.y);
+        Vector3 falta = esquinaNeutral.Value - transform.position;
+        if (falta.sqrMagnitude < 0.01f) return true;
+        // Solo camina desde la guardia: antes termina el golpe que estaba lanzando
+        if (animator.IsInTransition(0) || animator.GetCurrentAnimatorStateInfo(0).shortNameHash != Idle) return false;
+        transform.position = Vector3.MoveTowards(transform.position, esquinaNeutral.Value,
+            oponente.Perfil.velocidadDesplazamiento * prisaEsquina * Time.deltaTime);
+        return false;
+    }
+
+    // Ya en la esquina neutral, se burla una vez
     private void Burlarse()
     {
         if (!tieneBurla || burlaResuelta) return;
         if (burlaEn < 0f)
         {
             if (Random.value >= oponente.Perfil.probabilidadBurla) { burlaResuelta = true; return; }
-            burlaEn = Time.time + 0.9f;
+            burlaEn = Time.time + 0.5f;
         }
         if (Time.time < burlaEn || animator.IsInTransition(0) || animator.GetCurrentAnimatorStateInfo(0).shortNameHash != Idle) return;
         animator.CrossFadeInFixedTime(Burla, 0.3f, 0, 0f);
@@ -476,6 +503,13 @@ public class AtaqueOponente : MonoBehaviour
         if (objetivo == null) return;
 
         Vector3 direccion = objetivo.position - transform.position;
+        // Camino de su esquina mira hacia donde va; al llegar se vuelve hacia el jugador
+        if (pausado && destinoPausa != null)
+        {
+            Vector3 alDestino = destinoPausa.Value - transform.position;
+            alDestino.y = 0f;
+            if (alDestino.sqrMagnitude > 0.16f) direccion = alDestino;
+        }
         direccion.y = 0f;
         if (direccion.sqrMagnitude < 0.001f) return;
 

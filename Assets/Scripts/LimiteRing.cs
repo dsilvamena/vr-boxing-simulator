@@ -45,6 +45,30 @@ public class LimiteRing : MonoBehaviour
         return punto;
     }
 
+    /// <summary>
+    /// Punto dentro del ring junto a una de sus cuatro esquinas, a "separacion" metros de cada cuerda. Como en un ring
+    /// de verdad, dos esquinas son de los púgiles y dos son neutrales: la roja (X y Z positivas) es la del rival, la azul
+    /// (X y Z negativas) la del jugador, y las otras dos, las blancas, las neutrales. Los colores los pinta ArenaBuilder.
+    /// </summary>
+    public Vector3 Esquina(bool xPositiva, bool zPositiva, float separacion, float altura)
+    {
+        Rect area = Area();
+        return new Vector3(
+            xPositiva ? area.xMax - separacion : area.xMin + separacion, altura,
+            zPositiva ? area.yMax - separacion : area.yMin + separacion);
+    }
+
+    /// <summary>La esquina del rival, donde espera entre rounds.</summary>
+    public Vector3 EsquinaRoja(float separacion, float altura) => Esquina(true, true, separacion, altura);
+
+    /// <summary>La esquina neutral más alejada de un punto: adonde va quien queda de pie cuando el otro cae.</summary>
+    public Vector3 EsquinaNeutralLejana(Vector3 desde, float separacion, float altura)
+    {
+        Vector3 a = Esquina(true, false, separacion, altura), b = Esquina(false, true, separacion, altura);
+        desde.y = altura;
+        return (a - desde).sqrMagnitude >= (b - desde).sqrMagnitude ? a : b;
+    }
+
     private void Awake()
     {
         rig = GetComponentInParent<OVRCameraRig>();

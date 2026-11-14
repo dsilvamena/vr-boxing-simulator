@@ -156,10 +156,10 @@ public class RecuperacionJugador : MonoBehaviour
     }
 
     /// <summary>Acabó el último round con menos salud que el rival: misma salida que un K.O., pero sin haber caído.</summary>
-    public void PerderPorSalud()
+    public void PerderPorSalud(string detalle = null)
     {
-        MostrarDerrota("<size=76><b>DERROTA</b></size>\n<size=30>Perdiste por salud</size>");
-        if (registrar) Debug.Log("Jugador pierde por salud", this);
+        MostrarDerrota($"<size=76><b>DERROTA</b></size>\n<size=30>{(string.IsNullOrEmpty(detalle) ? "Perdiste por decisión" : detalle)}</size>");
+        if (registrar) Debug.Log("Jugador pierde por decisión", this);
         if (!string.IsNullOrEmpty(EscenaSalida)) StartCoroutine(SalirDeLaPelea());
     }
 

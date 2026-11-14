@@ -6,7 +6,11 @@ using UnityEngine;
 /// - En la cuenta del rival se pone junto a él, del lado del jugador para que este lo vea, y lo mira.
 /// - En la cuenta del jugador se pone delante de él, a un lado del rival (como en el boceto del estado de knockout),
 ///   lo mira y muestra el cartel con los botones que hay que pulsar.
-/// - Fuera de los rounds (preparación, descanso, final) vuelve a su sitio inicial.
+/// - Antes de cada campana (la preparación y el final del descanso) se pone en el centro, entre los dos, y al sonar da
+///   la orden de pelear con un tajo del brazo ("¡Box!"). El resto del descanso espera en su sitio inicial.
+/// - Cuando cae el rival, antes de contar mira al jugador y le señala la esquina neutral con el brazo extendido.
+/// - Si el combate acaba por nocaut lo para agitando los dos brazos por encima de la cabeza, y en cualquier final
+///   señala al ganador y se queda donde está.
 /// Cada número que dice el Arbitro baja el brazo de golpe y lo vuelve a subir, como un réferi de verdad: el brazo va
 /// con un muelle amortiguado, el antebrazo con retraso y el torso cabecea un poco. En la cuenta del rival el brazo
 /// sube cuando empieza la cuenta, con el rival ya tendido.
@@ -21,7 +25,7 @@ using UnityEngine;
 /// </summary>
 public class CuerpoArbitro : MonoBehaviour
 {
-    private enum Modo { Neutral, Pelea, CuentaRival, CuentaJugador }
+    private enum Modo { Neutral, Centro, Pelea, CuentaRival, CuentaJugador, Final }
 
     [Tooltip("Vacío = el Arbitro del padre")]
     [SerializeField] private Arbitro arbitro;
@@ -80,6 +84,16 @@ public class CuerpoArbitro : MonoBehaviour
     [Tooltip("Segundos que tarda en volver a subirlo")]
     [SerializeField, Min(0.01f)] private float segundosSubir = 0.45f;
 
+    [Header("Señas")]
+    [Tooltip("Distancia a la línea de la pelea cuando espera la campana en el centro, en metros")]
+    [SerializeField, Min(0.3f)] private float distanciaLateralCentro = 1.05f;
+    [Tooltip("Segundos antes de la campana en los que deja su sitio del descanso y va al centro")]
+    [SerializeField, Min(0f)] private float segundosAntesDeCampana = 4f;
+    [Tooltip("Segundos que mantiene el brazo señalando la esquina neutral")]
+    [SerializeField, Min(0.1f)] private float segundosSenalando = 1.7f;
+    [Tooltip("Segundos que agita los brazos para parar el combate")]
+    [SerializeField, Min(0.1f)] private float segundosAgitando = 2.6f;
+
     [Header("Postura (Animator con \"Agachado\")")]
     [Tooltip("Durante el round: 0 = de pie, 1 = la postura de vigilar entera, muy agachado")]
     [SerializeField, Range(0f, 1f)] private float agachadoPelea = 0.55f;
@@ -113,6 +127,21 @@ public class CuerpoArbitro : MonoBehaviour
     private float agachado;
     private bool tieneContar, tieneContando, tieneAgachado;
 
+    // Señas: "¡Box!" reutiliza el brazo de la cuenta; señalar y agitar son poses de brazo que entran y salen por peso
+    private Transform hombroIzquierdo, codoIzquierdo, manoIzquierda;
+    private float tiempoBox = 99f;         // segundos desde la orden; grande = sin seña pendiente
+    private bool tajoDado;
+    private float senalarHasta = -1f;
+    private Vector3 puntoSenalado;
+    private bool senalaConIzquierdo;
+    private float pesoSenalar;
+    private float agitarHasta = -1f;
+    private float pesoAgitar;
+    private float faseAgitar;
+    private bool combateTerminado;
+    private bool ganoElJugador;
+    private float senalarGanadorEn = -1f;
+
     public bool EnPosicion => PlanoXZ(destino - transform.position).magnitude < 0.05f;
 
     private void Awake()
@@ -144,6 +173,10 @@ public class CuerpoArbitro : MonoBehaviour
                 codo = animador.GetBoneTransform(HumanBodyBones.RightLowerArm);
                 mano = animador.GetBoneTransform(HumanBodyBones.RightHand);
                 if (codo == null || mano == null) hombro = null;
+                hombroIzquierdo = animador.GetBoneTransform(HumanBodyBones.LeftUpperArm);
+                codoIzquierdo = animador.GetBoneTransform(HumanBodyBones.LeftLowerArm);
+                manoIzquierda = animador.GetBoneTransform(HumanBodyBones.LeftHand);
+                if (codoIzquierdo == null || manoIzquierda == null) hombroIzquierdo = null;
                 pecho = animador.GetBoneTransform(HumanBodyBones.UpperChest) ?? animador.GetBoneTransform(HumanBodyBones.Chest);
                 cabezaHueso = animador.GetBoneTransform(HumanBodyBones.Head);
             }
@@ -160,18 +193,65 @@ public class CuerpoArbitro : MonoBehaviour
 
     private void OnEnable()
     {
-        if (arbitro != null) arbitro.AlDecirNumero += AlDecirNumero;
+        if (arbitro != null)
+        {
+            arbitro.AlDecirNumero += AlDecirNumero;
+            arbitro.AlOrdenar += AlOrdenar;
+        }
+        if (rondas != null) rondas.AlTerminarCombate += AlTerminarCombate;
     }
 
     private void OnDisable()
     {
-        if (arbitro != null) arbitro.AlDecirNumero -= AlDecirNumero;
+        if (arbitro != null)
+        {
+            arbitro.AlDecirNumero -= AlDecirNumero;
+            arbitro.AlOrdenar -= AlOrdenar;
+        }
+        if (rondas != null) rondas.AlTerminarCombate -= AlTerminarCombate;
+    }
+
+    private void AlOrdenar(OrdenArbitro orden, Vector3 punto)
+    {
+        switch (orden)
+        {
+            case OrdenArbitro.Box:
+                tiempoBox = 0f;
+                tajoDado = false;
+                break;
+            case OrdenArbitro.Esquina:
+                puntoSenalado = punto + Vector3.up * 1.2f;
+                senalarHasta = Time.time + segundosSenalando;
+                // Con el brazo del lado hacia el que queda la esquina
+                senalaConIzquierdo = Vector3.Dot(transform.right, punto - transform.position) < 0f;
+                break;
+            case OrdenArbitro.Fin:
+                agitarHasta = Time.time + segundosAgitando;
+                break;
+        }
+    }
+
+    // Se acabó: tras parar el combate (si fue por nocaut) señala al ganador
+    private void AlTerminarCombate(ResultadoCombate resultado)
+    {
+        combateTerminado = true;
+        ganoElJugador = resultado == ResultadoCombate.VictoriaPorKO || resultado == ResultadoCombate.VictoriaPorSalud;
+        bool porNocaut = resultado == ResultadoCombate.VictoriaPorKO || resultado == ResultadoCombate.DerrotaPorKO;
+        senalarGanadorEn = Time.time + (porNocaut ? segundosAgitando + 0.3f : 1.2f);
     }
 
     private void Update()
     {
         if (Time.timeScale == 0f) return;
         CambiarModo(ModoActual());
+
+        // Al ganador lo señala hasta que cambia la escena, siguiéndolo si se mueve
+        if (combateTerminado && senalarGanadorEn >= 0f && Time.time >= senalarGanadorEn && Time.time >= agitarHasta)
+        {
+            puntoSenalado = ganoElJugador ? jugador.PosicionCabeza : oponente.transform.position + Vector3.up * 1.35f;
+            senalarHasta = Time.time + 1f;
+            senalaConIzquierdo = false;
+        }
 
         destino = Destino();
         float rapidez = modo == Modo.Pelea ? velocidadPelea : velocidad;
@@ -194,10 +274,17 @@ public class CuerpoArbitro : MonoBehaviour
 
     private Modo ModoActual()
     {
+        if (combateTerminado) return Modo.Final;
         if (arbitro.ContandoJugador) return Modo.CuentaJugador;
         if (arbitro.ContandoRival) return Modo.CuentaRival;
         if (rondas == null) return Modo.Pelea;
-        return rondas.Estado == EstadoRondas.Round ? Modo.Pelea : Modo.Neutral;
+        switch (rondas.Estado)
+        {
+            case EstadoRondas.Round: return Modo.Pelea;
+            case EstadoRondas.Preparacion: return Modo.Centro;
+            case EstadoRondas.Descanso: return rondas.SegundosRestantes <= segundosAntesDeCampana ? Modo.Centro : Modo.Neutral;
+            default: return Modo.Neutral;
+        }
     }
 
     private void CambiarModo(Modo nuevo)
@@ -234,6 +321,8 @@ public class CuerpoArbitro : MonoBehaviour
     private Vector3 Destino()
     {
         if (modo == Modo.Neutral) return posicionInicial;
+        // Al acabar el combate se queda donde lo pilló
+        if (modo == Modo.Final) return transform.position;
         Vector3 punto = Apartar(DentroDelRing(Calcular(modo, lado)));
         punto.y = posicionInicial.y;
         return punto;
@@ -255,6 +344,8 @@ public class CuerpoArbitro : MonoBehaviour
                 return rival - haciaRival * adelanteCuentaRival + costado * ladoCuentaRival;
             case Modo.Pelea:
                 return (cabeza + rival) * 0.5f + costado * distanciaLateralPelea;
+            case Modo.Centro:
+                return (cabeza + rival) * 0.5f + costado * distanciaLateralCentro;
             default:
                 return posicionInicial;
         }
@@ -282,8 +373,11 @@ public class CuerpoArbitro : MonoBehaviour
         Vector3 mirar = modo switch
         {
             Modo.CuentaJugador => jugador.PosicionCabeza,
-            Modo.CuentaRival => oponente.transform.position,
+            // Mientras le señala la esquina neutral mira al jugador; después, al caído
+            Modo.CuentaRival => Time.time < senalarHasta ? jugador.PosicionCabeza : oponente.transform.position,
             Modo.Pelea => (jugador.PosicionCabeza + oponente.transform.position) * 0.5f,
+            Modo.Centro => (jugador.PosicionCabeza + oponente.transform.position) * 0.5f,
+            Modo.Final => (jugador.PosicionCabeza + oponente.transform.position) * 0.5f,
             _ => transform.position + rotacionInicial * Vector3.forward,
         };
         Vector3 direccion = PlanoXZ(mirar - transform.position);
@@ -309,6 +403,20 @@ public class CuerpoArbitro : MonoBehaviour
         bool contando = modo == Modo.CuentaJugador || modo == Modo.CuentaRival;
         // En la cuenta del rival el brazo sube cuando empieza la cuenta (el rival ya tendido), no mientras cae
         bool brazoActivo = contando && (modo == Modo.CuentaJugador || arbitro.NumeroActual > 0);
+        // "¡Box!": levanta el brazo, da un tajo hacia delante entre los dos púgiles y lo baja
+        tiempoBox += dt;
+        if (tiempoBox < 0.32f + segundosAbajo + 0.1f)
+        {
+            brazoActivo = true;
+            if (!tajoDado && tiempoBox >= 0.32f)
+            {
+                tajoDado = true;
+                desdeNumero = 0f;
+            }
+        }
+        pesoSenalar = Mathf.MoveTowards(pesoSenalar, Time.time < senalarHasta ? 1f : 0f, 4f * dt);
+        pesoAgitar = Mathf.MoveTowards(pesoAgitar, Time.time < agitarHasta ? 1f : 0f, 4f * dt);
+        faseAgitar += dt * Mathf.PI * 2f * 1.5f;
         bool bajando = brazoActivo && desdeNumero < segundosAbajo;
         float objetivo = !brazoActivo ? 0f : bajando ? anguloAbajo : anguloArriba;
         float frecuencia = bajando ? 4.5f : brazoActivo ? Mathf.Max(0.8f, 0.9f / segundosSubir) : 1.6f;
@@ -324,7 +432,9 @@ public class CuerpoArbitro : MonoBehaviour
 
         if (tieneAgachado)
         {
-            float postura = modo == Modo.Pelea ? agachadoPelea : modo == Modo.CuentaRival ? agachadoCuentaRival : 0f;
+            // Mientras señala la esquina al jugador está erguido; se inclina sobre el caído al empezar a contar
+            float postura = modo == Modo.Pelea ? agachadoPelea
+                : modo == Modo.CuentaRival && Time.time >= senalarHasta ? agachadoCuentaRival : 0f;
             agachado = Mathf.MoveTowards(agachado, postura, velocidadPostura * Time.deltaTime);
             animador.SetFloat(Agachado, agachado);
         }
@@ -356,7 +466,9 @@ public class CuerpoArbitro : MonoBehaviour
     private void LateUpdate()
     {
         // También en la pausa: el Animator sigue escribiendo la pose aunque no avance
-        if (hombro == null || pesoBrazo <= 0.001f) return;
+        if (hombro == null) return;
+        Senas();
+        if (pesoBrazo <= 0.001f) return;
         float peso = Mathf.SmoothStep(0f, 1f, pesoBrazo);
         float abajo01 = Mathf.Clamp01(Mathf.InverseLerp(anguloArriba, anguloAbajo, anguloBrazo));
         Vector3 derecha = transform.right;
@@ -370,6 +482,36 @@ public class CuerpoArbitro : MonoBehaviour
         Vector3 direccionAntebrazo = transform.rotation * (Quaternion.Euler(antebrazo, 0f, 0f) * Vector3.down);
         Apuntar(hombro, codo.position, direccionBrazo, peso);
         Apuntar(codo, mano.position, direccionAntebrazo, peso);
+    }
+
+    // Parar el combate: los dos brazos en alto, cruzándose y abriéndose por encima de la cabeza.
+    // Señalar: un brazo extendido hacia el punto (la esquina neutral o el ganador)
+    private void Senas()
+    {
+        if (pesoAgitar > 0.001f && hombroIzquierdo != null)
+        {
+            float peso = Mathf.SmoothStep(0f, 1f, pesoAgitar);
+            float abiertos = (1f + Mathf.Cos(faseAgitar)) * 0.5f;   // 1 = en V, 0 = antebrazos cruzados
+            for (int i = 0; i < 2; i++)
+            {
+                Vector3 lado = transform.right * (i == 0 ? -1f : 1f);
+                Vector3 brazo = (Vector3.up + lado * (0.25f + 0.5f * abiertos) + transform.forward * 0.2f).normalized;
+                Vector3 antebrazo = (Vector3.up + lado * (-0.9f + 1.5f * abiertos) + transform.forward * 0.25f).normalized;
+                Transform h = i == 0 ? hombroIzquierdo : hombro, c = i == 0 ? codoIzquierdo : codo, m = i == 0 ? manoIzquierda : mano;
+                Apuntar(h, c.position, brazo, peso);
+                Apuntar(c, m.position, antebrazo, peso);
+            }
+        }
+
+        if (pesoSenalar > 0.001f)
+        {
+            bool izquierdo = senalaConIzquierdo && hombroIzquierdo != null;
+            Transform h = izquierdo ? hombroIzquierdo : hombro, c = izquierdo ? codoIzquierdo : codo, m = izquierdo ? manoIzquierda : mano;
+            float peso = Mathf.SmoothStep(0f, 1f, pesoSenalar);
+            Vector3 direccion = (puntoSenalado - h.position).normalized;
+            Apuntar(h, c.position, direccion, peso);
+            Apuntar(c, m.position, direccion, peso);
+        }
     }
 
     private static void Apuntar(Transform hueso, Vector3 hijo, Vector3 direccion, float peso)

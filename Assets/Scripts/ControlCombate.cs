@@ -33,7 +33,7 @@ public class ControlCombate : MonoBehaviour
     [Tooltip("Nombre del rival que se muestra; vacío = el nombre de su perfil")]
     [SerializeField] private string nombreRival = "";
     [Tooltip("Línea extra en el cartel si se gana por salud al acabar el último round")]
-    [SerializeField] private string textoPorSalud = "Ganaste por salud";
+    [SerializeField] private string textoPorSalud = "Decisión de los jueces";
     [SerializeField] private float segundosAntesDeAvanzar = 6f;
 
     [Header("Panel")]
@@ -90,7 +90,7 @@ public class ControlCombate : MonoBehaviour
                 Ganar(true);
                 break;
             case ResultadoCombate.DerrotaPorSalud:
-                if (recuperacion != null) recuperacion.PerderPorSalud();
+                if (recuperacion != null) recuperacion.PerderPorSalud(TextoDecision());
                 break;
             // DerrotaPorKO: RecuperacionJugador ya la está cerrando
         }
@@ -111,12 +111,20 @@ public class ControlCombate : MonoBehaviour
         yield return new WaitForSeconds(1.5f);
         if (panel != null)
         {
-            string linea = porSalud ? $"<size=34>{textoPorSalud}</size>\n" : "";
+            string linea = porSalud ? $"<size=34>{TextoDecision()}</size>\n" : "";
             texto.text = $"<size=100><b><color=#FFD23F>¡VICTORIA!</color></b></size>\n{linea}<size=34>{string.Format(mensaje, nombreRival)}</size>";
             panel.SetActive(true);
         }
         yield return new WaitForSeconds(segundosAntesDeAvanzar);
         if (!string.IsNullOrEmpty(Destino)) SceneManager.LoadScene(Destino);
+    }
+
+    // Sin K.O. deciden los jueces: se enseñan sus tarjetas (puntos del jugador primero)
+    private string TextoDecision()
+    {
+        if (rondas == null || rondas.Decision == "") return textoPorSalud;
+        string tipo = rondas.Decision == "empate" ? "Empate en las tarjetas" : $"Decisión {rondas.Decision}";
+        return $"{tipo}: {rondas.TarjetasTexto}";
     }
 
     private string Destino => !string.IsNullOrEmpty(escenaResultados) ? escenaResultados : siguienteEscena;

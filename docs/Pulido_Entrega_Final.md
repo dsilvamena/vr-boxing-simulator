@@ -90,6 +90,18 @@ Medido en Play (Sandman, esquive): antes, suela a −1,04 m con el tobillo a −
 - Burla: Soda pasa a `Burla` 1 s después del derribo del jugador y vuelve a `Idle`.
 - Menú: los cinco rivales en guardia, sin errores.
 
+## APK (`Builds/Android/`, fuera del repositorio)
+
+Regenerados el 2026-11-13 con todo lo de esta rama (código del commit `e76dc0f`), sin errores de compilación:
+
+| APK | Tamaño | Para qué |
+|---|---|---|
+| `vrboxing_dev.apk` | 193,6 MB | El de las pruebas (MSAA 4×) |
+| `vrboxing_dev_sinmsaa.apk` | 193,7 MB | Comparar FPS sin MSAA |
+| `vrboxing_release.apk` | 173,1 MB | Sin *Development* |
+
+Son builds incrementales: para medir el tamaño con exactitud hay que compilar con `CleanBuildCache`.
+
 ## Sin probar: hace falta el visor
 
 1. **Comodidad de la cámara lenta** en el visor (si molesta: campo `camaraLenta` de `EfectosGolpe` en cada pelea).

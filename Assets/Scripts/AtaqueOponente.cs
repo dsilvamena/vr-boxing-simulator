@@ -19,6 +19,8 @@ using UnityEngine;
 /// cambiando de sentido cada pocos segundos y sin salir de un arco a cada lado de la línea en la que empezó, para que el
 /// jugador solo tenga que girar un poco y no dar la vuelta entera. Cada golpe que recibe lo empuja unos centímetros hacia
 /// atrás (retrocesoPorGolpe) y después vuelve a entrar caminando. Los pasos los pone PasosProcedurales.
+/// Burla: cuando tumba al jugador, tras un instante hace el gesto de burla (estado Burla del controlador, si existe)
+/// una vez por caída, según probabilidadBurla del perfil; si el jugador se levanta antes, vuelve a la guardia.
 /// </summary>
 [RequireComponent(typeof(Oponente))]
 public class AtaqueOponente : MonoBehaviour
@@ -28,6 +30,7 @@ public class AtaqueOponente : MonoBehaviour
     private static readonly int AtaqueUppercut = Animator.StringToHash("Ataque_Uppercut");
     private static readonly int AtaqueGancho = Animator.StringToHash("Ataque_Gancho");
     private static readonly int AtaqueGancho2 = Animator.StringToHash("Ataque_Gancho_2");
+    private static readonly int Burla = Animator.StringToHash("Burla");
 
     [SerializeField] private Animator animator;
     [Tooltip("A quién mira y ataca; vacío = cámara principal (CenterEyeAnchor)")]
@@ -68,6 +71,9 @@ public class AtaqueOponente : MonoBehaviour
     private Vector3 rumboInicial;   // del jugador al rival cuando empezó, en el plano del suelo
     private bool hayRumboInicial;
     private Vector3 empuje;         // velocidad del empujón de un golpe, se frena sola
+    private float burlaEn = -1f;    // cuándo empieza la burla de esta caída del jugador; -1 = aún no se decidió
+    private bool burlaResuelta;     // ya se burló (o decidió no hacerlo) en esta caída
+    private bool tieneBurla;
     private float proximoAtaque;
     private int ataques;
     private float impactoEn = -1f;
@@ -104,6 +110,7 @@ public class AtaqueOponente : MonoBehaviour
         oponente = GetComponent<Oponente>();
         if (animator == null) animator = GetComponentInChildren<Animator>();
         esquive = GetComponent<EsquiveOponente>();
+        tieneBurla = animator != null && animator.HasState(0, Burla);
     }
 
     private void OnEnable()
@@ -156,8 +163,10 @@ public class AtaqueOponente : MonoBehaviour
         {
             CancelarGolpes();
             proximoAtaque = Mathf.Max(proximoAtaque, Time.time + oponente.Perfil.esperaTrasLevantarse);
+            Burlarse();
             return;
         }
+        TerminarBurla();
 
         ResolverImpacto();
 
@@ -231,6 +240,30 @@ public class AtaqueOponente : MonoBehaviour
             siguienteDelCombo = -1;
             Esperar(p.intervaloAtaque);
         }
+    }
+
+    // El jugador está en la lona: espera a que termine su propio golpe y se burla una vez
+    private void Burlarse()
+    {
+        if (!tieneBurla || burlaResuelta) return;
+        if (burlaEn < 0f)
+        {
+            if (Random.value >= oponente.Perfil.probabilidadBurla) { burlaResuelta = true; return; }
+            burlaEn = Time.time + 0.9f;
+        }
+        if (Time.time < burlaEn || animator.IsInTransition(0) || animator.GetCurrentAnimatorStateInfo(0).shortNameHash != Idle) return;
+        animator.CrossFadeInFixedTime(Burla, 0.3f, 0, 0f);
+        burlaResuelta = true;
+    }
+
+    // El jugador se levantó: si seguía con el gesto, vuelve a la guardia
+    private void TerminarBurla()
+    {
+        if (!burlaResuelta && burlaEn < 0f) return;
+        burlaResuelta = false;
+        burlaEn = -1f;
+        if (tieneBurla && animator.GetCurrentAnimatorStateInfo(0).shortNameHash == Burla && !animator.IsInTransition(0))
+            animator.CrossFadeInFixedTime(Idle, 0.3f, 0, 0f);
     }
 
     // Lo que tenía en camino ya no llega: ni el impacto pendiente ni el resto del combo

@@ -13,6 +13,8 @@ using UnityEngine.SceneManagement;
 /// - EfectosGolpe junto a cada Oponente (salpicadura, destello de bloqueo, cámara lenta en las caídas), con su material.
 /// - El silbido del guante en cada Puno y el resoplido de ataque, el desplazamiento lateral y el retroceso por golpe en
 ///   los perfiles de los rivales (más ligero y lento Glass Joe, más pesado y rápido de pies Tyson).
+/// - El estado Burla en el controlador base (GlassJoe.controller) con el clip Burla de Soda Popinski, que heredan los
+///   override controllers: el rival se burla cuando tumba al jugador. Glass Joe no lo hace (probabilidadBurla 0).
 /// Crea el material y la textura de las partículas si faltan. No cambia nada que ya esté puesto: se puede repetir.
 /// </summary>
 public static class PulidoBuilder
@@ -23,14 +25,17 @@ public static class PulidoBuilder
     private const string CarpetaAudio = "Assets/_Project/Audio/Efectos";
     private const string CarpetaPerfiles = "Assets/_Project/Data/Oponentes";
 
-    // Perfil → (velocidadLateral m/s, retrocesoPorGolpe m)
-    private static readonly (string perfil, float lateral, float retroceso)[] Pies =
+    private const string RutaControlador = "Assets/_Project/Art/Characters/GlassJoe/Animations/GlassJoe.controller";
+    private const string RutaBurla = "Assets/_Project/Art/Characters/SodaPopinski/Animations/SodaPopinski@Burla.fbx";
+
+    // Perfil → (velocidadLateral m/s, retrocesoPorGolpe m, probabilidadBurla)
+    private static readonly (string perfil, float lateral, float retroceso, float burla)[] Pies =
     {
-        ("GlassJoe", 0.12f, 0.14f),
-        ("BaldBull", 0.16f, 0.08f),
-        ("SodaPopinski", 0.20f, 0.07f),
-        ("MrSandman", 0.26f, 0.07f),
-        ("MikeTyson", 0.36f, 0.05f),
+        ("GlassJoe", 0.12f, 0.14f, 0f),
+        ("BaldBull", 0.16f, 0.08f, 1f),
+        ("SodaPopinski", 0.20f, 0.07f, 1f),
+        ("MrSandman", 0.26f, 0.07f, 1f),
+        ("MikeTyson", 0.36f, 0.05f, 1f),
     };
 
     [MenuItem("Tools/Boxeo/Poner pulido de combate")]
@@ -44,6 +49,7 @@ public static class PulidoBuilder
         AudioClip[] aire = Clips("Golpe_Aire_");
         AudioClip[] esfuerzo = Clips("Rival_Esfuerzo_");
         int perfiles = ConfigurarPerfiles(esfuerzo);
+        PonerEstadoBurla();
 
         SceneSetup[] abiertas = EditorSceneManager.GetSceneManagerSetup();
         int cambios = 0;
@@ -102,13 +108,14 @@ public static class PulidoBuilder
     private static int ConfigurarPerfiles(AudioClip[] esfuerzo)
     {
         int cambiados = 0;
-        foreach ((string nombre, float lateral, float retroceso) in Pies)
+        foreach ((string nombre, float lateral, float retroceso, float burla) in Pies)
         {
             var perfil = AssetDatabase.LoadAssetAtPath<PerfilOponente>($"{CarpetaPerfiles}/{nombre}.asset");
             if (perfil == null) { Debug.LogWarning($"Falta el perfil {nombre}."); continue; }
             bool cambio = false;
             if (!Mathf.Approximately(perfil.velocidadLateral, lateral)) { perfil.velocidadLateral = lateral; cambio = true; }
             if (!Mathf.Approximately(perfil.retrocesoPorGolpe, retroceso)) { perfil.retrocesoPorGolpe = retroceso; cambio = true; }
+            if (!Mathf.Approximately(perfil.probabilidadBurla, burla)) { perfil.probabilidadBurla = burla; cambio = true; }
             if (esfuerzo.Length > 0 && (perfil.sonidosAtaque == null || !perfil.sonidosAtaque.SequenceEqual(esfuerzo)))
             {
                 perfil.sonidosAtaque = esfuerzo;
@@ -119,6 +126,27 @@ public static class PulidoBuilder
             cambiados++;
         }
         return cambiados;
+    }
+
+    // Los override controllers sustituyen clips, no estados: el estado va en el controlador base y lo heredan todos
+    private static void PonerEstadoBurla()
+    {
+        var controlador = AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(RutaControlador);
+        AnimationClip clip = AssetDatabase.LoadAllAssetsAtPath(RutaBurla).OfType<AnimationClip>().FirstOrDefault(c => c.name == "Burla");
+        if (controlador == null || clip == null) { Debug.LogWarning("Falta GlassJoe.controller o el clip Burla."); return; }
+        UnityEditor.Animations.AnimatorStateMachine maquina = controlador.layers[0].stateMachine;
+        if (maquina.states.Any(s => s.state.name == "Burla")) return;
+
+        UnityEditor.Animations.AnimatorState idle = maquina.states.First(s => s.state.name == "Idle").state;
+        UnityEditor.Animations.AnimatorState estado = maquina.AddState("Burla");
+        estado.motion = clip;
+        UnityEditor.Animations.AnimatorStateTransition vuelta = estado.AddTransition(idle);
+        vuelta.hasExitTime = true;
+        vuelta.exitTime = 0.9f;
+        vuelta.hasFixedDuration = true;
+        vuelta.duration = 0.3f;
+        EditorUtility.SetDirty(controlador);
+        Debug.Log("Estado Burla añadido a GlassJoe.controller.");
     }
 
     private static AudioClip[] Clips(string prefijo) =>

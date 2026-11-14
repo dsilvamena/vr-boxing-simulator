@@ -101,6 +101,9 @@ public class PerfilOponente : ScriptableObject
     [Tooltip("Con la guardia del jugador baja, cuánto más rápido corre la espera hasta el próximo ataque (0 = igual, 1 = el doble)")]
     [Range(0f, 3f)] public float castigoGuardiaBaja = 0.5f;
 
+    [Tooltip("Probabilidad de burlarse del jugador cuando lo tumba (necesita el estado Burla en su controlador)")]
+    [Range(0f, 1f)] public float probabilidadBurla = 1f;
+
     [Header("Daño al jugador (RF-04, RF-05, RF-06)")]
     public float danoAtaqueJab = 8f;
     public float danoAtaqueUppercut = 14f;

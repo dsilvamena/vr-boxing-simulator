@@ -78985,13 +78985,47 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: d25d815ca10846247863ab12488bf9fe, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1725595560}
   m_SourcePrefab: {fileID: 100100000, guid: d25d815ca10846247863ab12488bf9fe, type: 3}
 --- !u!4 &1725595558 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: d25d815ca10846247863ab12488bf9fe, type: 3}
   m_PrefabInstance: {fileID: 1725595557}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1725595559 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: d25d815ca10846247863ab12488bf9fe, type: 3}
+  m_PrefabInstance: {fileID: 1725595557}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1725595560
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1725595559}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fede14a70213245ebb39988e5048117d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CuerpoVivo
+  objetivo: {fileID: 0}
+  pesoMirada: 0.8
+  pesoTorsoMirada: 0.12
+  suavizadoMirada: 0.12
+  sacudidaCabeza: 36
+  sacudidaTorso: 16
+  fraccionBloqueo: 0.3
+  rigidez: 110
+  amortiguacion: 11
+  inclinacionEsquive: 24
+  encorvado: 8
+  cabezaBaja: 7
+  respiracion: {x: 0.5, y: 2.6}
+  ritmoRespiracion: {x: 0.28, y: 0.95}
 --- !u!1 &1727704557
 GameObject:
   m_ObjectHideFlags: 0

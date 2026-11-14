@@ -18055,6 +18055,11 @@ MonoBehaviour:
   enfriamiento: 0.25
   rapidezLanzamiento: 1.5
   rapidezRearme: 0.2
+  sonidosAire:
+  - {fileID: 8300000, guid: 153c29955f3c04331a3d20afd9b1946e, type: 3}
+  - {fileID: 8300000, guid: 05754430780714b0da7e39f0a3a0506e, type: 3}
+  - {fileID: 8300000, guid: 37b0115732a5b4698a1f999420d1597f, type: 3}
+  volumenAire: {x: 0.25, y: 0.7}
   rapidezVibracionMaxima: 2.5
   vibracionMinima: 0.4
 --- !u!54 &382466768
@@ -19998,6 +20003,11 @@ MonoBehaviour:
   enfriamiento: 0.25
   rapidezLanzamiento: 1.5
   rapidezRearme: 0.2
+  sonidosAire:
+  - {fileID: 8300000, guid: 153c29955f3c04331a3d20afd9b1946e, type: 3}
+  - {fileID: 8300000, guid: 05754430780714b0da7e39f0a3a0506e, type: 3}
+  - {fileID: 8300000, guid: 37b0115732a5b4698a1f999420d1597f, type: 3}
+  volumenAire: {x: 0.25, y: 0.7}
   rapidezVibracionMaxima: 2.5
   vibracionMinima: 0.4
 --- !u!54 &423939003
@@ -48076,6 +48086,7 @@ GameObject:
   - component: {fileID: 1032892955}
   - component: {fileID: 1032892960}
   - component: {fileID: 1032892961}
+  - component: {fileID: 1032892962}
   m_Layer: 0
   m_Name: GlassJoe
   m_TagString: Untagged
@@ -48275,6 +48286,11 @@ MonoBehaviour:
   anticipoGuardia: 0.08
   pausaGuardia: 0.08
   retornoGuardia: 0.1
+  juegoDePies: 1
+  arcoLateral: 35
+  segundosLateral: {x: 1.2, y: 3.2}
+  probabilidadQuieto: 0.3
+  frenoEmpuje: 9
 --- !u!114 &1032892961
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -48292,6 +48308,28 @@ MonoBehaviour:
   tiempoBajar: 0.3
   posicionGuantes: {x: 0.1, y: -0.05, z: 0.22}
   aberturaTrasGuardia: 0.6
+--- !u!114 &1032892962
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1032892954}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2cf4cda0e3d6140fda2679594a049753, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EfectosGolpe
+  material: {fileID: 2100000, guid: cadf646527f4242d7b340bdcfb2ceed2, type: 2}
+  gotas: {x: 5, y: 18}
+  colorSudor: {r: 0.86, g: 0.93, b: 1, a: 0.75}
+  colorBloqueo: {r: 1, g: 0.95, b: 0.8, a: 0.55}
+  camaraLenta: 1
+  escalaKnockdown: 0.45
+  segundosKnockdown: 0.45
+  escalaKO: 0.28
+  segundosKO: 1.1
+  segundosVuelta: 0.35
 --- !u!1001 &1033162221
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -78404,6 +78442,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: d25d815ca10846247863ab12488bf9fe, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1725595563}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: d25d815ca10846247863ab12488bf9fe, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1725595564}
   m_SourcePrefab: {fileID: 100100000, guid: d25d815ca10846247863ab12488bf9fe, type: 3}
 --- !u!95 &1725595558 stripped
 Animator:
@@ -78454,6 +78495,32 @@ MonoBehaviour:
   velocidadQuieto: 0.12
   giroQuieto: 25
   mezcla: 0.2
+--- !u!114 &1725595564
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1725595562}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fede14a70213245ebb39988e5048117d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CuerpoVivo
+  objetivo: {fileID: 0}
+  pesoMirada: 0.8
+  pesoTorsoMirada: 0.12
+  suavizadoMirada: 0.12
+  sacudidaCabeza: 36
+  sacudidaTorso: 16
+  fraccionBloqueo: 0.3
+  rigidez: 110
+  amortiguacion: 11
+  inclinacionEsquive: 24
+  encorvado: 8
+  cabezaBaja: 7
+  respiracion: {x: 0.5, y: 2.6}
+  ritmoRespiracion: {x: 0.28, y: 0.95}
 --- !u!1 &1727704557
 GameObject:
   m_ObjectHideFlags: 0
@@ -83353,6 +83420,7 @@ MonoBehaviour:
   followPlayer: 1
   distance: 1.5
   heightOffset: -0.45
+  minDistance: 0.7
 --- !u!4 &1854626393
 Transform:
   m_ObjectHideFlags: 0

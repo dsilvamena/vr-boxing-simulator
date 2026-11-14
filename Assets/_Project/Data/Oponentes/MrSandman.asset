@@ -42,6 +42,8 @@ MonoBehaviour:
   velocidadAtaque: 1.4
   velocidadDesplazamiento: 1.1
   distanciaCombate: 1.2
+  velocidadLateral: 0.26
+  retrocesoPorGolpe: 0.07
   intervaloAtaque: {x: 2.8, y: 4}
   uppercutCada: 3
   combo: 030000000100000003000000
@@ -71,3 +73,7 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 152067e1f48814db2890183d328096d3, type: 3}
   sonidoBloqueo: {fileID: 8300000, guid: 6500fd9f453854ae1ab1b4debebb9cab, type: 3}
   sonidoKO: {fileID: 0}
+  sonidosAtaque:
+  - {fileID: 8300000, guid: ecbc49acf7b014523a865c75b6b4f4dd, type: 3}
+  - {fileID: 8300000, guid: cb259c0f21f9a448faf5e79286819456, type: 3}
+  - {fileID: 8300000, guid: 38bf1056aa5d0424f873ae7ae2609981, type: 3}

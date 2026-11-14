@@ -65,6 +65,7 @@ En Play, clic derecho en el título de cada componente:
 - `Assets/Scripts/`: scripts del juego (combate, IA de los rivales, salud del jugador, menús y audio).
 - `Assets/Editor/`: herramientas del menú *Tools > Boxeo* (configurar un rival, poner guantes).
 - `Tools/sintetizar_audio.py`: genera los efectos de `Assets/_Project/Audio/Efectos/` (golpes, bloqueo, latido, multitud).
+- `Tools/voces_arbitro.py`: genera con Voice Studio (API local) las frases del réferi de `Assets/_Project/Audio/Arbitro/` (guion en `docs/Voces_Arbitro.md`).
 - `docs/Entrega3.md`: estado de la entrega 3 (50 %), trazabilidad de requisitos y pruebas.
 - `Assets/ThirdParty/MarpaStudio/`: pack del gimnasio.
 

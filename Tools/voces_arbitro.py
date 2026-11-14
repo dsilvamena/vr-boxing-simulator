@@ -32,7 +32,6 @@ INTENTOS = 6
 
 # (nombre, texto, segundos máximos tras recortar, cuándo lo dice). Los tiempos salen de Arbitro:
 # - la cuenta va a un número por segundo, y cada número corta al anterior;
-# - "Esquina" suena justo antes de la cuenta (pausaAntesDeContar = 1,3 s), y el "¡Uno!" lo cortaría;
 # - las instrucciones caben en la preparación (5 s antes de la primera campana; el "¡Box!" llega 0,5 s después).
 LINEAS = [
     ("Voz_Cuenta_01", "¡Uno!", 0.85, "Cuenta"),
@@ -53,9 +52,6 @@ LINEAS = [
     ("Voz_Seguir_1", "¿Puede seguir? ¡Box!", 1.9, "Tras una cuenta superada"),
     ("Voz_Seguir_2", "¡Levante los guantes! ¡Box!", 2.0, "Tras una cuenta superada"),
     ("Voz_Seguir_3", "¡Muy bien, sigan!", 1.5, "Tras una cuenta superada"),
-    ("Voz_Esquina_1", "¡Esquina neutral!", 1.2, "Antes de contar al rival"),
-    ("Voz_Esquina_2", "¡A la esquina!", 1.1, "Antes de contar al rival"),
-    ("Voz_Esquina_3", "¡Esquina, ya!", 1.1, "Antes de contar al rival"),
     ("Voz_Tiempo_1", "¡Tiempo! ¡A sus esquinas!", 2.0, "Termina un round (sin acabar el combate)"),
     ("Voz_Tiempo_2", "¡Alto! ¡Tiempo!", 1.5, "Termina un round (sin acabar el combate)"),
     ("Voz_Tiempo_3", "¡Se acabó el round!", 1.6, "Termina un round (sin acabar el combate)"),

@@ -8,14 +8,15 @@ using UnityEngine;
 ///   lo mira y muestra el cartel con los botones que hay que pulsar.
 /// - Antes de cada campana (la preparación y el final del descanso) se pone en el centro, entre los dos, y al sonar da
 ///   la orden de pelear con un tajo del brazo ("¡Box!"). El resto del descanso espera en su sitio inicial.
-/// - Cuando cae el rival, antes de contar mira al jugador y le señala la esquina neutral con el brazo extendido.
 /// - Si el combate acaba por nocaut lo para agitando los dos brazos por encima de la cabeza, y en cualquier final
 ///   señala al ganador y se queda donde está.
 /// Cada número que dice el Arbitro baja el brazo de golpe y lo vuelve a subir, como un réferi de verdad: el brazo va
 /// con un muelle amortiguado, el antebrazo con retraso y el torso cabecea un poco. En la cuenta del rival el brazo
 /// sube cuando empieza la cuenta, con el rival ya tendido.
-/// Se desplaza acelerando y frenando; los pasos los da PasosProcedurales, en el objeto del Animator (no hay clip de
-/// caminar).
+/// Se desplaza acelerando y frenando. Si el controlador tiene "AndarX"/"AndarZ" (los clips de caminar y paso lateral de
+/// Tools > Boxeo > Crear caminar del réferi) le manda su velocidad local y el blend tree pone las piernas; los trayectos
+/// largos fuera del round los hace de frente y al llegar se vuelve. En el round se desplaza de lado sin dejar de mirar la
+/// pelea. Los giros en el sitio los pisa PasosProcedurales, en el objeto del Animator.
 /// El modelo (hijo Modelo, Referee.fbx) es Humanoid: con un Animator humanoide y brazoCuenta vacío, el gesto se hace
 /// girando el brazo derecho del esqueleto después de la animación, así que vale para cualquier rig humanoide. Con
 /// brazoCuenta asignado se gira ese transform en su eje X local (modelos sin esqueleto). El Animator recibe, si los tiene,
@@ -71,8 +72,19 @@ public class CuerpoArbitro : MonoBehaviour
     [SerializeField, Min(0.1f)] private float velocidadPelea = 0.8f;
     [Tooltip("Rapidez del giro")]
     [SerializeField, Min(0.1f)] private float velocidadGiro = 6f;
-    [Tooltip("Segundos aproximados para arrancar y frenar al desplazarse")]
-    [SerializeField, Min(0.01f)] private float tiempoAceleracion = 0.35f;
+    [Tooltip("Aceleración máxima al arrancar y al frenar (m/s²). Con poca, el cuerpo no sale disparado antes de que el " +
+             "clip de caminar entre y los pies no patinan")]
+    [SerializeField, Min(0.1f)] private float aceleracion = 2.5f;
+    [Tooltip("Fuera del round, si su sitio está más lejos que esto camina de frente hacia él (y al llegar se vuelve); más cerca, se desplaza sin dejar de mirar")]
+    [SerializeField, Min(0f)] private float distanciaCaminarDeFrente = 0.9f;
+
+    [Header("Caminar (Animator con \"AndarX\", \"AndarZ\" y \"RitmoPaso\")")]
+    [Tooltip("Velocidad (m/s) para la que está hecho el ciclo de caminar hacia delante (Referee_Caminar)")]
+    [SerializeField, Min(0.1f)] private float velocidadClipCaminar = 1.2f;
+    [Tooltip("Velocidad (m/s) para la que está hecho el paso lateral (Referee_Lateral)")]
+    [SerializeField, Min(0.1f)] private float velocidadClipLateral = 0.49f;
+    [Tooltip("Segundos de suavizado de los parámetros de caminar")]
+    [SerializeField, Min(0f)] private float suavizadoAndar = 0.12f;
 
     [Header("Gesto de la cuenta")]
     [Tooltip("Ángulo del hombro con el brazo arriba, esperando el número (negativo = hacia delante y arriba)")]
@@ -89,8 +101,6 @@ public class CuerpoArbitro : MonoBehaviour
     [SerializeField, Min(0.3f)] private float distanciaLateralCentro = 1.05f;
     [Tooltip("Segundos antes de la campana en los que deja su sitio del descanso y va al centro")]
     [SerializeField, Min(0f)] private float segundosAntesDeCampana = 4f;
-    [Tooltip("Segundos que mantiene el brazo señalando la esquina neutral")]
-    [SerializeField, Min(0.1f)] private float segundosSenalando = 1.7f;
     [Tooltip("Segundos que agita los brazos para parar el combate")]
     [SerializeField, Min(0.1f)] private float segundosAgitando = 2.6f;
 
@@ -105,6 +115,9 @@ public class CuerpoArbitro : MonoBehaviour
     private static readonly int Contar = Animator.StringToHash("Contar");
     private static readonly int Contando = Animator.StringToHash("Contando");
     private static readonly int Agachado = Animator.StringToHash("Agachado");
+    private static readonly int AndarX = Animator.StringToHash("AndarX");
+    private static readonly int AndarZ = Animator.StringToHash("AndarZ");
+    private static readonly int RitmoPaso = Animator.StringToHash("RitmoPaso");
 
     private Modo modo = Modo.Neutral;
     private Vector3 posicionInicial;
@@ -125,7 +138,8 @@ public class CuerpoArbitro : MonoBehaviour
     private Transform hombro, codo, mano;
     private float pesoBrazo;
     private float agachado;
-    private bool tieneContar, tieneContando, tieneAgachado;
+    private bool tieneContar, tieneContando, tieneAgachado, tieneAndar;
+    private bool deFrente;            // camina hacia su sitio mirando hacia donde va
 
     // Señas: "¡Box!" reutiliza el brazo de la cuenta; señalar y agitar son poses de brazo que entran y salen por peso
     private Transform hombroIzquierdo, codoIzquierdo, manoIzquierda;
@@ -166,6 +180,7 @@ public class CuerpoArbitro : MonoBehaviour
                 if (parametro.nameHash == Contar) tieneContar = true;
                 else if (parametro.nameHash == Contando) tieneContando = true;
                 else if (parametro.nameHash == Agachado) tieneAgachado = true;
+                else if (parametro.nameHash == AndarZ) tieneAndar = true;
             }
             if (brazoCuenta == null && animador.isHuman)
             {
@@ -219,12 +234,6 @@ public class CuerpoArbitro : MonoBehaviour
                 tiempoBox = 0f;
                 tajoDado = false;
                 break;
-            case OrdenArbitro.Esquina:
-                puntoSenalado = punto + Vector3.up * 1.2f;
-                senalarHasta = Time.time + segundosSenalando;
-                // Con el brazo del lado hacia el que queda la esquina
-                senalaConIzquierdo = Vector3.Dot(transform.right, punto - transform.position) < 0f;
-                break;
             case OrdenArbitro.Fin:
                 agitarHasta = Time.time + segundosAgitando;
                 break;
@@ -260,16 +269,64 @@ public class CuerpoArbitro : MonoBehaviour
             // Durante el round solo se mueve cuando su sitio queda lejos, y entonces llega hasta él
             float distancia = PlanoXZ(destino - transform.position).magnitude;
             if (distancia > zonaMuertaPelea) siguiendoPelea = true;
-            else if (distancia < 0.05f) siguiendoPelea = false;
+            else if (distancia < 0.05f && velocidadMovimiento.sqrMagnitude < 0.0025f) siguiendoPelea = false;
         }
-        // Arranca y frena como una persona (sin velocidad constante de golpe); los pies los pone PasosProcedurales
-        if (modo != Modo.Pelea || siguiendoPelea)
-            transform.position = Vector3.SmoothDamp(transform.position, destino, ref velocidadMovimiento, tiempoAceleracion, rapidez);
-        else
-            velocidadMovimiento = Vector3.zero;
+        Desplazar(rapidez, modo != Modo.Pelea || siguiendoPelea);
+
+        // Un trayecto largo fuera del round lo hace de frente; al acercarse a su sitio se vuelve hacia lo que mira
+        float restante = PlanoXZ(destino - transform.position).magnitude;
+        if (modo == Modo.Pelea || modo == Modo.Final) deFrente = false;
+        else if (restante > distanciaCaminarDeFrente) deFrente = true;
+        else if (restante < distanciaCaminarDeFrente * 0.5f) deFrente = false;
 
         Girar();
+        Andar();
         Gesticular();
+    }
+
+    // Arranca y frena como una persona, con la aceleración limitada: antes era un SmoothDamp, que al arrancar pasaba de 0
+    // a 0,8 m/s en 0,08 s; el cuerpo salía disparado antes de que el blend tree empezara a caminar y los pies patinaban.
+    // Frena a tiempo para parar en el destino y, si deja de seguirlo (en el round, dentro de la zona muerta), frena igual
+    // en vez de pararse en seco.
+    private void Desplazar(float rapidez, bool seguir)
+    {
+        float dt = Time.deltaTime;
+        Vector3 hacia = destino - transform.position;
+        float distancia = hacia.magnitude;
+        Vector3 deseada = Vector3.zero;
+        if (seguir && distancia > 0.005f)
+        {
+            // La rapidez con la que aún se para justo en el destino frenando con algo menos de la aceleración máxima
+            float frenada = Mathf.Sqrt(2f * aceleracion * 0.8f * distancia);
+            deseada = hacia / distancia * Mathf.Min(rapidez, frenada);
+        }
+        velocidadMovimiento = Vector3.MoveTowards(velocidadMovimiento, deseada, aceleracion * dt);
+        Vector3 paso = velocidadMovimiento * dt;
+        if (seguir && distancia < 0.05f && paso.magnitude >= distancia)
+        {
+            transform.position = destino;
+            velocidadMovimiento = Vector3.zero;
+        }
+        else transform.position += paso;
+    }
+
+    // El Animator recibe la velocidad en el espacio del réferi, en unidades de la velocidad de cada clip (1 = la del
+    // paso), y "RitmoPaso" acelera el ciclo cuando va más deprisa que eso, para que los pies no patinen
+    private void Andar()
+    {
+        if (!tieneAndar) return;
+        Vector3 local = transform.InverseTransformDirection(PlanoXZ(velocidadMovimiento));
+        var andar = new Vector2(local.x / velocidadClipLateral, local.z / velocidadClipCaminar);
+        float ritmo = 1f;
+        if (andar.magnitude > 1f)
+        {
+            ritmo = andar.magnitude;
+            andar /= ritmo;
+        }
+        float dt = Time.deltaTime;
+        animador.SetFloat(AndarX, andar.x, suavizadoAndar, dt);
+        animador.SetFloat(AndarZ, andar.y, suavizadoAndar, dt);
+        animador.SetFloat(RitmoPaso, ritmo, suavizadoAndar, dt);
     }
 
     private Modo ModoActual()
@@ -373,13 +430,13 @@ public class CuerpoArbitro : MonoBehaviour
         Vector3 mirar = modo switch
         {
             Modo.CuentaJugador => jugador.PosicionCabeza,
-            // Mientras le señala la esquina neutral mira al jugador; después, al caído
-            Modo.CuentaRival => Time.time < senalarHasta ? jugador.PosicionCabeza : oponente.transform.position,
+            Modo.CuentaRival => oponente.transform.position,
             Modo.Pelea => (jugador.PosicionCabeza + oponente.transform.position) * 0.5f,
             Modo.Centro => (jugador.PosicionCabeza + oponente.transform.position) * 0.5f,
             Modo.Final => (jugador.PosicionCabeza + oponente.transform.position) * 0.5f,
             _ => transform.position + rotacionInicial * Vector3.forward,
         };
+        if (deFrente && PlanoXZ(destino - transform.position).sqrMagnitude > 0.01f) mirar = destino;
         Vector3 direccion = PlanoXZ(mirar - transform.position);
         if (direccion.sqrMagnitude < 0.0001f) return;
         Quaternion objetivo = Quaternion.LookRotation(direccion, Vector3.up);
@@ -432,9 +489,9 @@ public class CuerpoArbitro : MonoBehaviour
 
         if (tieneAgachado)
         {
-            // Mientras señala la esquina al jugador está erguido; se inclina sobre el caído al empezar a contar
+            // En la cuenta del rival se inclina sobre el caído
             float postura = modo == Modo.Pelea ? agachadoPelea
-                : modo == Modo.CuentaRival && Time.time >= senalarHasta ? agachadoCuentaRival : 0f;
+                : modo == Modo.CuentaRival ? agachadoCuentaRival : 0f;
             agachado = Mathf.MoveTowards(agachado, postura, velocidadPostura * Time.deltaTime);
             animador.SetFloat(Agachado, agachado);
         }
@@ -485,7 +542,7 @@ public class CuerpoArbitro : MonoBehaviour
     }
 
     // Parar el combate: los dos brazos en alto, cruzándose y abriéndose por encima de la cabeza.
-    // Señalar: un brazo extendido hacia el punto (la esquina neutral o el ganador)
+    // Señalar: un brazo extendido hacia el punto (el ganador)
     private void Senas()
     {
         if (pesoAgitar > 0.001f && hombroIzquierdo != null)

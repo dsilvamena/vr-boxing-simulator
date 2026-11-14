@@ -1152,6 +1152,10 @@ MonoBehaviour:
   velocidadPelea: 0.8
   velocidadGiro: 6
   tiempoAceleracion: 0.35
+  distanciaCaminarDeFrente: 0.9
+  velocidadClipCaminar: 1.2
+  velocidadClipLateral: 0.49
+  suavizadoAndar: 0.12
   anguloArriba: -150
   anguloAbajo: -75
   segundosAbajo: 0.2
@@ -3243,6 +3247,7 @@ MonoBehaviour:
   giroQuieto: 25
   zancada: {x: 1, y: 1.5}
   velocidadZancadaLarga: 1
+  velocidadConClip: 0.2
   mezcla: 0.2
 --- !u!1001 &56818850
 PrefabInstance:
@@ -107732,6 +107737,7 @@ MonoBehaviour:
   giroQuieto: 25
   zancada: {x: 1, y: 1.5}
   velocidadZancadaLarga: 1
+  velocidadConClip: 0
   mezcla: 0.2
 --- !u!114 &6876044844901561535
 MonoBehaviour:
@@ -107771,6 +107777,8 @@ MonoBehaviour:
   pesoMirada: 0.8
   pesoTorsoMirada: 0.12
   suavizadoMirada: 0.12
+  limiteGiroMirada: 60
+  limiteCabeceoMirada: 30
   sacudidaCabeza: 36
   sacudidaTorso: 16
   fraccionBloqueo: 0.3

@@ -13,6 +13,8 @@ using UnityEngine;
 /// después la IK se apaga con una mezcla corta. La postura (dónde van los pies respecto a la raíz) se toma de la propia
 /// animación mientras la IK está apagada, así que cada personaje conserva la suya.
 ///
+/// Con velocidadConClip > 0 (el réferi, que tiene clips de caminar) la IK suelta los pies por encima de esa velocidad y
+/// manda el clip; los pasos procedurales quedan para los giros en el sitio, los arranques y las paradas.
 /// Solo actúa en los estados de la capa base listados en estados (vacío = siempre): en los ataques, las reacciones y las
 /// caídas manda el clip. Va en el objeto del Animator, que necesita IK Pass en la capa base. Lo añade
 /// Tools > Boxeo > Poner pasos procedurales.
@@ -22,10 +24,17 @@ using UnityEngine;
 /// de la IK: así los pies se clavan a la altura del clip y ApoyoEnSuelo los sube igual que cuando la IK está apagada. Si
 /// se guardaran ya subidos, ApoyoEnSuelo no vería suelas hundidas, no subiría la cadera y el personaje daría los pasos
 /// agachado (22 cm en Sandman).
-/// El objetivo de IK de un pie no es el hueso: Unity lo define con su propia orientación y algo desplazado, y cuánto
-/// depende del esqueleto (en los de Mixamo casi coinciden; en el de Mr. Sandman, pasarle el giro del hueso volteaba el
-/// pie). Por eso, con la IK apagada y el cuerpo quieto, se guarda el desfase entre el objetivo y el hueso, y al clavar el
-/// pie se le suma: así, pedirle a la IK la pose del clip devuelve exactamente la pose del clip.
+/// El objetivo de IK de un pie está en el tobillo, como el hueso, pero con la orientación propia de Unity, que según el
+/// esqueleto difiere de la del hueso (en el de Mr. Sandman, pasarle el giro del hueso volteaba el pie). Por eso, con el
+/// cuerpo quieto y antes de usar la IK por primera vez, se mide una sola vez ese desfase de giro y al clavar el pie se le
+/// suma. La posición se pasa tal cual: medir también un desfase de posición solo recogía ruido (15 cm en el pie derecho
+/// de Sandman, que con él quedaba fuera de su sitio; sin él, a menos de 1 cm). Solo se mide antes del primer uso porque,
+/// en cuanto se ha fijado un objetivo, GetIKPosition/GetIKRotation devuelven ese objetivo viejo aunque el peso sea 0:
+/// hasta el 2026-11-14 se volvía a medir cada vez que la IK se soltaba, y después de que el réferi cruzara el ring con la
+/// IK apagada salía un desfase de 0,8 m; al volver a clavar los pies las piernas se estiraban hacia el sitio de antes y
+/// los pies subían medio metro.
+/// Con clip de caminar, el relevo entre la IK y el clip tiene histéresis (la IK vuelve por debajo de la mitad de
+/// velocidadConClip) para no encenderse y apagarse a cada fotograma cuando va justo a esa velocidad.
 /// </summary>
 [RequireComponent(typeof(Animator))]
 public class PasosProcedurales : MonoBehaviour
@@ -52,6 +61,9 @@ public class PasosProcedurales : MonoBehaviour
     [SerializeField] private Vector2 zancada = new Vector2(1f, 1.5f);
     [Tooltip("Velocidad (m/s) a la que la zancada ya es la larga; por debajo de 0,35 m/s es siempre la de pelea")]
     [SerializeField, Min(0.4f)] private float velocidadZancadaLarga = 1f;
+    [Tooltip("Con clip de caminar (el réferi): por encima de esta velocidad (m/s) los pies los pone el clip y la IK los suelta; " +
+             "los pasos procedurales quedan para los giros en el sitio y los arranques. 0 = sin clip de caminar")]
+    [SerializeField, Min(0f)] private float velocidadConClip = 0f;
     [Tooltip("Segundos de mezcla al encender o apagar la IK de pies")]
     [SerializeField, Min(0.01f)] private float mezcla = 0.2f;
 
@@ -72,7 +84,6 @@ public class PasosProcedurales : MonoBehaviour
         public Vector3 actual;
         public Quaternion giroActual;
         // Del hueso al objetivo de IK, en el espacio del hueso (constante para cada esqueleto)
-        public Vector3 desfasePosicion;
         public Quaternion desfaseGiro = Quaternion.identity;
     }
 
@@ -90,6 +101,11 @@ public class PasosProcedurales : MonoBehaviour
     private Vector3 velocidad;
     private float velocidadGiro;
     private bool hayAnterior;
+    private bool conClip;              // el clip de caminar manda (con histéresis)
+    private bool desfaseMedido;
+    private bool ikUsada;              // ya se fijó algún objetivo: GetIKPosition deja de dar la pose animada
+    private int fotogramasQuieto;
+    private const float EsperaMedida = 3f;      // segundos desde que carga la escena que la IK espera a la medida
 
     /// <summary>Hay algún pie en el aire.</summary>
     public bool DandoPaso => izquierdo.enPaso || derecho.enPaso;
@@ -149,7 +165,14 @@ public class PasosProcedurales : MonoBehaviour
         rumboAnterior = rumbo;
         hayAnterior = true;
 
-        bool permitido = EstadoConPasos() && izquierdo.hayPostura && derecho.hayPostura;
+        if (velocidadConClip > 0f)
+        {
+            if (velocidad.magnitude > velocidadConClip) conClip = true;
+            else if (velocidad.magnitude < velocidadConClip * 0.5f) conClip = false;
+        }
+        // Hasta medir el desfase la IK no entra (como mucho esperaMedida): medido después ya no valdría
+        bool permitido = EstadoConPasos() && izquierdo.hayPostura && derecho.hayPostura && !conClip
+                         && (desfaseMedido || Time.timeSinceLevelLoad > EsperaMedida);
         bool moviendose = velocidad.magnitude > velocidadQuieto || velocidadGiro > giroQuieto;
         if (!permitido)
         {
@@ -157,9 +180,10 @@ public class PasosProcedurales : MonoBehaviour
         }
         else if (moviendose)
         {
-            if (!activo && peso <= 0f)
+            if (!activo)
             {
-                // Se clavan donde la animación los tiene ahora mismo: sin salto
+                // Se clavan donde se ven ahora mismo (la animación, o la mezcla si la IK aún se estaba soltando): sin
+                // salto. Con los sitios de la última vez, si el cuerpo se había ido lejos, la pierna se estiraba hacia allí
                 foreach (Pie pie in pies)
                 {
                     pie.plantado = pie.actual = pie.transformHueso.position;
@@ -202,27 +226,39 @@ public class PasosProcedurales : MonoBehaviour
         Mover(derecho, izquierdo, dt, quieto);
 
         float w = Mathf.SmoothStep(0f, 1f, peso);
+        ikUsada = true;
         foreach (Pie pie in pies)
         {
             animator.SetIKPositionWeight(pie.objetivo, w);
             animator.SetIKRotationWeight(pie.objetivo, w);
-            animator.SetIKPosition(pie.objetivo, pie.actual + pie.giroActual * pie.desfasePosicion);
+            animator.SetIKPosition(pie.objetivo, pie.actual);
             animator.SetIKRotation(pie.objetivo, pie.giroActual * pie.desfaseGiro);
         }
     }
 
-    // Con la IK apagada, el objetivo que devuelve el Animator aquí es el de la pose que dejó el fotograma anterior (ya con
-    // la subida de ApoyoEnSuelo), igual que los huesos: su diferencia es el desfase propio del esqueleto. Se mide con el
-    // cuerpo quieto por si en algún caso el objetivo llegara un fotograma adelantado.
+    // Antes de fijar ningún objetivo, el que devuelve el Animator aquí es el de la pose que dejó el fotograma anterior
+    // (ya con la subida de ApoyoEnSuelo), igual que los huesos: la diferencia de giro es la propia del esqueleto. Se mide
+    // sin que el cuerpo gire deprisa unos fotogramas seguidos (por si el objetivo llegara un fotograma adelantado: a 30 °/s
+    // eso es menos de medio grado; desplazarse no cambia el giro, y el réferi echa a andar y a girar nada más cargar) y
+    // una sola vez: es constante, y después de usar la
+    // IK la medida ya no vale (ver el resumen de la clase). Si el objetivo no está cerca del tobillo, no es el de esta
+    // pose y no se mide: en el réferi sale siempre unos 0,8 m más arriba, así que se queda sin desfase (con su esqueleto
+    // el giro del hueso ya es el del objetivo, y así se comprobó en Play), y lo mismo pasa si no hay medida en
+    // EsperaMedida.
     private void MedirDesfase()
     {
-        if (velocidad.sqrMagnitude > 0.0004f || velocidadGiro > 2f || !EstadoConPasos()) return;
-        foreach (Pie pie in pies)
+        if (desfaseMedido || ikUsada) return;
+        if (velocidadGiro > 30f || !EstadoConPasos())
         {
-            Quaternion inverso = Quaternion.Inverse(pie.transformHueso.rotation);
-            pie.desfaseGiro = inverso * animator.GetIKRotation(pie.objetivo);
-            pie.desfasePosicion = inverso * (animator.GetIKPosition(pie.objetivo) - pie.transformHueso.position);
+            fotogramasQuieto = 0;
+            return;
         }
+        if (++fotogramasQuieto < 5) return;
+        foreach (Pie pie in pies)
+            if (Vector3.Distance(animator.GetIKPosition(pie.objetivo), pie.transformHueso.position) > 0.25f) return;
+        foreach (Pie pie in pies)
+            pie.desfaseGiro = Quaternion.Inverse(pie.transformHueso.rotation) * animator.GetIKRotation(pie.objetivo);
+        desfaseMedido = true;
     }
 
     private void Mover(Pie pie, Pie otro, float dt, bool quieto)
@@ -294,6 +330,8 @@ public class PasosProcedurales : MonoBehaviour
     private void LateUpdate()
     {
         if (peso > 0f || !EstadoConPasos()) return;
+        // Con el clip de caminar sonando, los pies no están en la postura de reposo
+        if (velocidadConClip > 0f && velocidad.magnitude > velocidadQuieto) return;
         // ApoyoEnSuelo ya corrió este fotograma (orden -50) y subió la cadera: se le quita para guardar la altura del clip
         Vector3 subida = apoyo != null && apoyo.isActiveAndEnabled ? Vector3.up * apoyo.UltimaCorreccion : Vector3.zero;
         foreach (Pie pie in pies)

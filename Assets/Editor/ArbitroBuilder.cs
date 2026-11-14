@@ -13,7 +13,7 @@ using UnityEngine;
 /// de la TPose del FBX, con respiración) y el controlador Referee.controller: un blend tree en el float "Agachado" entre
 /// esa pose (0) y la postura de vigilar del FBX, Pose_Referee (1). CuerpoArbitro mueve "Agachado" según la fase y hace el
 /// gesto de la cuenta con el brazo derecho del esqueleto. Si ya había un modelo (el provisional de primitivas), lo cambia.
-/// El FBX trae solo esas dos poses, sin caminar: el réferi se desliza.
+/// El FBX trae solo esas dos poses, sin caminar: el caminar y el paso lateral los genera Tools > Boxeo > Crear caminar del réferi.
 /// </summary>
 public static class ArbitroBuilder
 {

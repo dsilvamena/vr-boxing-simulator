@@ -7,19 +7,17 @@ public enum OrdenArbitro
 {
     /// <summary>"¡Box!": a pelear (empieza un round o termina una cuenta).</summary>
     Box,
-    /// <summary>"¡Esquina!": manda al que quedó de pie a la esquina neutral antes de contar.</summary>
-    Esquina,
     /// <summary>"¡Nocaut!": para el combate agitando los brazos.</summary>
     Fin,
 }
 
 /// <summary>
 /// Réferi (RF-12, RF-16): cuenta en voz alta del 1 al 10, en 3D desde su posición, cuando cae el jugador y cuando cae
-/// el rival en un knockdown, y da las órdenes del combate ("¡Box!", "¡Esquina!", "¡Nocaut!"). La caída final del rival
+/// el rival en un knockdown, y da las órdenes del combate ("¡Box!", "¡Nocaut!"). La caída final del rival
 /// (Derrotado) no se cuenta: por la regla de las tres caídas el combate se para en el acto.
 /// Jugador: la cuenta, el tiempo y el button mashing siguen siendo de RecuperacionJugador; aquí solo se pone la voz.
 /// Rival: mientras hay réferi, el rival no se levanta con su temporizador (Oponente.LevantaArbitro). La cuenta sigue
-/// el reglamento: primero manda al jugador a la esquina neutral, después cuenta; el rival tiene que estar de pie en
+/// el reglamento: el rival tiene que estar de pie en
 /// el número cuentaKnockdown de su perfil (nunca en el 10, que sería nocaut: como mucho en el 9), así que empieza a
 /// levantarse segundosParaIncorporarse antes; aunque se levante pronto, la cuenta sigue hasta cuentaProteccion (8, la
 /// cuenta de protección obligatoria) y solo entonces, con "¡Box!", se reanuda la pelea. Entre que se levanta y el
@@ -61,8 +59,6 @@ public class Arbitro : MonoBehaviour
     [SerializeField] private AudioClip[] frasesBox;
     [Tooltip("Al reanudar tras una cuenta superada (del rival o del jugador); vacías = frasesBox")]
     [SerializeField] private AudioClip[] frasesSeguir;
-    [Tooltip("Antes de contar al rival: manda al jugador a la esquina neutral. Cortas: el primer número llega pausaAntesDeContar después")]
-    [SerializeField] private AudioClip[] frasesEsquina;
     [Tooltip("Al parar el combate por nocaut (de cualquiera de los dos)")]
     [SerializeField] private AudioClip[] frasesNocaut;
     [Tooltip("En la preparación, antes de la primera campana. Tienen que caber antes del primer \"¡Box!\"")]
@@ -86,7 +82,7 @@ public class Arbitro : MonoBehaviour
     [Tooltip("Segundos entre números. La del jugador va al ritmo de segundosParaLevantarse de RecuperacionJugador")]
     [SerializeField, Min(0.1f)] private float segundosPorNumero = 1f;
     [Tooltip("Pausa entre que el rival queda tendido y el primer número (el réferi llega y levanta el brazo)")]
-    [SerializeField, Min(0f)] private float pausaAntesDeContar = 1.3f;
+    [SerializeField, Min(0f)] private float pausaAntesDeContar = 0.5f;
     [Tooltip("Sin ReaccionAnimada (rivales sin esqueleto), o si la animación no llega al piso: espera máxima antes de contar")]
     [SerializeField, Min(0f)] private float esperaMaximaCaida = 2.5f;
 
@@ -94,7 +90,7 @@ public class Arbitro : MonoBehaviour
 
     /// <summary>Dice un número de la cuenta (1 a 10); el bool es true si cuenta al jugador. CuerpoArbitro hace el gesto con él.</summary>
     public event Action<int, bool> AlDecirNumero;
-    /// <summary>Da una orden; con Esquina, el punto es la esquina neutral que señala.</summary>
+    /// <summary>Da una orden (el punto queda para órdenes que señalen un lugar; ahora ninguna lo usa).</summary>
     public event Action<OrdenArbitro, Vector3> AlOrdenar;
 
     public bool ContandoRival { get; private set; }
@@ -193,12 +189,8 @@ public class Arbitro : MonoBehaviour
             if (enElPiso || esperaCaida >= esperaMaximaCaida)
             {
                 esperandoPiso = false;
+                // Tendido: tras una pausa corta (llega y levanta el brazo) empieza a contar, sin ninguna orden antes
                 segundosRival = -pausaAntesDeContar;
-                // Antes de contar, el jugador a la esquina neutral (la más alejada del caído)
-                Vector3 esquina = ring != null
-                    ? ring.EsquinaNeutralLejana(oponente.transform.position, 0.3f, oponente.transform.position.y)
-                    : oponente.transform.position - oponente.transform.forward * 3f;
-                Ordenar(OrdenArbitro.Esquina, esquina);
             }
         }
         else if (ContandoRival)
@@ -340,10 +332,9 @@ public class Arbitro : MonoBehaviour
 
     private void Ordenar(OrdenArbitro orden, Vector3 punto, bool trasCuenta = false)
     {
-        if (registrar) Debug.Log($"Réferi: {(orden == OrdenArbitro.Box ? "¡Box!" : orden == OrdenArbitro.Esquina ? "¡Esquina!" : "¡Nocaut!")}", this);
+        if (registrar) Debug.Log($"Réferi: {(orden == OrdenArbitro.Box ? "¡Box!" : "¡Nocaut!")}", this);
         AlOrdenar?.Invoke(orden, punto);
-        AudioClip[] frases = orden == OrdenArbitro.Esquina ? frasesEsquina
-            : orden == OrdenArbitro.Fin ? frasesNocaut
+        AudioClip[] frases = orden == OrdenArbitro.Fin ? frasesNocaut
             : trasCuenta && frasesSeguir != null && frasesSeguir.Length > 0 ? frasesSeguir : frasesBox;
         Hablar(frases);
     }

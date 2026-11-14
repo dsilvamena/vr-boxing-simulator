@@ -18,7 +18,6 @@ public static class VocesArbitroBuilder
     {
         ("frasesBox", "Voz_Box_"),
         ("frasesSeguir", "Voz_Seguir_"),
-        ("frasesEsquina", "Voz_Esquina_"),
         ("frasesNocaut", "Voz_Nocaut_"),
         ("frasesInstrucciones", "Voz_Instrucciones_"),
         ("frasesTiempo", "Voz_Tiempo_"),

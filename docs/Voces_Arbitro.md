@@ -31,9 +31,6 @@ basta con sobrescribir el WAV (el `.meta` mantiene la referencia) y no volver a 
 | `Voz_Box_1.wav` | ¡Box! | 0,63 s | 0,5 s después de la campana que abre cada round |
 | `Voz_Box_2.wav` | ¡A pelear! | 0,89 s | Ídem |
 | `Voz_Box_3.wav` | ¡Adelante! ¡Box! | 1,33 s | Ídem |
-| `Voz_Esquina_1.wav` | ¡Esquina neutral! | 1,04 s | El rival quedó tendido: manda al jugador a la esquina neutral antes de contar |
-| `Voz_Esquina_2.wav` | ¡A la esquina! | 0,90 s | Ídem |
-| `Voz_Esquina_3.wav` | ¡Esquina, ya! | 0,87 s | Ídem |
 | `Voz_Cuenta_01.wav` … `Voz_Cuenta_10.wav` | ¡Uno! … ¡Diez! | 0,50–0,84 s | La cuenta, un número por segundo (del rival y del jugador) |
 | `Voz_Seguir_1.wav` | ¿Puede seguir? ¡Box! | 1,56 s | Reanuda tras una cuenta superada (del rival o del jugador) |
 | `Voz_Seguir_2.wav` | ¡Levante los guantes! ¡Box! | 1,82 s | Ídem |
@@ -47,10 +44,12 @@ basta con sobrescribir el WAV (el `.meta` mantiene la referencia) y no volver a 
 | `Voz_Decision_1.wav` | ¡Se acabó! ¡Vamos a las tarjetas! | 1,84 s | Fin del último round sin nocaut: deciden los jueces |
 | `Voz_Decision_2.wav` | ¡Tiempo! ¡Deciden los jueces! | 1,89 s | Ídem |
 
-Límites que impone el juego: cada número dura menos de 1 s (el siguiente lo corta), las frases de esquina menos de
-1,3 s (`pausaAntesDeContar`, luego llega el «¡Uno!») y las instrucciones menos de ~4,5 s (la preparación dura 5 s y el
+Al quedar tendido el rival, el réferi no da ninguna orden: tras `pausaAntesDeContar` (0,5 s) empieza a contar (hasta
+el 2026-11-14 decía antes «¡Esquina!», ya quitado).
+
+Límites que impone el juego: cada número dura menos de 1 s (el siguiente lo corta) y las instrucciones menos de ~4,5 s (la preparación dura 5 s y el
 primer «¡Box!» llega 0,5 s después de la campana).
 
-Probado en Play (nivel 1, sin visor): instrucciones → campana → «¡Box!» → *Probar: contar al rival* (esquina, 1–9,
+Probado en Play (nivel 1, sin visor): instrucciones → campana → «¡Box!» → *Probar: contar al rival* (1–9,
 frase de seguir) → *Probar: acabar el round* («¡Tiempo!») → *saltar al round 3* + *perder por salud* (decisión, sin
 «¡Tiempo!»). Queda por escuchar en el visor si se entienden con el público de fondo y a la distancia del réferi.

@@ -134,7 +134,7 @@ Misma rama, `entrega-final/pulido-combate`. **Sin merge ni push.** Objetivo: que
 | Tras tumbarte se burlaba encima de ti | Se retira a la esquina neutral y se burla desde allí | `AtaqueOponente` |
 | En el descanso se quedaba en el centro | Camina a su esquina, la roja | `ControlRondas`, `AtaqueOponente` |
 | Sin K.O. ganaba quien tuviera más salud | Deciden tres jueces con tarjetas de 10 puntos por round; la decisión puede ser unánime, mayoritaria o dividida y las tarjetas se ven en el cartel y en resultados | `ControlRondas` |
-| El réferi solo contaba | Da la salida de cada round, manda a la esquina neutral, para el combate agitando los brazos y señala al ganador | `CuerpoArbitro` |
+| El réferi solo contaba | Da la salida de cada round, para el combate agitando los brazos y señala al ganador | `CuerpoArbitro` |
 | No había forma de saber cuánto quedaba de round | Marcador luminoso colgado de la estructura de focos con round, reloj y nombres, y claqueta a falta de diez segundos | `MarcadorRing`, `ControlRondas` |
 | Cuando ganaba, el rival se quedaba en guardia | Levanta los brazos y celebra | `ReaccionAnimada` (estado `Victoria`) |
 
@@ -177,9 +177,9 @@ Esto coincide con el recorte 1 de la auditoría de `docs/Entrega5.md` (quitar so
 
 ## Reglamento
 
-- **Cuenta al rival.** Nadie se levanta "en el 10": eso es nocaut. `cuentaKnockdown` del perfil es ahora el número en el que ya está de pie (Glass Joe 9, Bald Bull 8, Soda 8, Sandman 7, Tyson 6). Empieza a incorporarse 2 s antes, la cuenta sigue hasta 8 como mínimo y hasta el "¡Box!" queda protegido y sin atacar. La caída queda en 8–9 s de cuenta más la espera de la esquina, parecido a los 10 s de antes.
+- **Cuenta al rival.** Nadie se levanta "en el 10": eso es nocaut. `cuentaKnockdown` del perfil es ahora el número en el que ya está de pie (Glass Joe 9, Bald Bull 8, Soda 8, Sandman 7, Tyson 6). Empieza a incorporarse 2 s antes, la cuenta sigue hasta 8 como mínimo y hasta el "¡Box!" queda protegido y sin atacar. La caída queda en 8–9 s de cuenta más la espera a que quede tendido, parecido a los 10 s de antes.
 - **Tres caídas.** La tercera caída del rival sigue parando el combate sin cuenta: es la regla de las tres caídas.
-- **Esquinas neutrales.** Las da `LimiteRing.EsquinaNeutralLejana`. El jugador no puede ser obligado a ir (es su espacio real); el réferi se la señala.
+- **Esquinas neutrales.** Las da `LimiteRing.EsquinaNeutralLejana`. El jugador no puede ser obligado a ir (es su espacio real). El réferi ya no se la señala ni dice «¡Esquina!» antes de contar: se quitó el 2026-11-14, porque no se entendía; tras la caída se pone a contar directamente.
 - **Jueces.** En cada round, 10 puntos para quien más salud le quitó al otro (en fracción de su máximo) y 9 para el otro; 10-10 si la diferencia es menor de 1,5 %; un punto menos por caída. Tres jueces con sesgos de −2 %, 0 y +2 %. Gana quien tenga más jueces; el empate sigue siendo del jugador. **Esto cambia RF-11 respecto al informe**, que decía "gana quien tenga más salud": hay que actualizar esa frase. `ResultadoCombate` conserva `VictoriaPorSalud` / `DerrotaPorSalud` para no romper los registros ni `Tools/tabla_heart.py`; `RegistroSesion` añade `tarjetas` y `decision` al final.
 - **Lo que no se cambió:** 3 rounds de 90 s con 20 s de descanso (un asalto de 3 min con el visor puesto cansa demasiado), el daño, la salud y las probabilidades de bloqueo y esquive.
 
@@ -225,3 +225,22 @@ Regenerados el 2026-11-14 con todo lo de esta pasada, con builds incrementales y
 4. **Marcador.** Que se lea levantando la vista desde el centro del ring.
 5. **Voces nuevas** ("¡Box!", "¡Esquina!", "¡Nocaut!"): son del mismo sintetizador que los números; se pueden sustituir por grabaciones sobrescribiendo los WAV.
 6. **Dificultad.** La cuenta de protección da al jugador unos segundos más de respiro tras cada derribo, y la decisión por jueces premia ganar rounds, no solo conservar salud.
+
+## Correcciones del réferi (2026-11-14, tarde)
+
+- **Sin «¡Esquina!» antes de la cuenta.** Al quedar tendido el rival, el réferi espera `pausaAntesDeContar` (0,5 s) y
+  cuenta. Se quitaron la orden `OrdenArbitro.Esquina`, sus frases (`Voz_Esquina_*.wav`) y la seña de señalar la esquina.
+- **Piernas al arrancar.** Medido en Play (nivel 1, cada fotograma: velocidad, parámetros del blend tree, peso de la IK
+  y pies) había dos fallos:
+  1. `PasosProcedurales` volvía a medir el desfase entre el objetivo de IK y el hueso cada vez que soltaba la IK, pero
+     `GetIKPosition` devuelve el último objetivo fijado aunque el peso sea 0: tras cruzar el ring con la IK apagada el
+     desfase valía 0,8 m, y al volver a clavar los pies (al pararse o al girar) las piernas se estiraban y los pies
+     subían hasta 0,94 m del suelo. Además, a 0,2 m/s (justo `velocidadConClip`) la IK se encendía y apagaba cada pocos
+     fotogramas y reutilizaba apoyos viejos. Ahora solo se mide el desfase de giro, una vez, antes del primer uso; el
+     relevo IK↔clip tiene histéresis y al reactivar la IK los pies se clavan donde se ven. El pie más alto pasó de
+     0,94 m a 0,12 m (el arco normal del paso). En Mr. Sandman, con el pie clavado por la IK, el hueso queda a menos de
+     5 mm del punto (con el desfase de posición que se medía antes, a 15 cm).
+  2. El `SmoothDamp` lo lanzaba de 0 a 0,8 m/s en 0,08 s, antes de que el clip de caminar entrara: el cuerpo patinaba
+     sobre los pies. Ahora acelera y frena con `aceleracion` = 2,5 m/s² (0 → 1,6 m/s en ~0,6 s) y frena a tiempo.
+- Pendiente de ver en el visor, como el resto del pulido.
+

@@ -1,9 +1,9 @@
-"""Sintetiza los efectos de sonido del juego (golpes, bloqueo, latido, multitud, campana, voz del réferi) como WAV mono 16 bits.
+"""Sintetiza los efectos de sonido del juego (golpes, bloqueo, latido, multitud, campana, claqueta) como WAV mono 16 bits.
 
 Uso: python3 Tools/sintetizar_audio.py Assets/_Project/Audio/Efectos [prefijo ...]
 
 Con prefijos solo se escriben los sonidos cuyo nombre empieza por alguno (p. ej. "Golpe_Aire Rival_"), y el resto de
-los WAV no se toca: sirve para no pisar grabaciones puestas encima de los Voz_Cuenta.
+los WAV no se toca. La voz del réferi ya no sale de aquí: la genera Tools/voces_arbitro.py con Voice Studio.
 """
 import math
 import random
@@ -187,120 +187,6 @@ def balbuceo(seed, dur, voces, vocal_ahh=False, crescendo=False):
     return mezcla
 
 
-# Sonidos de la voz del réferi: F1, F2, F3 (Hz), sonoridad, ruido y centro del ruido (Hz)
-FONEMAS = {
-    "a": (720, 1240, 2500, 1.0, 0.0, 0),
-    "e": (470, 1880, 2550, 1.0, 0.0, 0),
-    "i": (300, 2260, 2950, 0.9, 0.0, 0),
-    "o": (480, 930, 2500, 1.0, 0.0, 0),
-    "u": (320, 760, 2400, 0.85, 0.0, 0),
-    "w": (320, 720, 2300, 0.7, 0.0, 0),
-    "y": (300, 2200, 2900, 0.7, 0.0, 0),
-    "n": (270, 1500, 2500, 0.35, 0.0, 0),
-    "r": (420, 1500, 2300, 0.2, 0.0, 0),  # vibrante simple: un corte breve de la voz
-    "b": (340, 900, 2300, 0.4, 0.0, 0),
-    "s": (400, 1700, 2600, 0.0, 0.4, 5600),
-    "ch": (300, 2000, 2800, 0.0, 0.55, 3400),
-    "cierre": (300, 1500, 2500, 0.0, 0.0, 0),  # silencio antes de una oclusiva
-    "barra": (250, 1400, 2500, 0.15, 0.0, 0),  # cierre con voz, antes de la d
-    "t": (400, 1700, 2600, 0.0, 0.9, 3900),
-    "d": (400, 1700, 2600, 0.3, 0.5, 3000),
-    "k": (400, 1300, 2300, 0.0, 0.9, 1900),
-}
-
-# Cada número como lista de (sonido, milisegundos); todos deben durar menos de un segundo de la cuenta
-NUMEROS = (
-    (("u", 170), ("n", 80), ("o", 230)),
-    (("barra", 30), ("d", 10), ("o", 240), ("s", 170)),
-    (("cierre", 15), ("t", 25), ("r", 35), ("e", 220), ("s", 170)),
-    (("cierre", 10), ("k", 30), ("w", 70), ("a", 180), ("cierre", 55), ("t", 20), ("r", 35), ("o", 190)),
-    (("s", 130), ("i", 130), ("n", 70), ("cierre", 45), ("k", 25), ("o", 220)),
-    (("s", 120), ("e", 120), ("i", 120), ("s", 170)),
-    (("s", 120), ("y", 70), ("e", 150), ("cierre", 55), ("t", 20), ("e", 190)),
-    (("o", 180), ("cierre", 55), ("ch", 100), ("o", 220)),
-    (("n", 70), ("w", 70), ("e", 160), ("b", 60), ("e", 200)),
-    (("barra", 30), ("d", 10), ("y", 70), ("e", 190), ("s", 190)),
-)
-
-
-# Órdenes del réferi, con los mismos sonidos: "¡Box!" (a pelear), "¡Esquina!" (a la esquina neutral tras un derribo)
-# y "¡Nocaut!" (se acabó)
-ORDENES = {
-    "Box": (("b", 55), ("o", 190), ("cierre", 45), ("k", 30), ("s", 190)),
-    "Esquina": (("e", 110), ("s", 110), ("cierre", 35), ("k", 25), ("i", 120), ("n", 80), ("a", 230)),
-    "Nocaut": (("n", 75), ("o", 150), ("cierre", 45), ("k", 30), ("a", 190), ("u", 130), ("cierre", 45), ("t", 30)),
-}
-
-
-GANANCIA_RUIDO = 1.6
-
-
-def suavizar(valores, radio):
-    """Media móvil: convierte los saltos entre sonidos en transiciones."""
-    suma = [0.0]
-    for v in valores:
-        suma.append(suma[-1] + v)
-    n = len(valores)
-    return [(suma[min(n, i + radio + 1)] - suma[max(0, i - radio)]) / (min(n, i + radio + 1) - max(0, i - radio)) for i in range(n)]
-
-
-def voz(seed, segmentos, f0_inicio=165, f0_fin=108):
-    """Voz de hombre con un sintetizador de formantes en cascada: pulsos de la glotis pasados por resonadores."""
-    rnd = random.Random(seed)
-    # Una trayectoria por milisegundo; los formantes cambian despacio y la intensidad, deprisa
-    pistas = [[] for _ in range(6)]
-    for sonido, ms in segmentos:
-        for pista, valor in zip(pistas, FONEMAS[sonido]):
-            pista.extend([float(valor)] * ms)
-    f1, f2, f3 = (suavizar(p, 22) for p in pistas[:3])
-    sonoridad, ruido = (suavizar(p, 4) for p in pistas[3:5])
-    centros = pistas[5]
-
-    n = int(len(f1) * SR / 1000) + int(0.03 * SR)  # un poco de cola
-    resonadores = [[0.0, 0.0] for _ in range(5)]
-    filtro_ruido = Biquad("bp", 4000, 1.5)
-    inclinacion = 0.0
-    fase = 0.0
-    periodo_jitter = 1.0
-    out = []
-    for i in range(n):
-        ms = min(int(i * 1000 / SR), len(f1) - 1)
-        t = i / max(1, n - 1)
-        # Entonación de cuenta: arranca alta y cae, con un vibrato pequeño para que no suene a máquina
-        f0 = (f0_inicio + (f0_fin - f0_inicio) * t) * (1 + 0.012 * math.sin(2 * math.pi * 5.2 * i / SR))
-        fase += f0 * periodo_jitter / SR
-        if fase >= 1.0:
-            fase -= 1.0
-            periodo_jitter = rnd.uniform(0.992, 1.008)
-        # Pulso de la glotis (KLGLOTT): abierta el 60 % del periodo
-        apertura = fase / 0.6
-        pulso = (2 * apertura - 3 * apertura * apertura) if apertura < 1.0 else 0.0
-        inclinacion += 0.45 * (pulso - inclinacion)  # pierde agudos, como una voz real
-        ruido_blanco = rnd.uniform(-1, 1)
-        x = (inclinacion + 0.03 * ruido_blanco) * sonoridad[ms]
-
-        # Cascada de resonadores: F1, F2, F3 y dos formantes altos fijos
-        for r, (f, ancho) in zip(resonadores, ((f1[ms], 90), (f2[ms], 110), (f3[ms], 170), (3400, 250), (4100, 300))):
-            c = -math.exp(-2 * math.pi * ancho / SR)
-            b = 2 * math.exp(-math.pi * ancho / SR) * math.cos(2 * math.pi * f / SR)
-            y = (1 - b - c) * x + b * r[0] + c * r[1]
-            r[1], r[0] = r[0], y
-            x = y
-
-        if centros[ms] > 0 and i % 110 == 0:
-            filtro_ruido.set("bp", centros[ms], 1.5)
-        out.append((x, filtro_ruido(ruido_blanco) * ruido[ms]))
-
-    # Primero se iguala la voz entre números y después se añade el ruido, para que las consonantes no dependan de la vocal
-    pico = max(1e-9, max(abs(v) for v, _ in out))
-    out = [math.tanh(1.3 * v / pico) + GANANCIA_RUIDO * r for v, r in out]  # saturación suave: quien grita la cuenta
-
-    # Fundido corto para no terminar en un clic
-    for i in range(int(0.02 * SR)):
-        out[-1 - i] *= i / (0.02 * SR)
-    return out
-
-
 def claqueta(seed=31):
     """Aviso de los diez segundos: dos golpes secos de madera, como la claqueta del cronometrador."""
     rnd = random.Random(seed)
@@ -344,11 +230,6 @@ if __name__ == "__main__":
     # Un toque al empezar el round y tres seguidos al terminarlo, para distinguirlos solo de oído
     guardar("Campana_Inicio", lambda: campana())
     guardar("Campana_Fin", lambda: campana(toques=3))
-    # Voz del réferi: del 1 al 10. Se pueden reemplazar por grabaciones sobrescribiendo estos WAV (el .meta los mantiene asignados)
-    for numero, segmentos in enumerate(NUMEROS, start=1):
-        guardar(f"Voz_Cuenta_{numero:02d}", lambda numero=numero, segmentos=segmentos: voz(100 + numero, segmentos))
-    for orden, segmentos in ORDENES.items():
-        guardar(f"Voz_Orden_{orden}", lambda orden=orden, segmentos=segmentos: voz(300 + len(orden), segmentos, f0_inicio=175, f0_fin=118))
     guardar("Aviso_Diez_Segundos", lambda: claqueta())
     # Silbido del guante del jugador al lanzar un golpe (Puno) y resoplido del rival al lanzar el suyo (AtaqueOponente)
     guardar("Golpe_Aire_1", lambda: aire(201))

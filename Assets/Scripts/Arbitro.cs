@@ -51,7 +51,7 @@ public class Arbitro : MonoBehaviour
     [Tooltip("Del 1 al 10, en orden. Se reemplazan por grabaciones arrastrando otros clips aquí o sobrescribiendo los WAV")]
     [SerializeField] private AudioClip[] numeros = new AudioClip[NumerosPorCuenta];
 
-    [Tooltip("\"¡Box!\", \"¡Esquina!\" y \"¡Nocaut!\" (Audio/Efectos/Voz_Orden_*.wav); vacíos = solo la seña")]
+    [Tooltip("\"¡Box!\", \"¡Esquina!\" y \"¡Nocaut!\" (Audio/Arbitro/Voz_*_1.wav); vacíos = solo la seña")]
     [SerializeField] private AudioClip ordenBox;
     [SerializeField] private AudioClip ordenEsquina;
     [SerializeField] private AudioClip ordenNocaut;

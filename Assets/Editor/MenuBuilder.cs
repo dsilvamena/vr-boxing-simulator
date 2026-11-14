@@ -98,6 +98,39 @@ public static class MenuBuilder
         }
     }
 
+    /// <summary>
+    /// Tools > Boxeo > Posar rivales en las peleas: en las escenas de pelea deja a cada rival en el primer fotograma de
+    /// su guardia, para que fuera de Play no se vea en T (los que se importan así: Bald Bull, Mr. Sandman, Tyson). En
+    /// Play no cambia nada: el Animator escribe la pose cada fotograma. Las hitboxes cuelgan de los huesos y los siguen.
+    /// </summary>
+    [MenuItem("Tools/Boxeo/Posar rivales en las peleas")]
+    public static void PosarEnPeleas()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode) { Debug.LogError("No en Play."); return; }
+        for (int i = 0; i < SceneManager.sceneCount; i++)
+            if (SceneManager.GetSceneAt(i).isDirty) { Debug.LogError("Guarda o descarta los cambios de las escenas abiertas antes."); return; }
+
+        SceneSetup[] abiertas = EditorSceneManager.GetSceneManagerSetup();
+        try
+        {
+            foreach (EditorBuildSettingsScene s in EditorBuildSettings.scenes.Where(s => s.enabled))
+            {
+                Scene escena = EditorSceneManager.OpenScene(s.path, OpenSceneMode.Single);
+                var oponente = Object.FindAnyObjectByType<Oponente>();
+                Animator animator = oponente != null ? oponente.GetComponentInChildren<Animator>() : null;
+                if (animator == null || !animator.isHuman) continue;
+                Posar(animator, ClipDeIdle(animator.runtimeAnimatorController));
+                EditorSceneManager.MarkSceneDirty(escena);
+                EditorSceneManager.SaveScene(escena);
+            }
+            Debug.Log("Rivales posados en las escenas de pelea.");
+        }
+        finally
+        {
+            if (abiertas.Length > 0) EditorSceneManager.RestoreSceneManagerSetup(abiertas);
+        }
+    }
+
     /// <summary>El clip del estado Idle de un controlador (resuelto a través del override, si lo es).</summary>
     public static AnimationClip ClipDeIdle(RuntimeAnimatorController controlador)
     {

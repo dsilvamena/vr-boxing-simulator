@@ -79,9 +79,48 @@ public static class ReaccionesBuilder
                 }
             }
         }
+        CrearVictoria(controlador, maquina);
         EditorUtility.SetDirty(controlador);
         AssetDatabase.SaveAssets();
         Debug.Log("Reacciones a los golpes creadas y montadas en los controladores.");
+    }
+
+    // ---------- Celebración ----------
+
+    // Estado "Victoria": el rival celebra con los brazos en alto cuando gana el combate (lo lanza ReaccionAnimada).
+    // Un solo clip, generado sobre Glass Joe; al estar en músculos lo usan todos sin override
+    private static void CrearVictoria(AnimatorController controlador, AnimatorStateMachine maquina)
+    {
+        var origen = AssetDatabase.LoadAssetAtPath<GameObject>(Personajes + Bases[0].modelo);
+        AnimationClip guardia = MenuBuilder.ClipDeIdle(controlador);
+        if (origen == null || guardia == null) return;
+
+        using var maniqui = new Maniqui(origen);
+        Maniqui.Fotograma Foto(float alto, float peso)
+        {
+            maniqui.PoseDePie(0.2f, guardia);
+            maniqui.MoverCadera(new Vector3(peso * 0.03f, -0.02f * (1f - alto), 0f));
+            maniqui.GirarTorso(Vector3.right * (-7f - 3f * alto) + Vector3.forward * (peso * 3f));
+            maniqui.GirarCabeza(Vector3.right * -6f);
+            Vector3 hombros = maniqui.Hombros;
+            float a = maniqui.Ancho;
+            foreach (bool izquierda in new[] { true, false })
+            {
+                float lado = izquierda ? -1f : 1f;
+                maniqui.Mano(izquierda,
+                    hombros + new Vector3(lado * 0.95f * a, (1.15f + 0.25f * alto) * a, 0.1f * a),
+                    hombros + new Vector3(lado * 1.7f * a, 0.5f * a, -0.1f * a));
+            }
+            return maniqui.Capturar();
+        }
+
+        Maniqui.Fotograma arribaIzq = Foto(1f, -1f), abajo = Foto(0f, 0f), arribaDer = Foto(1f, 1f);
+        AnimationClip clip = Maniqui.EscribirClip($"{Personajes}GlassJoe/Animations/Generadas/GlassJoe@Victoria.anim",
+            new List<(float, Maniqui.Fotograma)> { (0f, arribaIzq), (0.4f, abajo), (0.8f, arribaDer), (1.2f, abajo), (1.6f, arribaIzq) }, true);
+
+        AnimatorState estado = maquina.states.FirstOrDefault(s => s.state.name == "Victoria").state;
+        if (estado == null) estado = maquina.AddState("Victoria");
+        estado.motion = clip;
     }
 
     // ---------- Gancho a la cabeza ----------

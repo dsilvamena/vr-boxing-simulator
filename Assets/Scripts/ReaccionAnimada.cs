@@ -42,8 +42,15 @@ public class ReaccionAnimada : MonoBehaviour
     [Tooltip("Momento del clip de Knockdown (0 a 1) en el que ya está en el piso; ahí espera la cuenta del réferi")]
     [SerializeField, Range(0f, 1f)] private float momentoPiso = 0.44f;
 
+    private static readonly int Victoria = Animator.StringToHash("Victoria");
+
+    [Tooltip("Segundos desde que gana el combate hasta que levanta los brazos (estado Victoria, si el controlador lo tiene)")]
+    [SerializeField, Min(0f)] private float esperaCelebracion = 0.5f;
+
     private Oponente oponente;
+    private ControlRondas rondas;
     private bool tieneLaterales;
+    private float celebrarEn = -1f;
 
     /// <summary>La animación de caída ya lo dejó tendido (Knockdown pasado de momentoPiso, o Defeat avanzado). El réferi
     /// espera a esto para empezar a contar.</summary>
@@ -72,6 +79,8 @@ public class ReaccionAnimada : MonoBehaviour
         oponente.AlRecibirGolpe += Reaccionar;
         oponente.AlCaer += Caer;
         oponente.AlLevantarse += Levantarse;
+        if (rondas == null) rondas = FindAnyObjectByType<ControlRondas>();
+        if (rondas != null) rondas.AlTerminarCombate += AlTerminarCombate;
     }
 
     private void OnDisable()
@@ -79,10 +88,25 @@ public class ReaccionAnimada : MonoBehaviour
         oponente.AlRecibirGolpe -= Reaccionar;
         oponente.AlCaer -= Caer;
         oponente.AlLevantarse -= Levantarse;
+        if (rondas != null) rondas.AlTerminarCombate -= AlTerminarCombate;
+    }
+
+    // Si gana él (por nocaut o por decisión), lo celebra
+    private void AlTerminarCombate(ResultadoCombate resultado)
+    {
+        bool gano = resultado == ResultadoCombate.DerrotaPorKO || resultado == ResultadoCombate.DerrotaPorSalud;
+        if (gano && animator != null && animator.HasState(0, Victoria)) celebrarEn = Time.time + esperaCelebracion;
     }
 
     private void Update()
     {
+        if (celebrarEn >= 0f && Time.time >= celebrarEn && !oponente.Caido)
+        {
+            celebrarEn = -1f;
+            animator.speed = 1f;
+            animator.CrossFadeInFixedTime(Victoria, 0.35f, 0, 0f);
+        }
+
         if (!oponente.Caido || oponente.Derrotado || !oponente.LevantaArbitro) return;
         AnimatorStateInfo estado = animator.GetCurrentAnimatorStateInfo(0);
         // Se fija el tiempo y no animator.speed, que AtaqueOponente devuelve a 1 cuando no está atacando

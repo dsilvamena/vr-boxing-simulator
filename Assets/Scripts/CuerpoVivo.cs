@@ -8,6 +8,8 @@ using UnityEngine;
 ///   Los clips de reacción siguen sonando por debajo; esto les da dirección y peso. Un golpe bloqueado solo lo empuja un poco.
 /// - Esquive: mientras EsquiveOponente lo aparta, el torso se inclina hacia donde va (un "slip"), en vez de deslizarse tieso.
 /// - Cansancio: al perder salud se encorva, baja la cabeza y jadea (respiración más amplia y rápida).
+/// - Tocado: cuando le falta poco para caer (Oponente.MargenHastaCaida) se tambalea, se le cae la cabeza y se le bajan
+///   los guantes. Es la señal, sin HUD, de que está a punto de irse a la lona (RF-14).
 /// Todo son giros añadidos a los huesos en LateUpdate, después de la animación y la IK, así que no cambia ningún clip ni
 /// la lógica del combate. Las hitboxes cuelgan de los huesos y los siguen. En el piso (Knockdown, Defeat) se apaga.
 /// Va en el objeto del Animator (necesita IK Pass en la capa base para la mirada). Sin Oponente (los boxeadores de
@@ -19,9 +21,6 @@ public class CuerpoVivo : MonoBehaviour
     private static readonly int Idle = Animator.StringToHash("Idle");
     private static readonly int Knockdown = Animator.StringToHash("Knockdown");
     private static readonly int Defeat = Animator.StringToHash("Defeat");
-    private static readonly int ReaccionJab = Animator.StringToHash("Jab");
-    private static readonly int ReaccionCara = Animator.StringToHash("Uppercut_Face");
-    private static readonly int ReaccionCuerpo = Animator.StringToHash("Uppercut_Stomach");
 
     [Header("Mirada")]
     [Tooltip("A quién mira; vacío = cámara principal (los ojos del jugador)")]
@@ -58,8 +57,22 @@ public class CuerpoVivo : MonoBehaviour
     [Tooltip("Respiraciones por segundo: x = descansado, y = sin salud")]
     [SerializeField] private Vector2 ritmoRespiracion = new Vector2(0.28f, 0.95f);
 
+    [Header("Tocado (a punto de caer)")]
+    [Tooltip("Fracción de la salud máxima por encima del umbral de caída a partir de la cual empieza a verse tocado")]
+    [SerializeField, Range(0.01f, 0.5f)] private float margenTocado = 0.13f;
+    [Tooltip("Grados que se tambalea de lado a lado")]
+    [SerializeField, Min(0f)] private float tambaleo = 6f;
+    [Tooltip("Grados que se le bajan los antebrazos (la guardia se le cae)")]
+    [SerializeField, Min(0f)] private float guardiaCaida = 24f;
+
     private Animator animator;
     private Oponente oponente;
+    private DefensaOponente defensa;
+    private AtaqueOponente ataque;
+    private Transform antebrazoIzquierdo, antebrazoDerecho;
+    private float tocado;              // 0 = entero, 1 = el próximo golpe lo tumba (suavizado)
+    private float guardiaBaja;         // parte de guardiaCaida aplicada ahora: cede cuando ataca o se cubre
+    private float faseTambaleo;
     private EsquiveOponente esquive;
     private Transform raiz;
     private Transform columna, pecho, cuello, cabeza;
@@ -79,6 +92,8 @@ public class CuerpoVivo : MonoBehaviour
     public float SacudidaActual => anguloCabeza.magnitude;
     /// <summary>0 = descansado, 1 = sin salud (suavizado).</summary>
     public float Cansancio => cansancio;
+    /// <summary>0 = entero, 1 = a un golpe de caer (suavizado).</summary>
+    public float Tocado => tocado;
 
     private void Awake()
     {
@@ -86,6 +101,10 @@ public class CuerpoVivo : MonoBehaviour
         if (!animator.isHuman) { enabled = false; return; }
         oponente = GetComponentInParent<Oponente>();
         esquive = GetComponentInParent<EsquiveOponente>();
+        defensa = GetComponentInParent<DefensaOponente>();
+        ataque = GetComponentInParent<AtaqueOponente>();
+        antebrazoIzquierdo = animator.GetBoneTransform(HumanBodyBones.LeftLowerArm);
+        antebrazoDerecho = animator.GetBoneTransform(HumanBodyBones.RightLowerArm);
         raiz = oponente != null ? oponente.transform : transform;
         columna = animator.GetBoneTransform(HumanBodyBones.Spine);
         pecho = animator.GetBoneTransform(HumanBodyBones.UpperChest);
@@ -173,7 +192,7 @@ public class CuerpoVivo : MonoBehaviour
         presencia = Mathf.MoveTowards(presencia, enElPiso ? 0f : 1f, dt / (enElPiso ? 0.2f : 0.6f));
 
         // En los clips de reacción la cabeza la mueve el golpe: la mirada cede
-        bool reaccionando = hash == ReaccionJab || hash == ReaccionCara || hash == ReaccionCuerpo;
+        bool reaccionando = ReaccionAnimada.EsReaccion(hash);
         float objetivoMirada = enElPiso ? 0f : reaccionando ? 0.3f : 1f;
         mirada = Mathf.MoveTowards(mirada, objetivoMirada, dt / 0.25f);
 
@@ -184,6 +203,18 @@ public class CuerpoVivo : MonoBehaviour
         cansancio = Mathf.MoveTowards(cansancio, falta, dt * 0.25f);
         faseRespiracion += dt * Mathf.PI * 2f * Mathf.Lerp(ritmoRespiracion.x, ritmoRespiracion.y, cansancio);
         if (faseRespiracion > Mathf.PI * 2f) faseRespiracion -= Mathf.PI * 2f;
+
+        // Tocado: cerca del umbral de la próxima caída. Sube enseguida y se le pasa despacio (al levantarse de una
+        // caída vuelve a estar lejos del siguiente umbral)
+        float objetivoTocado = oponente != null && !oponente.Caido && !oponente.Protegido
+            ? 1f - Mathf.InverseLerp(margenTocado * 0.2f, margenTocado, oponente.MargenHastaCaida) : 0f;
+        tocado = Mathf.MoveTowards(tocado, objetivoTocado, dt * (objetivoTocado > tocado ? 2.5f : 0.6f));
+        faseTambaleo += dt * Mathf.PI * 2f * 0.55f;
+        if (faseTambaleo > Mathf.PI * 200f) faseTambaleo -= Mathf.PI * 200f;
+        // Los guantes solo se le caen en guardia: atacando, cubriéndose o reaccionando mandan el clip y la IK
+        bool brazosLibres = hash == Idle && !animator.IsInTransition(0)
+                            && (defensa == null || !defensa.GuardiaOcupada) && (ataque == null || !ataque.Atacando);
+        guardiaBaja = Mathf.MoveTowards(guardiaBaja, brazosLibres ? tocado : 0f, dt * 3f);
 
         Vector3 desplazado = esquive != null && esquive.EnMovimiento ? raiz.InverseTransformDirection(esquive.Desplazamiento) : Vector3.zero;
         inclinacion = Vector3.Lerp(inclinacion, desplazado, 1f - Mathf.Exp(-22f * dt));
@@ -232,6 +263,9 @@ public class CuerpoVivo : MonoBehaviour
         float cabeceo = encorvado * cansancio
                         + Mathf.Sin(faseRespiracion) * Mathf.Lerp(respiracion.x, respiracion.y, cansancio);
         Vector3 torso = Vector3.right * cabeceo + anguloTorso;
+        // Tocado: se balancea de lado a lado con un vaivén irregular (dos ritmos que no encajan) y algo hacia delante
+        float vaiven = Mathf.Sin(faseTambaleo) * 0.7f + Mathf.Sin(faseTambaleo * 1.73f + 1.1f) * 0.3f;
+        torso += (Vector3.forward * (vaiven * tambaleo) + Vector3.right * (tambaleo * 0.5f)) * tocado;
         float distancia = inclinacion.magnitude;
         if (distancia > 0.001f && oponente != null)
         {
@@ -243,9 +277,20 @@ public class CuerpoVivo : MonoBehaviour
         if (pecho != null) Girar(pecho, torso * 0.5f * p);
 
         // Cabeza: impacto + cabeza baja por cansancio; el cuello se lleva una parte
-        Vector3 giroCabeza = anguloCabeza + Vector3.right * (cabezaBaja * cansancio);
+        // La cabeza le cuelga y va a destiempo del cuerpo
+        float vaivenCabeza = Mathf.Sin(faseTambaleo - 0.9f);
+        Vector3 giroCabeza = anguloCabeza + Vector3.right * (cabezaBaja * cansancio)
+                             + (Vector3.right * 9f + Vector3.forward * (vaivenCabeza * tambaleo * 0.8f)) * tocado;
         if (cuello != null) Girar(cuello, giroCabeza * 0.4f * p);
         Girar(cabeza, giroCabeza * (cuello != null ? 0.6f : 1f) * p);
+
+        // Guardia caída: los antebrazos giran hacia delante y abajo, y los guantes dejan la cara al descubierto
+        if (guardiaBaja > 0.001f && antebrazoIzquierdo != null && antebrazoDerecho != null)
+        {
+            Vector3 caida = Vector3.right * (guardiaCaida * guardiaBaja * p);
+            Girar(antebrazoIzquierdo, caida);
+            Girar(antebrazoDerecho, caida * 0.8f);
+        }
     }
 
     // Gira el hueso sobre un eje dado en el espacio de la raíz, sin depender de cómo estén orientados sus ejes propios

@@ -129,6 +129,10 @@ public class Oponente : MonoBehaviour
         Caer(new Golpe { tipo = TipoGolpe.Cross, velocidad = -transform.forward, punto = transform.position + Vector3.up * perfil.alturaAtaque });
     }
 
+    /// <summary>Cuánta salud le queda hasta la próxima caída, como fracción de la salud máxima (0 = el próximo golpe lo
+    /// tumba). CuerpoVivo lo usa para mostrarlo tocado.</summary>
+    public float MargenHastaCaida => perfil.saludMaxima > 0f ? Mathf.Max(0f, Salud - UmbralProximaCaida) / perfil.saludMaxima : 0f;
+
     // Umbral de la próxima caída: con 3 caídas → 66 %, 33 % y 0 %
     private float UmbralProximaCaida => perfil.saludMaxima * (1f - (Caidas + 1f) / perfil.caidasParaDerrota);
 
